@@ -1,0 +1,52 @@
+project:
+  name: Taiwan AQI Prediction and Air Pollution Anomaly Detection Dashboard
+  slug: aqi-anomaly-dashboard
+random_state: 42
+sample_mode: true
+api:
+  url: ""
+  timeout_seconds: 20
+data:
+  raw_dir: data/raw
+  sample_file: data/sample/sample_aqi.csv
+  cleaned_file: data/processed/aqi_cleaned.csv
+  features_file: data/processed/aqi_features.csv
+  predictions_file: data/processed/aqi_predictions.csv
+  anomaly_file: data/processed/aqi_anomaly_results.csv
+models:
+  predictor: models/aqi_predictor.joblib
+  anomaly_detector: models/anomaly_detector.joblib
+reports:
+  metrics_dir: reports/metrics
+  figures_dir: reports/figures
+selected_sites:
+  - 松山測站
+  - 西屯測站
+  - 前金測站
+  - 安南測站
+  - 花蓮測站
+train:
+  test_ratio: 0.2
+  feature_columns:
+    - aqi
+    - pm25
+    - pm10
+    - o3
+    - co
+    - wind_speed
+    - hour
+    - day_of_week
+    - month
+    - is_weekend
+    - lag_1_aqi
+    - lag_3_aqi
+    - rolling_3h_aqi
+    - rolling_6h_aqi
+    - rolling_12h_aqi
+    - pm25_lag_1
+    - pm25_rolling_3h
+    - aqi_diff
+    - pm25_diff
+anomaly:
+  contamination: 0.05
+  zscore_threshold: 2.5
