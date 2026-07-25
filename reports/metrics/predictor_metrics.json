@@ -1,0 +1,27 @@
+{
+  "mae": 4.9415,
+  "rmse": 7.1895,
+  "r2": 0.8339,
+  "baseline_mae": 6.6735,
+  "baseline_rmse": 9.1562,
+  "baseline_r2": 0.7306,
+  "best_model": "random_forest",
+  "model_comparison": {
+    "moving_average": {
+      "mae": 6.6735,
+      "rmse": 9.1562,
+      "r2": 0.7306
+    },
+    "linear_regression": {
+      "mae": 5.2194,
+      "rmse": 7.6197,
+      "r2": 0.8135
+    },
+    "random_forest": {
+      "mae": 4.9415,
+      "rmse": 7.1895,
+      "r2": 0.8339
+    }
+  },
+  "limitation_note": "This is a next-hour AQI nowcasting demo. Results are based on sample/API data quality and chronological split."
+}

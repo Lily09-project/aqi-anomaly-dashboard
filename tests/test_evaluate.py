@@ -1,0 +1,43 @@
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.evaluate import evaluate
+from src.features import build_features
+from src.generate_sample_data import generate_sample_aqi
+from src.preprocess import preprocess
+from src.train_anomaly_model import train_anomaly_model
+from src.train_predictor import train_predictor
+from src.utils import load_config, resolve_path
+
+
+def test_evaluation_writes_metrics_and_figures():
+    config = load_config()
+    generate_sample_aqi(days=7)
+    preprocess(mode="sample")
+    build_features()
+    train_predictor()
+    train_anomaly_model()
+    summary = evaluate()
+
+    metrics_dir = resolve_path(config, "reports.metrics_dir")
+    predictor_metrics = json.loads((metrics_dir / "predictor_metrics.json").read_text(encoding="utf-8"))
+    anomaly_metrics = json.loads((metrics_dir / "anomaly_metrics.json").read_text(encoding="utf-8"))
+
+    assert summary["rows"]["features"] > 0
+    assert {"mae", "rmse", "r2", "baseline_mae", "baseline_rmse", "baseline_r2", "limitation_note"}.issubset(
+        predictor_metrics
+    )
+    assert {"precision", "recall", "f1", "anomaly_rate", "pseudo_label_positive_rate", "limitation_note"}.issubset(
+        anomaly_metrics
+    )
+    assert (metrics_dir / "evaluation_summary.json").exists()
+    for figure in ["aqi_trend.png", "prediction_vs_actual.png", "anomaly_cases.png"]:
+        assert (resolve_path(config, "reports.figures_dir") / figure).exists()

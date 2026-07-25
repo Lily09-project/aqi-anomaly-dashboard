@@ -1,0 +1,6 @@
+[theme]
+base = "dark"
+font = "sans serif"
+
+[browser]
+gatherUsageStats = false

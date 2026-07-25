@@ -1,0 +1,31 @@
+{
+  "precision": 0.4429,
+  "recall": 0.046,
+  "f1": 0.0833,
+  "anomaly_rate": 0.0498,
+  "pseudo_label_positive_rate": 0.5785,
+  "zscore": {
+    "precision": 0.5849,
+    "recall": 0.046,
+    "f1": 0.0853
+  },
+  "isolation_forest": {
+    "precision": 0.4429,
+    "recall": 0.046,
+    "f1": 0.0833
+  },
+  "anomaly_count": 285,
+  "model_comparison": {
+    "zscore": {
+      "precision": 0.5849,
+      "recall": 0.046,
+      "f1": 0.0853
+    },
+    "isolation_forest": {
+      "precision": 0.4429,
+      "recall": 0.046,
+      "f1": 0.0833
+    }
+  },
+  "limitation_note": "Metrics are evaluated against pseudo-labels, not verified ground-truth pollution incident labels."
+}
