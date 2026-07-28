@@ -76,6 +76,15 @@ def test_app_imports_without_crashing_and_theme_exists():
     assert "異常事件（菱形）" in app_source
 
 
+def test_streamlit_theme_config_uses_explicit_valid_colors():
+    config_source = (ROOT / ".streamlit" / "config.toml").read_text(encoding="utf-8")
+
+    for color_name in ["primaryColor", "backgroundColor", "secondaryBackgroundColor", "textColor"]:
+        assert f'{color_name} = "#' in config_source
+
+    assert "[theme.sidebar]" in config_source
+
+
 def test_app_paths_and_missing_data_helpers_are_safe(tmp_path):
     helpers = importlib.import_module("src.app_helpers")
     missing = helpers.safe_load_csv(tmp_path / "missing.csv")

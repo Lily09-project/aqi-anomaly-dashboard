@@ -6,63 +6,63 @@
   },
   "site_count": 8,
   "datetime_range": {
-    "start": "2026-06-26 03:00:00",
-    "end": "2026-07-25 22:00:00"
+    "start": "2026-06-29 03:00:00",
+    "end": "2026-07-28 22:00:00"
   },
   "predictor_metrics": {
-    "mae": 4.9415,
-    "rmse": 7.1895,
-    "r2": 0.8339,
-    "baseline_mae": 6.6735,
-    "baseline_rmse": 9.1562,
-    "baseline_r2": 0.7306,
+    "mae": 4.9496,
+    "rmse": 7.2068,
+    "r2": 0.8223,
+    "baseline_mae": 6.5897,
+    "baseline_rmse": 9.0729,
+    "baseline_r2": 0.7184,
     "best_model": "random_forest",
     "model_comparison": {
       "moving_average": {
-        "mae": 6.6735,
-        "rmse": 9.1562,
-        "r2": 0.7306
+        "mae": 6.5897,
+        "rmse": 9.0729,
+        "r2": 0.7184
       },
       "linear_regression": {
-        "mae": 5.2194,
-        "rmse": 7.6197,
-        "r2": 0.8135
+        "mae": 5.162,
+        "rmse": 7.5672,
+        "r2": 0.8041
       },
       "random_forest": {
-        "mae": 4.9415,
-        "rmse": 7.1895,
-        "r2": 0.8339
+        "mae": 4.9496,
+        "rmse": 7.2068,
+        "r2": 0.8223
       }
     },
     "limitation_note": "This is a next-hour AQI nowcasting demo. Results are based on sample/API data quality and chronological split."
   },
   "anomaly_metrics": {
-    "precision": 0.4429,
-    "recall": 0.046,
-    "f1": 0.0833,
-    "anomaly_rate": 0.0498,
-    "pseudo_label_positive_rate": 0.5785,
+    "precision": 0.3833,
+    "recall": 0.0351,
+    "f1": 0.0643,
+    "anomaly_rate": 0.0456,
+    "pseudo_label_positive_rate": 0.5776,
     "zscore": {
-      "precision": 0.5849,
-      "recall": 0.046,
-      "f1": 0.0853
+      "precision": 0.5294,
+      "recall": 0.0412,
+      "f1": 0.0765
     },
     "isolation_forest": {
-      "precision": 0.4429,
-      "recall": 0.046,
-      "f1": 0.0833
+      "precision": 0.3833,
+      "recall": 0.0351,
+      "f1": 0.0643
     },
-    "anomaly_count": 285,
+    "anomaly_count": 261,
     "model_comparison": {
       "zscore": {
-        "precision": 0.5849,
-        "recall": 0.046,
-        "f1": 0.0853
+        "precision": 0.5294,
+        "recall": 0.0412,
+        "f1": 0.0765
       },
       "isolation_forest": {
-        "precision": 0.4429,
-        "recall": 0.046,
-        "f1": 0.0833
+        "precision": 0.3833,
+        "recall": 0.0351,
+        "f1": 0.0643
       }
     },
     "limitation_note": "Metrics are evaluated against pseudo-labels, not verified ground-truth pollution incident labels."

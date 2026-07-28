@@ -1,30 +1,30 @@
 {
-  "precision": 0.4429,
-  "recall": 0.046,
-  "f1": 0.0833,
-  "anomaly_rate": 0.0498,
-  "pseudo_label_positive_rate": 0.5785,
+  "precision": 0.3833,
+  "recall": 0.0351,
+  "f1": 0.0643,
+  "anomaly_rate": 0.0456,
+  "pseudo_label_positive_rate": 0.5776,
   "zscore": {
-    "precision": 0.5849,
-    "recall": 0.046,
-    "f1": 0.0853
+    "precision": 0.5294,
+    "recall": 0.0412,
+    "f1": 0.0765
   },
   "isolation_forest": {
-    "precision": 0.4429,
-    "recall": 0.046,
-    "f1": 0.0833
+    "precision": 0.3833,
+    "recall": 0.0351,
+    "f1": 0.0643
   },
-  "anomaly_count": 285,
+  "anomaly_count": 261,
   "model_comparison": {
     "zscore": {
-      "precision": 0.5849,
-      "recall": 0.046,
-      "f1": 0.0853
+      "precision": 0.5294,
+      "recall": 0.0412,
+      "f1": 0.0765
     },
     "isolation_forest": {
-      "precision": 0.4429,
-      "recall": 0.046,
-      "f1": 0.0833
+      "precision": 0.3833,
+      "recall": 0.0351,
+      "f1": 0.0643
     }
   },
   "limitation_note": "Metrics are evaluated against pseudo-labels, not verified ground-truth pollution incident labels."
