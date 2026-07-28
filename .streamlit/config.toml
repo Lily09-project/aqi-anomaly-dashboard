@@ -1,6 +1,16 @@
 [theme]
 base = "dark"
+primaryColor = "#FDB338"
+backgroundColor = "#0B1324"
+secondaryBackgroundColor = "#16243D"
+textColor = "#F8F6F6"
 font = "sans serif"
+
+[theme.sidebar]
+primaryColor = "#FDB338"
+backgroundColor = "#0F1A2E"
+secondaryBackgroundColor = "#16243D"
+textColor = "#F8F6F6"
 
 [browser]
 gatherUsageStats = false
