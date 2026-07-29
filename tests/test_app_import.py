@@ -74,6 +74,11 @@ def test_app_imports_without_crashing_and_theme_exists():
     assert "st.dataframe(" not in app_source
     assert 'role="region"' in app_source
     assert "異常事件（菱形）" in app_source
+    assert "台灣 AQI 監測與預測" in app_source
+    assert "環境監測資料工作台" in app_source
+    assert "展示用途" not in app_source
+    assert "background: transparent;" in app_source
+    assert "box-shadow: none;" in app_source
 
 
 def test_streamlit_theme_config_uses_explicit_valid_colors():

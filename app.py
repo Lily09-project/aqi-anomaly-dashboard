@@ -273,14 +273,14 @@ def inject_global_css(theme: dict[str, str] | None = None) -> None:
             color: var(--muted-text) !important;
         }}
         .hero-band {{
-            background: var(--surface);
+            background: transparent;
             color: var(--text);
-            padding: 1.4rem 1.55rem 1.35rem;
-            border: 1px solid var(--border);
-            border-top: 3px solid var(--accent);
-            border-radius: 8px;
-            margin-bottom: 1.45rem;
-            box-shadow: 0 12px 28px var(--shadow);
+            padding: 0.7rem 0 1rem;
+            border: 0;
+            border-bottom: 1px solid var(--border);
+            border-radius: 0;
+            margin-bottom: 1.3rem;
+            box-shadow: none;
         }}
         .hero-kicker, .hero-meta {{
             display: flex;
@@ -290,9 +290,9 @@ def inject_global_css(theme: dict[str, str] | None = None) -> None:
         }}
         .hero-kicker {{
             color: var(--muted-text);
-            font-size: 0.78rem;
+            font-size: 0.75rem;
             font-weight: 800;
-            letter-spacing: 0.08em;
+            letter-spacing: 0.04em;
             text-transform: uppercase;
         }}
         .sidebar-brand {{
@@ -323,42 +323,48 @@ def inject_global_css(theme: dict[str, str] | None = None) -> None:
             display: block;
             margin-top: 0.1rem;
             color: var(--muted-text);
-            font-size: 0.7rem;
+            font-size: 0.75rem;
         }}
         .hero-band h1 {{
             color: var(--text) !important;
-            margin: 0.6rem 0 0.45rem;
+            margin: 0.45rem 0 0.35rem;
+            font-size: 1.9rem !important;
+            line-height: 1.2 !important;
         }}
         .hero-band p {{
             max-width: 72ch;
-            margin: 0.35rem 0;
+            margin: 0.25rem 0;
             color: var(--muted-text) !important;
         }}
         .hero-meta {{
-            margin-top: 1rem;
-            padding-top: 0.8rem;
+            margin-top: 0.8rem;
+            padding-top: 0.7rem;
             border-top: 1px solid var(--border);
             color: var(--muted-text);
             font-size: 0.82rem;
+            gap: 0;
         }}
         .hero-meta-item {{
             display: inline-flex;
             align-items: center;
             gap: 0.35rem;
-            padding: 0.4rem 0.65rem;
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 6px;
+            padding: 0.15rem 0.85rem;
+            background: transparent;
+            border: 0;
+            border-left: 1px solid var(--border);
+            border-radius: 0;
         }}
+        .hero-meta-item:first-child {{ padding-left: 0; border-left: 0; }}
         .hero-meta-item strong {{ color: var(--text); }}
         .status-pill {{
             display: inline-flex;
             align-items: center;
             gap: 0.4rem;
-            padding: 0.38rem 0.65rem;
-            border-radius: 6px;
-            background: var(--accent-soft);
-            border: 1px solid var(--accent);
+            padding: 0.3rem 0.5rem;
+            border-radius: 4px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--success);
             color: var(--text);
             font-size: 0.78rem;
             letter-spacing: 0;
@@ -369,7 +375,7 @@ def inject_global_css(theme: dict[str, str] | None = None) -> None:
             flex: 0 0 7px;
             border-radius: 50%;
             background: var(--success);
-            box-shadow: 0 0 0 3px var(--success-soft);
+            box-shadow: none;
         }}
         .metric-card,
         .kpi-card {{
@@ -377,11 +383,11 @@ def inject_global_css(theme: dict[str, str] | None = None) -> None:
             color: var(--text);
             border: 1px solid var(--border);
             border-left: 4px solid var(--accent);
-            border-radius: 8px;
+            border-radius: 6px;
             padding: 1rem 1.05rem;
             min-height: 112px;
             height: calc(100% - 14px);
-            box-shadow: 0 8px 20px var(--shadow);
+            box-shadow: none;
             margin-bottom: 14px;
             display: flex;
             flex-direction: column;
@@ -585,7 +591,8 @@ def inject_global_css(theme: dict[str, str] | None = None) -> None:
             .block-container {{ padding: 3.75rem 0.9rem 2.5rem; }}
             h1 {{ font-size: 1.75rem !important; }}
             h2 {{ font-size: 1.25rem !important; }}
-            .hero-band {{ padding: 1.15rem 1rem 1.05rem; margin-bottom: 1rem; }}
+            .hero-band {{ padding: 0.55rem 0 0.9rem; margin-bottom: 1rem; }}
+            .hero-band h1 {{ font-size: 1.65rem !important; }}
             .hero-band p {{ font-size: 1rem; }}
             .hero-kicker, .status-pill {{ font-size: 0.84rem; }}
             .hero-meta {{ align-items: stretch; flex-direction: column; }}
@@ -594,6 +601,8 @@ def inject_global_css(theme: dict[str, str] | None = None) -> None:
                 box-sizing: border-box;
                 font-size: 0.9rem;
             }}
+            .hero-meta-item {{ border-left: 0; padding-left: 0; }}
+            .hero-kicker .status-pill {{ width: fit-content; }}
             .metric-card {{ min-height: 98px; padding: 0.9rem; }}
             .metric-card .value {{ font-size: 1.5rem; }}
             .metric-card .label {{ font-size: 0.9rem; }}
@@ -791,7 +800,7 @@ def main() -> None:
         st.error("目前缺少 Plotly，請先執行：pip install -r requirements.txt")
         return
 
-    st.set_page_config(page_title="台灣 AQI 預測 Dashboard", layout="wide")
+    st.set_page_config(page_title="台灣 AQI 監測與預測", layout="wide")
     config = load_config()
     with st.sidebar:
         st.markdown(
@@ -800,13 +809,13 @@ def main() -> None:
                 <div class="sidebar-brand-mark">AQI</div>
                 <div>
                     <strong>環境監測</strong>
-                    <span>Prediction Dashboard</span>
+                    <span>AQI / 空氣品質資料</span>
                 </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
-        st.header("視覺主題")
+        st.header("主題設定")
         selected_theme_name = st.selectbox(
             "選擇深色主題",
             options=list(THEME_OPTIONS.keys()),
@@ -829,20 +838,26 @@ def main() -> None:
     anomalies = data["anomalies"]
     source_code = infer_data_source(config, features)
     data_source = _display_source(source_code)
+    date_limits = _safe_date_range(features)
+    header_range = (
+        f"{date_limits[0]:%Y/%m/%d} - {date_limits[1]:%Y/%m/%d}"
+        if date_limits
+        else "尚未產生"
+    )
 
     st.markdown(
         f"""
         <div class="hero-band">
           <div class="hero-kicker">
-            <span>環境監測控制台</span>
+            <span>空氣品質監測</span>
             <span class="status-pill"><span class="status-dot"></span>{escape(_source_caption(source_code))}</span>
           </div>
-          <h1>台灣 AQI 預測 Dashboard</h1>
-          <p>以時間序列特徵預測下一小時 AQI，並追蹤可能的空氣污染異常。</p>
+          <h1>台灣 AQI 監測與預測</h1>
+          <p>檢視測站空氣品質、下一小時 AQI 預測與污染異常。</p>
           <div class="hero-meta">
-            <span class="hero-meta-item">預測任務 <strong>下一小時 AQI</strong></span>
-            <span class="hero-meta-item">資料模式 <strong>{escape(_display_source(source_code))}</strong></span>
-            <span class="hero-meta-item">展示用途 <strong>本地 Demo</strong></span>
+            <span class="hero-meta-item">預測週期 <strong>下一小時</strong></span>
+            <span class="hero-meta-item">資料來源 <strong>{escape(_display_source(source_code))}</strong></span>
+            <span class="hero-meta-item">資料區間 <strong>{escape(header_range)}</strong></span>
           </div>
         </div>
         """,
@@ -857,8 +872,6 @@ def main() -> None:
     anomaly_model_path = resolve_path(config, "models.anomaly_detector")
     if not predictor_model_path.exists() or not anomaly_model_path.exists():
         st.warning("目前找不到模型檔案，Dashboard 仍可顯示既有資料；若要重建模型請執行完整流程。")
-
-    date_limits = _safe_date_range(features)
 
     with st.sidebar:
         st.header("篩選條件")
@@ -944,7 +957,7 @@ def main() -> None:
         ("資料筆數", len(filtered_features), data_source),
         ("測站數", station_count, "目前篩選範圍"),
     ]
-    section_header("Overview", "目前空氣品質", f"{data_source} · {len(filtered_features):,} 筆資料")
+    section_header("摘要", "目前空氣品質", f"{data_source} · {len(filtered_features):,} 筆資料")
     for items in (metric_items[:4], metric_items[4:]):
         columns = st.columns(len(items), gap="large")
         for column, (label, value, note) in zip(columns, items):
@@ -1221,8 +1234,8 @@ def main() -> None:
     st.markdown(
         f"""
         <div class="dashboard-footer">
-            <span>台灣 AQI Prediction Dashboard</span>
-            <span>Next-hour forecasting · {escape(data_source)}</span>
+            <span>環境監測資料工作台</span>
+            <span>下一小時預測 · {escape(data_source)}</span>
         </div>
         """,
         unsafe_allow_html=True,
