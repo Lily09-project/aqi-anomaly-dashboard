@@ -1,26 +1,26 @@
 {
-  "mae": 4.9496,
-  "rmse": 7.2068,
-  "r2": 0.8223,
-  "baseline_mae": 6.5897,
-  "baseline_rmse": 9.0729,
-  "baseline_r2": 0.7184,
+  "mae": 4.9195,
+  "rmse": 7.2074,
+  "r2": 0.8184,
+  "baseline_mae": 6.5977,
+  "baseline_rmse": 9.0623,
+  "baseline_r2": 0.7128,
   "best_model": "random_forest",
   "model_comparison": {
     "moving_average": {
-      "mae": 6.5897,
-      "rmse": 9.0729,
-      "r2": 0.7184
+      "mae": 6.5977,
+      "rmse": 9.0623,
+      "r2": 0.7128
     },
     "linear_regression": {
-      "mae": 5.162,
-      "rmse": 7.5672,
-      "r2": 0.8041
+      "mae": 5.1874,
+      "rmse": 7.6147,
+      "r2": 0.7972
     },
     "random_forest": {
-      "mae": 4.9496,
-      "rmse": 7.2068,
-      "r2": 0.8223
+      "mae": 4.9195,
+      "rmse": 7.2074,
+      "r2": 0.8184
     }
   },
   "limitation_note": "This is a next-hour AQI nowcasting demo. Results are based on sample/API data quality and chronological split."
