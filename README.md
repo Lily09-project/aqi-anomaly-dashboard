@@ -349,3 +349,18 @@ Dashboard 預設使用深色主題，使用者可以在側邊欄「選擇深色�
 ## 面試 1 分鐘介紹稿
 
 這個專案是一個台灣 AQI 預測與污染異常偵測 Dashboard。我把資料流程拆成 API 或 sample data fallback、前處理、時間序列特徵工程、下一小時 AQI 預測、異常偵測、模型評估與 Streamlit 前端。模型任務是 next-hour nowcasting，也就是使用當下與過去資料預測同測站下一小時 AQI。為了避免資料洩漏，我用 `site_name` 分組計算 lag 與 rolling features，target 則用同測站 `shift(-1)`，train/test 採時間序列切分。前端是繁體中文 Dashboard，可以展示 AQI/PM2.5 趨勢、預測誤差、異常事件、資料品質與模型指標。即使沒有 API，也能透過 sample mode 和 `run_project.bat` 在本地端完整重現 Demo。
+
+## Security
+
+- `.env` 與 Streamlit secrets 不納入 Git；請只提交 `.env.example`，不要把 API key、token 或密碼寫入設定檔。
+- `data/raw`、`data/sample`、`data/processed`、`models` 與 `reports` 的實際產物只在本機生成，Git 僅保留 `.gitkeep`；避免 API 資料、模型二進位檔或報表被誤推到 GitHub。
+- API Data 僅接受 HTTPS；本機開發可使用 `localhost`、`127.0.0.1` 或 `::1` 的 HTTP，並限制連線逾時與回應大小。
+- 模型載入僅允許 `models/` 下的 `.joblib` 產物；不要載入來源不明的模型檔。Joblib 仍屬於可執行序列化格式，模型應由本專案流程重新產生。
+- GitHub Actions 會在 push 與 pull request 執行 `pip-audit`；本次修復將 GitPython 與 Pillow 提升到沒有已知漏洞的版本範圍。
+
+本地安全檢查：
+
+```bash
+python -m pip install pip-audit
+python -m pip_audit --local
+```

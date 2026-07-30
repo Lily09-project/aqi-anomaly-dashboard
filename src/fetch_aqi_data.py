@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from datetime import datetime
 from io import StringIO
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import pandas as pd
 
@@ -26,6 +28,34 @@ ALIASES = {
 }
 
 API_REQUIRED_COLUMNS = set(ALIASES)
+MAX_API_RESPONSE_BYTES = 10 * 1024 * 1024
+MAX_API_TIMEOUT_SECONDS = 60
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+def _validate_api_url(url: str) -> str:
+    parsed = urlparse(url)
+    if parsed.scheme not in {"https", "http"} or not parsed.hostname:
+        raise ValueError("API URL must use HTTPS and include a hostname")
+    if parsed.scheme == "http" and parsed.hostname.lower() not in LOCAL_HOSTS:
+        raise ValueError("Non-local API URLs must use HTTPS")
+    return url
+
+
+def _read_limited_response(response: Any, max_bytes: int = MAX_API_RESPONSE_BYTES) -> bytes:
+    content_length = response.headers.get("content-length")
+    if content_length and int(content_length) > max_bytes:
+        raise ValueError("API response exceeds the maximum allowed size")
+    chunks: list[bytes] = []
+    total = 0
+    for chunk in response.iter_content(chunk_size=64 * 1024):
+        if not chunk:
+            continue
+        total += len(chunk)
+        if total > max_bytes:
+            raise ValueError("API response exceeds the maximum allowed size")
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 def _rename_aliases(df: pd.DataFrame) -> pd.DataFrame:
@@ -80,20 +110,28 @@ def fetch_aqi_data(output_path: str | Path | None = None) -> Path | None:
         return None
 
     try:
-        response = requests.get(url, timeout=config["api"].get("timeout_seconds", 20))
+        _validate_api_url(url)
+        configured_timeout = float(config["api"].get("timeout_seconds", 20))
+        timeout = (5, min(max(configured_timeout, 1), MAX_API_TIMEOUT_SECONDS))
+        response = requests.get(url, timeout=timeout, stream=True)
         response.raise_for_status()
+        try:
+            content = _read_limited_response(response)
+        finally:
+            response.close()
         content_type = response.headers.get("content-type", "").lower()
+        response_text = content.decode(response.encoding or "utf-8", errors="replace")
         if "csv" in content_type or url.lower().endswith(".csv"):
-            df = pd.read_csv(StringIO(response.text))
+            df = pd.read_csv(StringIO(response_text))
         else:
-            df = _records_to_frame(response.json())
+            df = _records_to_frame(json.loads(response_text))
         df = _rename_aliases(df)
         missing = API_REQUIRED_COLUMNS - set(df.columns)
         if missing:
             print(f"API 欄位不足，將使用 fallback：{sorted(missing)}")
             return None
     except Exception as exc:
-        print(f"API 讀取失敗，將使用 sample data fallback：{exc}")
+        print(f"API 讀取失敗（{type(exc).__name__}），將使用 sample data fallback。")
         return None
 
     if output_path is None:
