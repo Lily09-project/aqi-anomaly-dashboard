@@ -10,10 +10,12 @@ from src.app_helpers import (
     compute_kpis,
     data_quality_summary,
     filter_by_site_and_date,
+    get_station_coordinates,
     infer_data_source,
     load_dashboard_data,
     load_metrics,
 )
+from src.risk_brief import build_station_risk_brief, describe_anomaly_evidence, select_risk_brief_columns
 from src.theme import DEFAULT_THEME_NAME, THEME, THEME_OPTIONS, chart_color_sequence, get_theme, validate_theme_contrast
 from src.utils import load_config, resolve_path
 
@@ -22,6 +24,11 @@ try:
     import plotly.express as px  # type: ignore
 except Exception:  # pragma: no cover
     px = None
+
+try:
+    import plotly.graph_objects as go  # type: ignore
+except Exception:  # pragma: no cover
+    go = None
 
 try:
     import streamlit as st  # type: ignore
@@ -53,6 +60,12 @@ DISPLAY_COLUMN_MAP = {
     "absolute_error": "絕對誤差",
     "is_anomaly": "是否異常",
     "anomaly_score": "異常分數",
+    "attention_level": "關注程度",
+    "priority_score": "排序分數",
+    "aqi_vs_baseline": "相對本站基準",
+    "recent_6h_change": "近 6 小時變化",
+    "predicted_next_hour_aqi": "下一小時預測 AQI",
+    "evidence_summary": "判讀證據",
     "pseudo_anomaly": "規則式標籤",
     "zscore_anomaly": "Z-score 異常",
     "isolation_forest_anomaly": "Isolation Forest 異常",
@@ -426,6 +439,96 @@ def inject_global_css(theme: dict[str, str] | None = None) -> None:
             font-size: 0.88rem;
             line-height: 1.65;
         }}
+        .risk-brief {{
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            border-radius: 8px;
+            padding: 1.05rem 1.1rem;
+            margin: 0.15rem 0 1rem;
+        }}
+        .risk-brief-header {{
+            display: flex;
+            align-items: start;
+            justify-content: space-between;
+            gap: 1rem;
+        }}
+        .risk-brief-kicker {{
+            color: var(--accent);
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }}
+        .risk-brief h3 {{
+            margin: 0.2rem 0 0;
+            color: var(--text) !important;
+            font-size: 1.22rem !important;
+        }}
+        .risk-brief p {{
+            margin: 0.55rem 0 0;
+            color: var(--text) !important;
+            line-height: 1.6;
+        }}
+        .priority-badge {{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 32px;
+            padding: 0.25rem 0.55rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+            font-size: 0.8rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }}
+        .priority-badge.critical {{
+            background: var(--accent-soft);
+            border-color: var(--accent);
+        }}
+        .priority-badge.watch {{
+            background: var(--success-soft);
+            border-color: var(--secondary);
+        }}
+        .priority-badge.normal {{
+            background: var(--card);
+            border-color: var(--border);
+        }}
+        .risk-facts {{
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.6rem;
+            margin-top: 0.9rem;
+            padding-top: 0.85rem;
+            border-top: 1px solid var(--border);
+        }}
+        .risk-fact {{
+            min-width: 0;
+            padding-right: 0.6rem;
+            border-right: 1px solid var(--border);
+        }}
+        .risk-fact:last-child {{ border-right: 0; }}
+        .risk-fact-label {{
+            display: block;
+            color: var(--muted-text);
+            font-size: 0.74rem;
+            font-weight: 700;
+        }}
+        .risk-fact-value {{
+            display: block;
+            margin-top: 0.2rem;
+            color: var(--text);
+            font-size: 1.08rem;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            overflow-wrap: anywhere;
+        }}
+        .risk-disclaimer {{
+            color: var(--muted-text) !important;
+            font-size: 0.78rem;
+        }}
         .section-header {{
             display: flex;
             align-items: end;
@@ -499,6 +602,12 @@ def inject_global_css(theme: dict[str, str] | None = None) -> None:
             border-radius: 8px;
             padding: 0.25rem;
             overflow: hidden;
+        }}
+        .map-selection-note {{
+            margin: 0.4rem 0 0.9rem;
+            color: var(--muted-text) !important;
+            font-size: 0.82rem;
+            line-height: 1.55;
         }}
         button {{
             border-radius: 8px !important;
@@ -608,6 +717,11 @@ def inject_global_css(theme: dict[str, str] | None = None) -> None:
             .metric-card .label {{ font-size: 0.9rem; }}
             .metric-card .note {{ font-size: 0.82rem; }}
             .section-note, .section-card {{ font-size: 0.95rem; }}
+            .risk-brief {{ padding: 0.95rem; }}
+            .risk-brief-header {{ flex-direction: column; gap: 0.55rem; }}
+            .risk-facts {{ grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem 0.55rem; }}
+            .risk-fact:nth-child(2) {{ border-right: 0; }}
+            .risk-fact:nth-child(-n+2) {{ padding-bottom: 0.7rem; border-bottom: 1px solid var(--border); }}
             section[data-testid="stSidebar"] [data-baseweb="select"],
             section[data-testid="stSidebar"] input {{
                 font-size: 1rem !important;
@@ -641,6 +755,13 @@ def _format_value(value: object) -> str:
     if isinstance(value, int):
         return f"{value:,}"
     return str(value)
+
+
+def _format_optional_number(value: object, signed: bool = False) -> str:
+    numeric = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
+    if pd.isna(numeric):
+        return "資料不足"
+    return f"{float(numeric):+,.1f}" if signed else f"{float(numeric):,.1f}"
 
 
 def metric_card(label: str, value: object, note: str = "") -> None:
@@ -792,6 +913,223 @@ def _plot_chart(fig: Any) -> None:
     )
 
 
+def _priority_badge_class(attention_level: object) -> str:
+    return {
+        "優先檢視": "critical",
+        "持續觀察": "watch",
+    }.get(str(attention_level), "normal")
+
+
+def _render_risk_brief(brief: pd.DataFrame) -> None:
+    if brief.empty:
+        st.info("目前篩選條件沒有足夠資料建立測站脈絡判讀。")
+        return
+
+    top = brief.iloc[0]
+    baseline_label = "資料不足"
+    if pd.notna(top.get("baseline_aqi")):
+        baseline_label = f"{_format_optional_number(top.get('baseline_aqi'))}（n={int(top.get('baseline_samples', 0))}）"
+    prediction_label = _format_optional_number(top.get("predicted_next_hour_aqi"))
+    delta_label = _format_optional_number(top.get("aqi_vs_baseline"), signed=True)
+    trend_label = f"{escape(str(top.get('trend_label', '資料不足')))} {_format_optional_number(top.get('recent_6h_change'), signed=True)}"
+    st.markdown(
+        f"""
+        <section class="risk-brief" aria-label="目前優先關注測站">
+            <div class="risk-brief-header">
+                <div>
+                    <div class="risk-brief-kicker">測站脈絡決策摘要</div>
+                    <h3>{escape(str(top.get('site_name_display', '未知測站')))}：{escape(str(top.get('attention_level', '一般監測')))}</h3>
+                </div>
+                <span class="priority-badge {_priority_badge_class(top.get('attention_level'))}">{escape(str(top.get('attention_level', '一般監測')))}</span>
+            </div>
+            <p>{escape(str(top.get('evidence_summary', '目前沒有可用的判讀證據。')))}</p>
+            <div class="risk-facts">
+                <div class="risk-fact"><span class="risk-fact-label">目前 AQI</span><span class="risk-fact-value">{_format_optional_number(top.get('latest_aqi'))}</span></div>
+                <div class="risk-fact"><span class="risk-fact-label">同時段基準</span><span class="risk-fact-value">{escape(baseline_label)}</span></div>
+                <div class="risk-fact"><span class="risk-fact-label">近 6 小時</span><span class="risk-fact-value">{trend_label}</span></div>
+                <div class="risk-fact"><span class="risk-fact-label">下一小時預測</span><span class="risk-fact-value">{prediction_label}</span></div>
+            </div>
+            <p class="risk-disclaimer">排序只用於人工檢視優先順序，不是官方 AQI 警報、因果判定或健康風險估計。</p>
+        </section>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _risk_brief_table(brief: pd.DataFrame) -> pd.DataFrame:
+    display = select_risk_brief_columns(
+        brief,
+        [
+            "site_name_display",
+            "latest_aqi",
+            "aqi_vs_baseline",
+            "recent_6h_change",
+            "predicted_next_hour_aqi",
+            "anomaly_flag",
+            "attention_level",
+            "evidence_summary",
+        ],
+    ).copy()
+    if display.empty:
+        return display
+    display = display.rename(
+        columns={
+            "site_name_display": "測站",
+            "latest_aqi": "目前 AQI",
+            "aqi_vs_baseline": "相對本站基準",
+            "recent_6h_change": "近 6 小時變化",
+            "predicted_next_hour_aqi": "下一小時預測",
+            "anomaly_flag": "異常旗標",
+            "attention_level": "關注程度",
+            "evidence_summary": "判讀證據",
+        }
+    )
+    for column in ["目前 AQI", "下一小時預測"]:
+        if column in display:
+            display[column] = display[column].map(_format_optional_number)
+    for column in ["相對本站基準", "近 6 小時變化"]:
+        if column in display:
+            display[column] = display[column].map(lambda value: _format_optional_number(value, signed=True))
+    if "異常旗標" in display:
+        display["異常旗標"] = display["異常旗標"].map({1: "有", 0: "無"}).fillna("資料不足")
+    return display
+
+
+def _station_map_data(brief: pd.DataFrame) -> pd.DataFrame:
+    rows: list[dict[str, object]] = []
+    for _, row in brief.iterrows():
+        coordinates = get_station_coordinates(row.get("site_name_display"), row.get("county_display"))
+        if coordinates is None:
+            continue
+        latitude, longitude = coordinates
+        rows.append(
+            {
+                "site_name_display": str(row.get("site_name_display", "未知測站")),
+                "county_display": str(row.get("county_display", "未知地區")),
+                "latitude": latitude,
+                "longitude": longitude,
+                "latest_aqi": row.get("latest_aqi"),
+                "latest_pm25": row.get("latest_pm25"),
+                "attention_level": str(row.get("attention_level", "一般監測")),
+                "evidence_summary": str(row.get("evidence_summary", "")),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def _build_station_map(brief: pd.DataFrame, theme: dict[str, str]):
+    if go is None:
+        return None
+    map_data = _station_map_data(brief)
+    if map_data.empty:
+        return None
+    color_map = {
+        "優先檢視": theme["danger"],
+        "持續觀察": theme["accent"],
+        "一般監測": theme["secondary"],
+    }
+    marker_sizes = [max(15, min(34, 13 + float(aqi) / 7)) for aqi in map_data["latest_aqi"]]
+    # This simplified outline provides an offline spatial frame, not county boundaries.
+    taiwan_outline = [
+        (121.95, 25.30), (121.72, 25.25), (121.47, 25.17), (121.21, 24.98),
+        (120.98, 24.73), (120.76, 24.38), (120.54, 23.95), (120.31, 23.50),
+        (120.17, 23.08), (120.31, 22.70), (120.61, 22.26), (120.84, 21.90),
+        (121.04, 22.06), (121.12, 22.43), (121.24, 22.83), (121.41, 23.22),
+        (121.54, 23.62), (121.64, 24.00), (121.73, 24.36), (121.84, 24.71),
+        (122.01, 25.02), (121.95, 25.30),
+    ]
+    figure = go.Figure()
+    figure.add_trace(
+        go.Scatter(
+            x=[longitude for longitude, _ in taiwan_outline],
+            y=[latitude for _, latitude in taiwan_outline],
+            mode="lines",
+            fill="toself",
+            fillcolor=theme["background"],
+            line={"color": theme["border"], "width": 1.5},
+            hoverinfo="skip",
+            showlegend=False,
+        )
+    )
+    figure.add_trace(
+        go.Scatter(
+            x=map_data["longitude"],
+            y=map_data["latitude"],
+            customdata=map_data[["site_name_display", "county_display", "latest_aqi", "latest_pm25", "attention_level"]],
+            mode="markers",
+            marker={
+                "size": marker_sizes,
+                "color": [color_map.get(level, theme["secondary"]) for level in map_data["attention_level"]],
+                "symbol": [
+                    "diamond" if level == "優先檢視" else "square" if level == "持續觀察" else "circle"
+                    for level in map_data["attention_level"]
+                ],
+                "line": {"color": theme["text"], "width": 1},
+                "opacity": 0.94,
+            },
+            hovertemplate=(
+                "<b>%{customdata[0]}</b><br>"
+                "%{customdata[1]}<br>"
+                "目前 AQI: %{customdata[2]:.1f}<br>"
+                "PM2.5: %{customdata[3]:.1f}<br>"
+                "關注程度: %{customdata[4]}<br>"
+                "點選此站即可套用篩選<extra></extra>"
+            ),
+            showlegend=False,
+        )
+    )
+    figure.update_layout(
+        paper_bgcolor=theme["card"],
+        plot_bgcolor=theme["card"],
+        font={"color": theme["text"]},
+        margin={"l": 0, "r": 0, "t": 8, "b": 0},
+        height=430,
+        showlegend=False,
+        clickmode="event+select",
+        dragmode=False,
+    )
+    figure.update_xaxes(
+        range=[119.75, 122.25],
+        visible=False,
+        fixedrange=True,
+        showgrid=False,
+        zeroline=False,
+    )
+    figure.update_yaxes(
+        range=[21.65, 25.55],
+        visible=False,
+        fixedrange=True,
+        showgrid=False,
+        zeroline=False,
+        scaleanchor="x",
+        scaleratio=1,
+    )
+    return figure
+
+
+def _render_station_map(brief: pd.DataFrame, theme: dict[str, str], selected_site_display: str) -> None:
+    figure = _build_station_map(brief, theme)
+    if figure is None:
+        st.info("目前資料沒有可對照座標的測站，因此無法顯示地圖。")
+        return
+    event = st.plotly_chart(
+        figure,
+        width="stretch",
+        theme=None,
+        key="station_map_selector",
+        on_select="rerun",
+        selection_mode="points",
+        config={"displaylogo": False, "scrollZoom": False, "modeBarButtonsToRemove": ["lasso2d", "select2d"]},
+    )
+    selected_points = getattr(getattr(event, "selection", None), "points", []) if event is not None else []
+    if not selected_points:
+        return
+    map_site = selected_points[0].get("customdata", [None])[0]
+    if map_site and map_site != selected_site_display:
+        st.session_state["pending_station_filter"] = str(map_site)
+        st.rerun()
+
+
 def main() -> None:
     if st is None:
         print("需要安裝 Streamlit 才能啟動 Dashboard，請執行：pip install -r requirements.txt")
@@ -801,6 +1139,9 @@ def main() -> None:
         return
 
     st.set_page_config(page_title="台灣 AQI 監測與預測", layout="wide")
+    pending_station_filter = st.session_state.pop("pending_station_filter", None)
+    if pending_station_filter:
+        st.session_state["station_filter"] = pending_station_filter
     config = load_config()
     with st.sidebar:
         st.markdown(
@@ -853,7 +1194,7 @@ def main() -> None:
             <span class="status-pill"><span class="status-dot"></span>{escape(_source_caption(source_code))}</span>
           </div>
           <h1>台灣 AQI 監測與預測</h1>
-          <p>檢視測站空氣品質、下一小時 AQI 預測與污染異常。</p>
+          <p>以測站歷史脈絡排序污染異常，並檢視下一小時 AQI 預測與資料品質。</p>
           <div class="hero-meta">
             <span class="hero-meta-item">預測週期 <strong>下一小時</strong></span>
             <span class="hero-meta-item">資料來源 <strong>{escape(_display_source(source_code))}</strong></span>
@@ -886,7 +1227,9 @@ def main() -> None:
             site_base = site_base[site_base["county_display"] == county_filter]
         lookup = _site_lookup(site_base)
         site_options = ["全部測站", *lookup["site_name_display"].dropna().astype(str).tolist()]
-        selected_site_display = st.selectbox("測站", site_options)
+        if st.session_state.get("station_filter") not in site_options:
+            st.session_state["station_filter"] = "全部測站"
+        selected_site_display = st.selectbox("測站", site_options, key="station_filter")
         selected_site = None
         if selected_site_display != "全部測站" and not lookup.empty:
             match = lookup[lookup["site_name_display"].astype(str) == selected_site_display]
@@ -921,6 +1264,24 @@ def main() -> None:
     filtered_anomalies = filter_by_site_and_date(
         anomalies,
         site_name=selected_site,
+        county_display=county_filter,
+        start_datetime=start_date,
+        end_datetime=end_date,
+    )
+    map_features = filter_by_site_and_date(
+        features,
+        county_display=county_filter,
+        start_datetime=start_date,
+        end_datetime=end_date,
+    )
+    map_predictions = filter_by_site_and_date(
+        predictions,
+        county_display=county_filter,
+        start_datetime=start_date,
+        end_datetime=end_date,
+    )
+    map_anomalies = filter_by_site_and_date(
+        anomalies,
         county_display=county_filter,
         start_datetime=start_date,
         end_datetime=end_date,
@@ -970,9 +1331,39 @@ def main() -> None:
 
     with overview_tab:
         st.markdown(
-            '<div class="section-note">此頁用來快速檢查不同測站的 AQI 與 PM2.5 趨勢，所有測站與縣市皆使用中文顯示欄位。</div>',
+            '<div class="section-note">先用測站自身的歷史基準建立優先順序，再查看 AQI 與 PM2.5 趨勢。這能避免只以全體平均或單一固定門檻判讀不同地區。</div>',
             unsafe_allow_html=True,
         )
+        risk_brief = build_station_risk_brief(
+            filtered_features,
+            reference_features=features,
+            predictions=filtered_predictions,
+            anomalies=filtered_anomalies,
+        )
+        map_risk_brief = build_station_risk_brief(
+            map_features,
+            reference_features=features,
+            predictions=map_predictions,
+            anomalies=map_anomalies,
+        )
+        section_header("地圖篩選", "台灣測站分布", "點選測站即可同步更新左側測站篩選")
+        _render_station_map(map_risk_brief, theme, selected_site_display)
+        st.markdown(
+            '<p class="map-selection-note">標記大小代表目前 AQI；菱形 / 方形 / 圓形依序代表優先檢視、持續觀察、一般監測，並以紅 / 橘 / 藍輔助區分。只顯示目前資料中可對照座標的測站。</p>',
+            unsafe_allow_html=True,
+        )
+        section_header("行動判讀", "目前優先關注測站", "近 14 天同時段基準 · 僅使用當前時點以前資料")
+        _render_risk_brief(risk_brief)
+        render_table(
+            _risk_brief_table(risk_brief.head(5)),
+            empty_message="目前沒有可排序的測站資料。",
+            label="測站脈絡風險排序表",
+        )
+        st.markdown(
+            '<div class="section-note">排序結合當前 AQI、PM2.5、相對本站同時段基準、近 6 小時變化、同時點模型預測與異常旗標；它是可追溯的檢視順序，不是官方警報。</div>',
+            unsafe_allow_html=True,
+        )
+        section_header("趨勢", "測站污染變化", "依左側縣市、測站與日期區間篩選")
         left, right = st.columns([1.15, 1], gap="large")
         with left:
             st.subheader("AQI 趨勢")
@@ -1079,7 +1470,7 @@ def main() -> None:
 
     with anomaly_tab:
         st.markdown(
-            '<div class="section-note">異常偵測使用 AQI、PM2.5 與移動統計建立 pseudo-label，再用 Z-score 與 Isolation Forest 偵測可疑污染事件。</div>',
+            '<div class="section-note">異常偵測使用 AQI、PM2.5 與移動統計建立 pseudo-label，再用 Z-score 與 Isolation Forest 找出值得人工檢視的可疑事件。每一筆事件會保留觸發證據，而不是只顯示黑盒分數。</div>',
             unsafe_allow_html=True,
         )
         if filtered_anomalies.empty:
@@ -1127,6 +1518,7 @@ def main() -> None:
             with left:
                 st.subheader("高風險異常事件")
                 top_cases = anomaly_events.sort_values(["anomaly_score", "aqi"], ascending=False)
+                top_cases["anomaly_evidence"] = top_cases.apply(describe_anomaly_evidence, axis=1)
                 display_cols = [
                     "datetime",
                     "county_display",
@@ -1134,12 +1526,12 @@ def main() -> None:
                     "aqi",
                     "pm25",
                     "anomaly_score",
-                    "is_anomaly",
-                    "pseudo_anomaly",
-                    "zscore_anomaly",
-                    "isolation_forest_anomaly",
+                    "anomaly_evidence",
                 ]
-                render_table(_rename_for_display(_select_columns(top_cases.head(15), display_cols)))
+                table = _rename_for_display(_select_columns(top_cases.head(15), display_cols)).rename(
+                    columns={"anomaly_evidence": "判讀依據"}
+                )
+                render_table(table, label="高風險異常事件表")
             with right:
                 st.subheader("各測站異常數")
                 station_col = "site_name_display" if "site_name_display" in filtered_anomalies.columns else "site_name"
@@ -1156,7 +1548,7 @@ def main() -> None:
                 _plot_chart(fig)
 
         st.markdown(
-            '<div class="section-note">異常規則：AQI 高於 100、PM2.5 高於 35，或 AQI 高於該測站 12 小時移動平均加上 2.5 個標準差。這是 pseudo-label，正式應用仍需真實事件標註驗證。</div>',
+            '<div class="section-note">判讀依據：達到規則門檻代表 AQI > 100、PM2.5 > 35，或 AQI 高於該站 12 小時移動平均加上 2.5 個標準差；偏離近期分布來自 Z-score；多變量型態偏離來自 Isolation Forest。這些是 pseudo-label 訊號，正式應用仍需真實事件標註驗證。</div>',
             unsafe_allow_html=True,
         )
 
@@ -1235,7 +1627,7 @@ def main() -> None:
         f"""
         <div class="dashboard-footer">
             <span>環境監測資料工作台</span>
-            <span>下一小時預測 · {escape(data_source)}</span>
+            <span>測站脈絡判讀 · 下一小時預測 · {escape(data_source)}</span>
         </div>
         """,
         unsafe_allow_html=True,

@@ -21,6 +21,8 @@ def test_app_imports_without_crashing_and_theme_exists():
     assert hasattr(app, "inject_theme")
     assert hasattr(app, "inject_global_css")
     assert hasattr(app, "apply_plotly_theme")
+    assert hasattr(app, "_build_station_map")
+    assert hasattr(app, "_render_station_map")
     assert hasattr(app, "THEME")
     assert hasattr(app, "DISPLAY_COLUMN_MAP")
     assert theme.THEME
@@ -76,6 +78,10 @@ def test_app_imports_without_crashing_and_theme_exists():
     assert "異常事件（菱形）" in app_source
     assert "台灣 AQI 監測與預測" in app_source
     assert "環境監測資料工作台" in app_source
+    assert "測站脈絡決策摘要" in app_source
+    assert "台灣測站分布" in app_source
+    assert 'on_select="rerun"' in app_source
+    assert "build_station_risk_brief" in app_source
     assert "展示用途" not in app_source
     assert "background: transparent;" in app_source
     assert "box-shadow: none;" in app_source

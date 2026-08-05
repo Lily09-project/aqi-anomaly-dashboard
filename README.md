@@ -1,6 +1,6 @@
 # 台灣 AQI 預測與空氣污染異常偵測 Dashboard
 
-本專案是一個可在本地端完整重現的資料科學 side project，主題為「台灣 AQI 預測與空氣污染異常偵測 Dashboard」。專案涵蓋 Open Data / API fallback、AQI / PM2.5 時間序列資料清理、特徵工程、下一小時 AQI 預測、污染異常偵測、模型評估、繁體中文 Streamlit Dashboard、pytest 自動測試與 Windows 一鍵執行。
+本專案是一個可在本地端完整重現的資料科學 side project，主題為「台灣 AQI 預測與空氣污染異常偵測 Dashboard」。它不是只展示模型數字，而是把 AQI、PM2.5、同測站歷史基準、下一小時預測與異常訊號整理成可追溯的人工檢視順序。專案涵蓋 Open Data / API fallback、時間序列資料清理、特徵工程、下一小時 AQI 預測、污染異常偵測、模型評估、繁體中文 Streamlit Dashboard、pytest 自動測試與 Windows 一鍵執行。
 
 ## 專案目標
 
@@ -9,6 +9,18 @@
 - 使用 pseudo-label 與 Isolation Forest 偵測可能污染異常事件。
 - 提供面試可展示的繁體中文 Dashboard。
 - 在沒有 API key、沒有網路或 API 失敗時，仍可使用 sample data 跑完整 Demo。
+- 將模型結果轉換為「先看哪一個測站、依據是什麼」的透明判讀，而不是只給一個不明來源的風險分數。
+
+## 專案差異化：測站脈絡化判讀
+
+不同地區的正常污染水準不同，單用全台平均或固定門檻容易掩蓋「對某個測站而言不尋常」的變化。因此 Dashboard 在總覽中加入 **測站脈絡風險判讀**：
+
+- 每個測站只以自己近 14 天、相同小時且早於目前時點的 AQI 中位數作為基準。
+- 同時顯示目前 AQI、相對本站基準、近 6 小時變化、同時點的下一小時模型預測，以及規則 / Z-score / Isolation Forest 的異常證據。
+- 以透明的優先排序協助人工決定先檢視哪一站；排序不是官方 AQI 警報、因果解釋、醫療建議或健康風險指數。
+- 台灣測站地圖可直接點選站點，讓地理篩選同步更新趨勢、預測、異常與品質頁面。地圖只顯示目前資料中有可對照座標的測站，不宣稱覆蓋未收錄的地區。
+
+這個設計刻意避免以生成式文字包裝模型結論。每一項判讀都能回查到明確資料欄位與計算規則，適合在面試中討論產品取捨、資料限制與可驗證性。
 
 ## 使用資料來源
 
@@ -28,7 +40,8 @@ Sample data 是模擬資料，只用於本地 Demo、測試與面試展示，不
   -> train_predictor 下一小時 AQI 預測
   -> train_anomaly_model 污染異常偵測
   -> evaluate metrics 與 figures
-  -> app.py 繁體中文 Streamlit Dashboard
+  -> risk_brief 測站脈絡化優先排序與證據摘要
+  -> app.py 繁體中文 Streamlit Dashboard / 地圖選站
 ```
 
 ## Repo 結構
@@ -63,6 +76,7 @@ aqi-anomaly-dashboard/
 │   ├── train_anomaly_model.py
 │   ├── evaluate.py
 │   ├── app_helpers.py
+│   ├── risk_brief.py
 │   ├── smoke_test.py
 │   ├── theme.py
 │   └── utils.py
@@ -154,6 +168,8 @@ Dashboard 為繁體中文網站，包含：
 - 側邊欄深色主題切換
 - 縣市、測站與日期區間篩選
 - KPI cards：最新 AQI、AQI 等級、平均 AQI、最新 PM2.5、異常事件數、資料筆數、測站數
+- 可點選的台灣測站地圖：標記大小代表目前 AQI，形狀與顏色共同標示關注程度，點選後同步套用測站篩選
+- 測站脈絡風險排序：比較本站近 14 天同時段基準、近 6 小時變化、下一小時預測與異常證據
 - AQI 趨勢圖
 - PM2.5 趨勢圖
 - 實際下一小時 AQI vs 預測下一小時 AQI
@@ -273,6 +289,7 @@ streamlit run app.py
 - lag / rolling features 不跨測站污染
 - train/test 不共享相同 timestamp
 - `target_next_hour_aqi` 正確建立
+- 測站脈絡判讀只使用該站目前時點以前的觀測，未來資料與其他測站都不會進入基準
 - anomaly detector 只用前段時間資料訓練，並以後段時間 pseudo-label 評估
 - predictor / anomaly detector 可訓練、儲存、載入與預測
 - metrics JSON 與 figures 產生
@@ -325,6 +342,8 @@ Dashboard 預設使用深色主題，使用者可以在側邊欄「選擇深色�
 - 本專案是本地端技術展示，不是正式環境監測系統。
 - API schema 可能因來源不同而變動，需要維護 alias mapping。
 - 模型以傳統機器學習與 baseline 為主，不使用 GPU 或大型深度學習模型。
+- 測站脈絡排序是透明的人工檢視輔助，不應取代環境部正式 AQI 資訊、污染源調查或健康建議。
+- 地圖座標內建涵蓋 sample data 測站，其他 API 測站會使用可用的縣市中心點；正式部署應改用官方測站經緯度資料。
 
 ## 未來改進
 
@@ -333,22 +352,25 @@ Dashboard 預設使用深色主題，使用者可以在側邊欄「選擇深色�
 - 整合 Open-Meteo 歷史天氣資料。
 - 依測站、季節與時段校準異常門檻。
 - 加入模型漂移監控與排程重訓。
+- 串接官方測站座標、風場與衛星觀測資料，建立可追溯的事件調查流程。
 
 ## 履歷描述
 
 簡短版：
 
 - 建立台灣 AQI 下一小時預測與污染異常偵測 Dashboard，整合資料清理、時間序列特徵工程、模型評估、Streamlit 視覺化、pytest 測試與 Windows 一鍵執行。
+- 設計測站脈絡化的污染檢視流程，以本站同時段基準、短期變化、預測與異常證據進行可解釋的人工優先排序，並以可點選台灣地圖串接篩選工作流。
 
 詳細版：
 
 - Built an end-to-end local AQI forecasting and anomaly detection project with API/sample-data fallback, preprocessing, leakage-aware station-level time-series features, model training, evaluation, and a Traditional Chinese Streamlit dashboard.
 - Implemented next-hour AQI nowcasting with Moving Average, Linear Regression, and Random Forest, plus pseudo-label anomaly detection with Z-score and Isolation Forest.
+- Added a station-context decision layer that ranks inspection priority from station-specific historical baselines, recent movement, forecast and explicit anomaly evidence instead of opaque alert copy.
 - Added reproducible local execution through `run_all.py`, `src/smoke_test.py`, pytest coverage, and Windows `run_project.bat`.
 
 ## 面試 1 分鐘介紹稿
 
-這個專案是一個台灣 AQI 預測與污染異常偵測 Dashboard。我把資料流程拆成 API 或 sample data fallback、前處理、時間序列特徵工程、下一小時 AQI 預測、異常偵測、模型評估與 Streamlit 前端。模型任務是 next-hour nowcasting，也就是使用當下與過去資料預測同測站下一小時 AQI。為了避免資料洩漏，我用 `site_name` 分組計算 lag 與 rolling features，target 則用同測站 `shift(-1)`，train/test 採時間序列切分。前端是繁體中文 Dashboard，可以展示 AQI/PM2.5 趨勢、預測誤差、異常事件、資料品質與模型指標。即使沒有 API，也能透過 sample mode 和 `run_project.bat` 在本地端完整重現 Demo。
+這個專案是一個台灣 AQI 預測與污染異常偵測 Dashboard。我先把資料流程拆成 API 或 sample data fallback、前處理、時間序列特徵工程、下一小時 AQI 預測、異常偵測、模型評估與 Streamlit 前端。模型任務是 next-hour nowcasting，也就是使用當下與過去資料預測同測站下一小時 AQI。為了避免資料洩漏，我用 `site_name` 分組計算 lag 與 rolling features，target 則用同測站 `shift(-1)`，train/test 採時間序列切分。和一般模型展示不同的是，我在總覽增加一個測站脈絡判讀層：以該站近 14 天同時段基準、近 6 小時變化、下一小時預測和三類異常訊號，透明地排序人工應先檢視的站點，並在地圖上直接選站。這個排序不宣稱是官方警報，而是讓每個結論都有資料證據可回查。即使沒有 API，也能透過 sample mode 和 `run_project.bat` 在本地端完整重現 Demo。
 
 ## Security
 
