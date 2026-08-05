@@ -32,12 +32,27 @@ def test_evaluation_writes_metrics_and_figures():
     anomaly_metrics = json.loads((metrics_dir / "anomaly_metrics.json").read_text(encoding="utf-8"))
 
     assert summary["rows"]["features"] > 0
-    assert {"mae", "rmse", "r2", "baseline_mae", "baseline_rmse", "baseline_r2", "limitation_note"}.issubset(
+    assert {
+        "mae",
+        "rmse",
+        "r2",
+        "baseline_mae",
+        "baseline_rmse",
+        "baseline_r2",
+        "selection_basis",
+        "split_rows",
+        "limitation_note",
+    }.issubset(
         predictor_metrics
     )
-    assert {"precision", "recall", "f1", "anomaly_rate", "pseudo_label_positive_rate", "limitation_note"}.issubset(
+    assert {"precision", "recall", "f1", "anomaly_rate", "pseudo_label_positive_rate", "event_count", "limitation_note"}.issubset(
         anomaly_metrics
     )
     assert (metrics_dir / "evaluation_summary.json").exists()
+    assert (metrics_dir / "backtest_metrics.json").exists()
+    assert (metrics_dir / "data_health.json").exists()
+    assert resolve_path(config, "data.events_file").exists()
+    assert summary["rows"]["anomaly_events"] >= 0
+    assert "status" in summary["data_health"]
     for figure in ["aqi_trend.png", "prediction_vs_actual.png", "anomaly_cases.png"]:
         assert (resolve_path(config, "reports.figures_dir") / figure).exists()

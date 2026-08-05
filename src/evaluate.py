@@ -8,6 +8,7 @@ import zlib
 
 import pandas as pd
 
+from src.data_health import build_data_health
 from src.theme import THEME
 from src.utils import ensure_parent, load_config, resolve_path, write_json
 
@@ -201,19 +202,25 @@ def evaluate() -> dict[str, object]:
     features = pd.read_csv(resolve_path(config, "data.features_file"), parse_dates=["datetime"])
     predictions = pd.read_csv(resolve_path(config, "data.predictions_file"), parse_dates=["datetime"])
     anomalies = pd.read_csv(resolve_path(config, "data.anomaly_file"), parse_dates=["datetime"])
+    events_path = resolve_path(config, "data.events_file")
+    events = pd.read_csv(events_path, parse_dates=["datetime", "end_datetime", "peak_datetime"]) if events_path.exists() else pd.DataFrame()
     metrics_dir = resolve_path(config, "reports.metrics_dir")
     figures_dir = resolve_path(config, "reports.figures_dir")
 
     predictor_metrics_path = metrics_dir / "predictor_metrics.json"
     anomaly_metrics_path = metrics_dir / "anomaly_metrics.json"
+    backtest_metrics_path = metrics_dir / "backtest_metrics.json"
     predictor_metrics = json.loads(predictor_metrics_path.read_text(encoding="utf-8")) if predictor_metrics_path.exists() else {}
     anomaly_metrics = json.loads(anomaly_metrics_path.read_text(encoding="utf-8")) if anomaly_metrics_path.exists() else {}
+    backtest_metrics = json.loads(backtest_metrics_path.read_text(encoding="utf-8")) if backtest_metrics_path.exists() else {}
+    data_health = build_data_health(features)
 
     summary = {
         "rows": {
             "features": int(len(features)),
             "predictions": int(len(predictions)),
             "anomaly_results": int(len(anomalies)),
+            "anomaly_events": int(len(events)),
         },
         "site_count": int(features["site_name"].nunique()),
         "datetime_range": {
@@ -222,15 +229,18 @@ def evaluate() -> dict[str, object]:
         },
         "predictor_metrics": predictor_metrics,
         "anomaly_metrics": anomaly_metrics,
+        "backtest_metrics": backtest_metrics,
+        "data_health": data_health,
         "interpretation": [
             "Moving Average 作為下一小時 AQI 預測 baseline。",
-            "若已安裝 scikit-learn，預測模型優先保存 Random Forest；否則使用 deterministic linear fallback。",
+            "預測模型僅以 validation split 選擇，final test 僅用於最終報告；rolling-origin backtest 用於檢查多個歷史時間窗。",
             "異常偵測使用 pseudo-label 評估，正式應用前應以真實污染事件標註驗證。",
             "本專案是本地端技術展示，不是正式環境監測系統。",
         ],
     }
 
     _plot_figures(features, predictions, anomalies, figures_dir)
+    write_json(metrics_dir / "data_health.json", data_health)
     write_json(metrics_dir / "evaluation_summary.json", summary)
     return summary
 

@@ -256,11 +256,14 @@ data/processed/
 ├── aqi_cleaned.csv
 ├── aqi_features.csv
 ├── aqi_predictions.csv
-└── aqi_anomaly_results.csv
+├── aqi_anomaly_results.csv
+└── aqi_anomaly_events.csv
 
 reports/metrics/
 ├── predictor_metrics.json
 ├── anomaly_metrics.json
+├── backtest_metrics.json
+├── data_health.json
 └── evaluation_summary.json
 
 reports/figures/
@@ -345,10 +348,32 @@ Dashboard 預設使用深色主題，使用者可以在側邊欄「選擇深色�
 - 測站脈絡排序是透明的人工檢視輔助，不應取代環境部正式 AQI 資訊、污染源調查或健康建議。
 - 地圖座標內建涵蓋 sample data 測站，其他 API 測站會使用可用的縣市中心點；正式部署應改用官方測站經緯度資料。
 
+## 評估設計與可靠性
+
+預測流程採三段式時間序列切分：早期資料用於訓練，中段資料只用於模型選擇，最後一段資料只用於最終報告。候選模型依 validation RMSE 選擇後，才以 train + validation 重新訓練並在 final test 產生 `MAE`、`RMSE`、`R2`。這避免了用最終測試資料挑選模型的選擇偏差。
+
+此外，`backtest_metrics.json` 會使用 rolling-origin backtest：每一個時間窗皆只用先前資料訓練、用後續資料評估。Dashboard 的「預測」與「模型指標」分頁會顯示其平均表現，讓 Demo 不只呈現單一切分的分數。
+
+異常觀測會輸出為 `aqi_anomaly_events.csv`。同一測站、在設定允許間隔內連續發生的異常會合併成一個事件，保留起迄時間、持續小時數、峰值 AQI / PM2.5、最大異常分數與觸發證據；不同測站永遠不會合併。這讓使用者能從「點狀異常」切換為可調查的事件單位。
+
+`data_health.json` 會檢查資料筆數、缺失率、重複的測站時間戳、延遲測站與最大觀測間隔。Dashboard 的資料品質頁會以 metric cards 呈現這些資訊，不會暴露 raw JSON。
+
+風險排序門檻與權重集中在 `config.yaml` 的 `risk_policy`，包括 AQI、PM2.5、相對基準偏離、預測上升與異常訊號。它是透明的人工檢視優先序，不是官方警報或健康風險結論。
+
+新增輸出：
+
+```text
+data/processed/aqi_anomaly_events.csv
+reports/metrics/backtest_metrics.json
+reports/metrics/data_health.json
+```
+
+GitHub Actions 的 `Quality Gate` 會在 `main` 的 push / pull request 上重新產生 sample pipeline 並執行 pytest；公開 repo 不提交原始資料、處理後資料、模型或報告產物。
+
 ## 未來改進
 
 - 串接穩定的 data.gov.tw 或環境部 AQI 開放資料。
-- 加入測站經緯度與地圖視覺化。
+- 以官方測站座標資料取代目前內建的 Demo 座標對照表。
 - 整合 Open-Meteo 歷史天氣資料。
 - 依測站、季節與時段校準異常門檻。
 - 加入模型漂移監控與排程重訓。

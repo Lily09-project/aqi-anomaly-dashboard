@@ -60,6 +60,15 @@ DISPLAY_COLUMN_MAP = {
     "absolute_error": "絕對誤差",
     "is_anomaly": "是否異常",
     "anomaly_score": "異常分數",
+    "event_id": "事件編號",
+    "end_datetime": "結束時間",
+    "peak_datetime": "峰值時間",
+    "event_points": "異常觀測筆數",
+    "duration_hours": "持續小時",
+    "peak_aqi": "峰值 AQI",
+    "peak_pm25": "峰值 PM2.5",
+    "max_anomaly_score": "最大異常分數",
+    "evidence_summary": "判讀依據",
     "attention_level": "關注程度",
     "priority_score": "排序分數",
     "aqi_vs_baseline": "相對本站基準",
@@ -1177,6 +1186,7 @@ def main() -> None:
     features = data["features"]
     predictions = data["predictions"]
     anomalies = data["anomalies"]
+    events = data["events"]
     source_code = infer_data_source(config, features)
     data_source = _display_source(source_code)
     date_limits = _safe_date_range(features)
@@ -1268,6 +1278,13 @@ def main() -> None:
         start_datetime=start_date,
         end_datetime=end_date,
     )
+    filtered_events = filter_by_site_and_date(
+        events,
+        site_name=selected_site,
+        county_display=county_filter,
+        start_datetime=start_date,
+        end_datetime=end_date,
+    )
     map_features = filter_by_site_and_date(
         features,
         county_display=county_filter,
@@ -1305,6 +1322,8 @@ def main() -> None:
     category, _category_color = aqi_category(float(kpis["latest_aqi"]))
     predictor_metrics = load_metrics(resolve_path(config, "reports.metrics_dir") / "predictor_metrics.json")
     anomaly_metrics = load_metrics(resolve_path(config, "reports.metrics_dir") / "anomaly_metrics.json")
+    backtest_metrics = load_metrics(resolve_path(config, "reports.metrics_dir") / "backtest_metrics.json")
+    data_health = load_metrics(resolve_path(config, "reports.metrics_dir") / "data_health.json")
     evaluation_summary = load_metrics(resolve_path(config, "reports.metrics_dir") / "evaluation_summary.json")
 
     station_count = filtered_features["site_name_display"].nunique() if "site_name_display" in filtered_features else 0
@@ -1339,12 +1358,14 @@ def main() -> None:
             reference_features=features,
             predictions=filtered_predictions,
             anomalies=filtered_anomalies,
+            policy=config.get("risk_policy"),
         )
         map_risk_brief = build_station_risk_brief(
             map_features,
             reference_features=features,
             predictions=map_predictions,
             anomalies=map_anomalies,
+            policy=config.get("risk_policy"),
         )
         section_header("地圖篩選", "台灣測站分布", "點選測站即可同步更新左側測站篩選")
         _render_station_map(map_risk_brief, theme, selected_site_display)
@@ -1467,12 +1488,51 @@ def main() -> None:
             p_cols[0].metric("MAE", predictor_metrics.get("mae", "N/A"))
             p_cols[1].metric("RMSE", predictor_metrics.get("rmse", "N/A"))
             p_cols[2].metric("R2", predictor_metrics.get("r2", "N/A"))
+            split_rows = predictor_metrics.get("split_rows", {})
+            if split_rows:
+                st.caption(
+                    "模型以時間順序切分："
+                    f"訓練 {split_rows.get('train', 0):,} 筆、"
+                    f"驗證 {split_rows.get('validation', 0):,} 筆、"
+                    f"最終測試 {split_rows.get('final_test', 0):,} 筆。"
+                )
+
+        st.subheader("滾動回測")
+        backtest_table = _model_metrics_table(backtest_metrics)
+        if backtest_table.empty:
+            st.info("尚無滾動回測結果；請先執行 sample pipeline。")
+        else:
+            st.caption("每個測試窗只使用更早的資料訓練，用於檢查不同時間段的穩定性。")
+            render_table(backtest_table, label="滾動回測模型比較")
 
     with anomaly_tab:
         st.markdown(
             '<div class="section-note">異常偵測使用 AQI、PM2.5 與移動統計建立 pseudo-label，再用 Z-score 與 Isolation Forest 找出值得人工檢視的可疑事件。每一筆事件會保留觸發證據，而不是只顯示黑盒分數。</div>',
             unsafe_allow_html=True,
         )
+        st.subheader("事件調查摘要")
+        if filtered_events.empty:
+            st.info("目前篩選範圍沒有可合併的異常事件。")
+        else:
+            event_cols = st.columns(3)
+            event_cols[0].metric("異常事件", f"{len(filtered_events):,}")
+            event_cols[1].metric("最長持續", f"{int(filtered_events['duration_hours'].max()):,} 小時")
+            event_cols[2].metric("最高事件 AQI", f"{float(filtered_events['peak_aqi'].max()):.0f}")
+            event_columns = [
+                "datetime",
+                "end_datetime",
+                "county_display",
+                "site_name_display",
+                "duration_hours",
+                "peak_aqi",
+                "peak_pm25",
+                "max_anomaly_score",
+                "evidence_summary",
+            ]
+            render_table(
+                _rename_for_display(_select_columns(filtered_events.head(10), event_columns)),
+                label="優先檢視的異常事件",
+            )
         if filtered_anomalies.empty:
             st.info("找不到異常偵測結果，請先執行完整 sample mode 流程。")
         else:
@@ -1572,6 +1632,15 @@ def main() -> None:
         with q_cols_bottom[1]:
             metric_card("資料來源", data_source)
 
+        st.subheader("資料可靠性")
+        health_cols = st.columns(4, gap="large")
+        health_cols[0].metric("分析狀態", data_health.get("status", "尚未評估"))
+        health_cols[1].metric("重複時間點", data_health.get("duplicate_station_timestamps", "N/A"))
+        health_cols[2].metric("延遲測站", data_health.get("stale_station_count", "N/A"))
+        largest_gap = data_health.get("largest_gap_hours")
+        health_cols[3].metric("最大間隔", "N/A" if largest_gap is None else f"{float(largest_gap):g} 小時")
+        st.caption("可靠性檢查以完整特徵資料計算，包含站點時間戳重複、測站更新延遲與最大觀測間隔。")
+
         st.subheader("各欄位缺失值")
         missing_table = filtered_features.isna().sum().reset_index()
         missing_table.columns = ["欄位", "缺失值數量"]
@@ -1593,6 +1662,13 @@ def main() -> None:
             st.info("找不到預測模型評估檔，請先執行完整 sample mode 流程。")
         else:
             render_table(predictor_table)
+
+        st.subheader("時間序列穩定性")
+        backtest_table = _model_metrics_table(backtest_metrics)
+        if backtest_table.empty:
+            st.info("尚無滾動回測結果。")
+        else:
+            render_table(backtest_table, label="滾動回測平均表現")
 
         st.subheader("異常偵測模型")
         anomaly_table = _model_metrics_table(anomaly_metrics)

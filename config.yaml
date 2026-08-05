@@ -13,6 +13,7 @@ data:
   features_file: data/processed/aqi_features.csv
   predictions_file: data/processed/aqi_predictions.csv
   anomaly_file: data/processed/aqi_anomaly_results.csv
+  events_file: data/processed/aqi_anomaly_events.csv
 models:
   predictor: models/aqi_predictor.joblib
   anomaly_detector: models/anomaly_detector.joblib
@@ -26,7 +27,9 @@ selected_sites:
   - 安南測站
   - 花蓮測站
 train:
+  validation_ratio: 0.15
   test_ratio: 0.2
+  backtest_folds: 3
   feature_columns:
     - aqi
     - pm25
@@ -50,3 +53,26 @@ train:
 anomaly:
   contamination: 0.05
   zscore_threshold: 2.5
+  pseudo_aqi_threshold: 100
+  pseudo_pm25_threshold: 35
+  event_gap_hours: 1
+risk_policy:
+  lookback_days: 14
+  recent_window_hours: 6
+  min_baseline_observations: 3
+  aqi_attention_threshold: 50
+  aqi_high_threshold: 100
+  pm25_threshold: 35
+  baseline_zscore_watch: 1.0
+  baseline_zscore_high: 2.0
+  prediction_rise_threshold: 10
+  weights:
+    aqi_attention: 1
+    aqi_high: 2
+    pm25_high: 1
+    baseline_watch: 1
+    baseline_high: 2
+    prediction_high: 1
+    prediction_rise: 1
+    anomaly_flag: 3
+    anomaly_consensus: 1

@@ -208,6 +208,7 @@ def load_dashboard_data(config: dict[str, Any] | None = None) -> dict[str, pd.Da
         "features": add_display_columns(safe_load_csv(resolve_path(cfg, "data.features_file"), ["datetime"])),
         "predictions": add_display_columns(safe_load_csv(resolve_path(cfg, "data.predictions_file"), ["datetime"])),
         "anomalies": add_display_columns(safe_load_csv(resolve_path(cfg, "data.anomaly_file"), ["datetime"])),
+        "events": add_display_columns(safe_load_csv(resolve_path(cfg, "data.events_file"), ["datetime", "end_datetime", "peak_datetime"])),
     }
 
 

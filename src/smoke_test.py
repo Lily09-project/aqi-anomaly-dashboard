@@ -65,6 +65,7 @@ def run_smoke_test() -> None:
         "data.features_file",
         "data.predictions_file",
         "data.anomaly_file",
+        "data.events_file",
         "models.predictor",
         "models.anomaly_detector",
         "reports.metrics_dir",
@@ -72,6 +73,9 @@ def run_smoke_test() -> None:
         if key == "reports.metrics_dir":
             summary = resolve_path(config, key) / "evaluation_summary.json"
             assert summary.exists() and summary.stat().st_size > 0, f"Missing summary: {summary}"
+            for report_name in ["backtest_metrics.json", "data_health.json"]:
+                report = resolve_path(config, key) / report_name
+                assert report.exists() and report.stat().st_size > 0, f"Missing report: {report}"
         else:
             _assert_file(config, key)
 
@@ -84,8 +88,10 @@ def run_smoke_test() -> None:
 
     predictions = pd.read_csv(resolve_path(config, "data.predictions_file"))
     anomalies = pd.read_csv(resolve_path(config, "data.anomaly_file"))
+    events = pd.read_csv(resolve_path(config, "data.events_file"))
     assert {"county_display", "site_name_display"}.issubset(predictions.columns), "Predictions missing display columns"
     assert {"county_display", "site_name_display"}.issubset(anomalies.columns), "Anomaly results missing display columns"
+    assert {"event_id", "duration_hours", "peak_aqi", "evidence_summary"}.issubset(events.columns), "Events missing investigation columns"
     assert "Taipei" not in set(features["site_name_display"].astype(str)), "English site name leaked to display column"
     assert to_chinese_location_name("Taipei") == "臺北市"
     assert to_chinese_site_name("Taipei") == "松山測站"
@@ -102,7 +108,8 @@ def run_smoke_test() -> None:
         assert contrast["passed"], f"{theme_name} contrast failed: {contrast}"
 
     summary_path = resolve_path(config, "reports.metrics_dir") / "evaluation_summary.json"
-    json.loads(summary_path.read_text(encoding="utf-8"))
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert "data_health" in summary and "backtest_metrics" in summary, "Evaluation summary missing reliability reports"
     load_model(resolve_path(config, "models.predictor"))
     load_model(resolve_path(config, "models.anomaly_detector"))
 
