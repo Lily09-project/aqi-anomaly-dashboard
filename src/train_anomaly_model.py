@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+from src.anomaly_events import build_anomaly_events
 from src.utils import ensure_parent, load_config, resolve_path, save_model, write_json
 
 
@@ -37,10 +38,16 @@ def train_anomaly_model() -> dict[str, object]:
     df = pd.read_csv(resolve_path(config, "data.features_file"), parse_dates=["datetime"])
     feature_cols = ["aqi", "pm25", "pm10", "o3", "co", "wind_speed", "aqi_diff", "pm25_diff"]
     threshold = float(config["anomaly"]["zscore_threshold"])
+    pseudo_aqi_threshold = float(config["anomaly"].get("pseudo_aqi_threshold", 100))
+    pseudo_pm25_threshold = float(config["anomaly"].get("pseudo_pm25_threshold", 35))
 
     rolling_mean = df.groupby("site_name")["aqi"].transform(lambda s: s.shift(1).rolling(12, min_periods=4).mean())
     rolling_std = df.groupby("site_name")["aqi"].transform(lambda s: s.shift(1).rolling(12, min_periods=4).std())
-    pseudo_label = ((df["aqi"] > 100) | (df["pm25"] > 35) | (df["aqi"] > rolling_mean + threshold * rolling_std)).fillna(False)
+    pseudo_label = (
+        (df["aqi"] > pseudo_aqi_threshold)
+        | (df["pm25"] > pseudo_pm25_threshold)
+        | (df["aqi"] > rolling_mean + threshold * rolling_std)
+    ).fillna(False)
     df["pseudo_anomaly"] = pseudo_label.astype(int)
 
     timestamps = pd.Index(df["datetime"].drop_duplicates().sort_values())
@@ -81,6 +88,7 @@ def train_anomaly_model() -> dict[str, object]:
     zscore_metrics = _classification_metrics(
         df.loc[eval_mask, "pseudo_anomaly"].to_numpy(), df.loc[eval_mask, "zscore_anomaly"].to_numpy()
     )
+    events = build_anomaly_events(df, max_gap_hours=int(config["anomaly"].get("event_gap_hours", 1)))
     metrics = {
         "precision": isolation_metrics["precision"],
         "recall": isolation_metrics["recall"],
@@ -90,6 +98,7 @@ def train_anomaly_model() -> dict[str, object]:
         "zscore": zscore_metrics,
         "isolation_forest": isolation_metrics,
         "anomaly_count": int(df["is_anomaly"].sum()),
+        "event_count": int(len(events)),
         "model_comparison": {"zscore": zscore_metrics, "isolation_forest": isolation_metrics},
         "limitation_note": "Metrics are evaluated against pseudo-labels, not verified ground-truth pollution incident labels.",
     }
@@ -109,6 +118,8 @@ def train_anomaly_model() -> dict[str, object]:
     ]
     ensure_parent(resolve_path(config, "data.anomaly_file"))
     df[cols].to_csv(resolve_path(config, "data.anomaly_file"), index=False, encoding="utf-8")
+    ensure_parent(resolve_path(config, "data.events_file"))
+    events.to_csv(resolve_path(config, "data.events_file"), index=False, encoding="utf-8")
     save_model(resolve_path(config, "models.anomaly_detector"), model)
     write_json(resolve_path(config, "reports.metrics_dir") / "anomaly_metrics.json", metrics)
     return metrics

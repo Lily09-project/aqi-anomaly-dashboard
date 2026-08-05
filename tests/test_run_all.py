@@ -30,8 +30,11 @@ def test_run_all_sample_creates_required_outputs():
         resolve_path(config, "data.features_file"),
         resolve_path(config, "data.predictions_file"),
         resolve_path(config, "data.anomaly_file"),
+        resolve_path(config, "data.events_file"),
         resolve_path(config, "models.predictor"),
         resolve_path(config, "models.anomaly_detector"),
+        resolve_path(config, "reports.metrics_dir") / "backtest_metrics.json",
+        resolve_path(config, "reports.metrics_dir") / "data_health.json",
         resolve_path(config, "reports.metrics_dir") / "evaluation_summary.json",
     ]
     for path in required:

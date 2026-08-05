@@ -97,6 +97,20 @@ def test_risk_brief_handles_missing_optional_sources_and_keeps_disclaimer_fields
     assert brief["evidence_summary"].str.len().gt(0).all()
 
 
+def test_risk_brief_accepts_documented_policy_overrides():
+    current, history, predictions, anomalies = _risk_inputs()
+    default_score = build_station_risk_brief(current, history, predictions, anomalies).set_index("site_name").loc["A", "priority_score"]
+    policy_score = build_station_risk_brief(
+        current,
+        history,
+        predictions,
+        anomalies,
+        policy={"pm25_threshold": 100, "weights": {"anomaly_flag": 0, "anomaly_consensus": 0}},
+    ).set_index("site_name").loc["A", "priority_score"]
+
+    assert policy_score < default_score
+
+
 def test_anomaly_evidence_and_station_coordinates_are_human_readable():
     evidence = describe_anomaly_evidence(
         pd.Series({"pseudo_anomaly": 1, "zscore_anomaly": 1, "isolation_forest_anomaly": 1})

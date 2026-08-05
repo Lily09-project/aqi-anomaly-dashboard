@@ -6,9 +6,28 @@ from typing import Any
 import pandas as pd
 
 
-BASELINE_LOOKBACK_DAYS = 14
-RECENT_WINDOW_HOURS = 6
-MIN_BASELINE_OBSERVATIONS = 3
+DEFAULT_RISK_POLICY: dict[str, Any] = {
+    "lookback_days": 14,
+    "recent_window_hours": 6,
+    "min_baseline_observations": 3,
+    "aqi_attention_threshold": 50,
+    "aqi_high_threshold": 100,
+    "pm25_threshold": 35,
+    "baseline_zscore_watch": 1.0,
+    "baseline_zscore_high": 2.0,
+    "prediction_rise_threshold": 10,
+    "weights": {
+        "aqi_attention": 1,
+        "aqi_high": 2,
+        "pm25_high": 1,
+        "baseline_watch": 1,
+        "baseline_high": 2,
+        "prediction_high": 1,
+        "prediction_rise": 1,
+        "anomaly_flag": 3,
+        "anomaly_consensus": 1,
+    },
+}
 
 RISK_BRIEF_COLUMNS = [
     "site_name",
@@ -35,6 +54,19 @@ RISK_BRIEF_COLUMNS = [
 
 def _empty_risk_brief() -> pd.DataFrame:
     return pd.DataFrame(columns=RISK_BRIEF_COLUMNS)
+
+
+def resolve_risk_policy(policy: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Merge project policy overrides with explicit, documented defaults."""
+    resolved = {**DEFAULT_RISK_POLICY, "weights": dict(DEFAULT_RISK_POLICY["weights"])}
+    if not policy:
+        return resolved
+    for key, value in policy.items():
+        if key == "weights" and isinstance(value, dict):
+            resolved["weights"].update(value)
+        elif key in resolved:
+            resolved[key] = value
+    return resolved
 
 
 def _as_frame(data: pd.DataFrame | None) -> pd.DataFrame:
@@ -105,20 +137,29 @@ def _matching_row(data: pd.DataFrame, site_name: str, as_of: pd.Timestamp) -> pd
     return candidates.iloc[-1] if not candidates.empty else None
 
 
-def _same_hour_baseline(history: pd.DataFrame, as_of: pd.Timestamp) -> tuple[float | None, int, float | None]:
-    start = as_of - pd.Timedelta(days=BASELINE_LOOKBACK_DAYS)
+def _same_hour_baseline(
+    history: pd.DataFrame,
+    as_of: pd.Timestamp,
+    policy: dict[str, Any],
+) -> tuple[float | None, int, float | None]:
+    start = as_of - pd.Timedelta(days=int(policy["lookback_days"]))
     prior = history[(history["datetime"] < as_of) & (history["datetime"] >= start)].copy()
     same_hour = prior[prior["datetime"].dt.hour == as_of.hour]
     values = same_hour["aqi"].dropna()
-    if len(values) < MIN_BASELINE_OBSERVATIONS:
+    if len(values) < int(policy["min_baseline_observations"]):
         return None, int(len(values)), None
     baseline = float(values.median())
     std = float(values.std(ddof=0))
     return baseline, int(len(values)), std if std > 0 else None
 
 
-def _recent_change(history: pd.DataFrame, as_of: pd.Timestamp, latest_aqi: float) -> float | None:
-    start = as_of - pd.Timedelta(hours=RECENT_WINDOW_HOURS)
+def _recent_change(
+    history: pd.DataFrame,
+    as_of: pd.Timestamp,
+    latest_aqi: float,
+    policy: dict[str, Any],
+) -> float | None:
+    start = as_of - pd.Timedelta(hours=int(policy["recent_window_hours"]))
     recent = history[(history["datetime"] < as_of) & (history["datetime"] >= start)]["aqi"].dropna()
     if recent.empty:
         return None
@@ -139,28 +180,30 @@ def _priority_score(
     prediction_change: float | None,
     predicted_aqi: float | None,
     anomaly_row: pd.Series | None,
+    policy: dict[str, Any],
 ) -> int:
     score = 0
-    if latest_aqi > 100:
-        score += 2
-    elif latest_aqi > 50:
-        score += 1
-    if latest_pm25 is not None and latest_pm25 > 35:
-        score += 1
-    if baseline_zscore is not None and baseline_zscore >= 2:
-        score += 2
-    elif baseline_zscore is not None and baseline_zscore >= 1:
-        score += 1
-    if predicted_aqi is not None and predicted_aqi > 100:
-        score += 1
-    if prediction_change is not None and prediction_change >= 10:
-        score += 1
+    weights = policy["weights"]
+    if latest_aqi > float(policy["aqi_high_threshold"]):
+        score += int(weights["aqi_high"])
+    elif latest_aqi > float(policy["aqi_attention_threshold"]):
+        score += int(weights["aqi_attention"])
+    if latest_pm25 is not None and latest_pm25 > float(policy["pm25_threshold"]):
+        score += int(weights["pm25_high"])
+    if baseline_zscore is not None and baseline_zscore >= float(policy["baseline_zscore_high"]):
+        score += int(weights["baseline_high"])
+    elif baseline_zscore is not None and baseline_zscore >= float(policy["baseline_zscore_watch"]):
+        score += int(weights["baseline_watch"])
+    if predicted_aqi is not None and predicted_aqi > float(policy["aqi_high_threshold"]):
+        score += int(weights["prediction_high"])
+    if prediction_change is not None and prediction_change >= float(policy["prediction_rise_threshold"]):
+        score += int(weights["prediction_rise"])
     if anomaly_row is not None:
         if _numeric(anomaly_row.get("is_anomaly")) == 1:
-            score += 3
+            score += int(weights["anomaly_flag"])
         anomaly_score = _numeric(anomaly_row.get("anomaly_score"))
         if anomaly_score is not None and anomaly_score >= 2 / 3:
-            score += 1
+            score += int(weights["anomaly_consensus"])
     return score
 
 
@@ -171,6 +214,7 @@ def _evidence_summary(
     baseline_delta: float | None,
     prediction: float | None,
     anomaly_row: pd.Series | None,
+    policy: dict[str, Any],
 ) -> str:
     evidence: list[str] = []
     if baseline is not None and baseline_delta is not None:
@@ -178,8 +222,8 @@ def _evidence_summary(
         evidence.append(f"AQI {direction}該站同時段基準 {abs(baseline_delta):.1f}")
     else:
         evidence.append("同時段歷史基準資料不足")
-    if latest_pm25 is not None and latest_pm25 > 35:
-        evidence.append(f"PM2.5 {latest_pm25:.1f} 高於 35")
+    if latest_pm25 is not None and latest_pm25 > float(policy["pm25_threshold"]):
+        evidence.append(f"PM2.5 {latest_pm25:.1f} 高於 {float(policy['pm25_threshold']):.0f}")
     if prediction is not None:
         evidence.append(f"下一小時預測 {prediction:.1f}")
     if anomaly_row is not None:
@@ -192,6 +236,7 @@ def build_station_risk_brief(
     reference_features: pd.DataFrame | None = None,
     predictions: pd.DataFrame | None = None,
     anomalies: pd.DataFrame | None = None,
+    policy: dict[str, Any] | None = None,
 ) -> pd.DataFrame:
     """Rank stations using only observations before each station's latest timestamp.
 
@@ -199,6 +244,7 @@ def build_station_risk_brief(
     causal health-risk estimate. Historical baselines are station-specific and
     exclude the current observation and every future observation.
     """
+    resolved_policy = resolve_risk_policy(policy)
     current = _prepare_observations(scoped_features)
     history = _prepare_observations(reference_features if reference_features is not None else scoped_features)
     if current.empty or history.empty:
@@ -217,12 +263,12 @@ def build_station_risk_brief(
         latest_aqi = float(latest["aqi"])
         latest_pm25 = _numeric(latest.get("pm25"))
         station_history = history[history["site_name"].astype(str) == str(site_name)]
-        baseline, baseline_samples, baseline_std = _same_hour_baseline(station_history, as_of)
+        baseline, baseline_samples, baseline_std = _same_hour_baseline(station_history, as_of, resolved_policy)
         baseline_delta = None if baseline is None else latest_aqi - baseline
         baseline_zscore = None
         if baseline_delta is not None and baseline_std is not None:
             baseline_zscore = baseline_delta / baseline_std
-        recent_change = _recent_change(station_history, as_of, latest_aqi)
+        recent_change = _recent_change(station_history, as_of, latest_aqi, resolved_policy)
         predicted_aqi = _prediction_value(prediction_frame, str(site_name), as_of)
         prediction_change = None if predicted_aqi is None else predicted_aqi - latest_aqi
         anomaly_row = _matching_row(anomaly_frame, str(site_name), as_of)
@@ -233,6 +279,7 @@ def build_station_risk_brief(
             prediction_change,
             predicted_aqi,
             anomaly_row,
+            resolved_policy,
         )
         records.append(
             {
@@ -261,6 +308,7 @@ def build_station_risk_brief(
                     baseline_delta,
                     predicted_aqi,
                     anomaly_row,
+                    resolved_policy,
                 ),
             }
         )
