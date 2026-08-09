@@ -14,3 +14,9 @@ textColor = "#F8F6F6"
 
 [browser]
 gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"
+
+[server]
+headless = true

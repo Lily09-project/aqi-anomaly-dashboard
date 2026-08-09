@@ -107,7 +107,7 @@ AQI_LEVELS = [
     (50, "良好", THEME["secondary"]),
     (100, "普通", THEME["light_blue"]),
     (150, "對敏感族群不健康", THEME["warning"]),
-    (200, "不健康", THEME["accent"]),
+    (200, "對所有族群不健康", THEME["accent"]),
     (300, "非常不健康", THEME["text"]),
 ]
 

@@ -5,6 +5,12 @@ from typing import Any
 
 import pandas as pd
 
+from src.consumer_brief import (
+    aqi_guidance,
+    build_consumer_summary,
+    export_csv_bytes,
+    format_observation_status,
+)
 from src.app_helpers import (
     aqi_category,
     compute_kpis,
@@ -93,16 +99,6 @@ DISPLAY_COLUMN_MAP = {
     "zscore_anomaly": "Z-score 異常",
     "isolation_forest_anomaly": "Isolation Forest 異常",
     "timestamp": "時間",
-    "station_id": "站點編號",
-    "station_name": "站點名稱",
-    "district": "行政區",
-    "total_capacity": "總車位",
-    "available_bikes": "可借車輛",
-    "available_spaces": "可還空位",
-    "status": "站點狀態",
-    "occupancy_rate": "使用率",
-    "target_next_available_bikes": "下一時間點可借車輛",
-    "predicted_available_bikes": "預測可借車輛",
     "anomaly": "異常事件",
     "quality_flag": "資料品質標記",
     "hour": "小時",
@@ -778,9 +774,9 @@ def inject_global_css(theme: dict[str, str] | None = None) -> None:
         [data-testid="stVerticalBlock"] {{ gap: 1rem; }}
         .hero-band {{
             display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
-            align-items: end;
-            column-gap: 2rem;
+            grid-template-columns: minmax(0, 1fr);
+            align-items: start;
+            row-gap: 0.75rem;
             padding: 1rem 0 1.25rem;
             margin-bottom: 1.6rem;
         }}
@@ -791,11 +787,12 @@ def inject_global_css(theme: dict[str, str] | None = None) -> None:
         .hero-copy {{ min-width: 0; }}
         .hero-band p {{ max-width: 64ch; }}
         .hero-meta {{
-            align-self: end;
+            align-self: start;
             margin: 0;
             padding: 0;
             border-top: 0;
-            justify-content: end;
+            justify-content: start;
+            flex-wrap: wrap;
         }}
         .hero-meta-item {{
             min-height: 2.15rem;
@@ -892,6 +889,62 @@ def inject_global_css(theme: dict[str, str] | None = None) -> None:
         .signal-card.accent {{ border-top: 2px solid var(--accent); }}
         .signal-card.alert {{ border-top: 2px solid var(--danger); }}
         .signal-card.calm {{ border-top: 2px solid var(--secondary); }}
+        .guidance-panel {{
+            margin: 0 0 1.85rem;
+            padding: 1.05rem 1.15rem;
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--secondary);
+            border-radius: 8px;
+            background: var(--surface);
+            color: var(--text);
+        }}
+        .guidance-heading {{
+            display: flex;
+            align-items: start;
+            justify-content: space-between;
+            gap: 1rem;
+        }}
+        .guidance-kicker {{
+            color: var(--accent);
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+        }}
+        .guidance-heading h2 {{
+            margin: 0.22rem 0 0;
+            color: var(--text) !important;
+            font-size: 1.2rem !important;
+        }}
+        .guidance-time {{
+            display: grid;
+            gap: 0.15rem;
+            color: var(--muted-text);
+            font-size: 0.74rem;
+            text-align: right;
+        }}
+        .guidance-time strong {{ color: var(--text); font-size: 0.86rem; }}
+        .guidance-grid {{
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.85rem;
+            margin-top: 0.9rem;
+        }}
+        .guidance-grid > div {{
+            min-width: 0;
+            padding: 0.8rem 0.85rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--card);
+        }}
+        .guidance-grid span {{ color: var(--accent); font-size: 0.76rem; font-weight: 800; }}
+        .guidance-grid p {{ margin: 0.3rem 0 0; color: var(--text) !important; line-height: 1.55; }}
+        .guidance-disclaimer {{
+            margin: 0.75rem 0 0;
+            color: var(--muted-text) !important;
+            font-size: 0.76rem;
+            line-height: 1.5;
+        }}
+        .guidance-disclaimer a {{ color: var(--accent) !important; font-weight: 800; }}
         .priority-queue {{
             display: grid;
             gap: 0.55rem;
@@ -1070,10 +1123,18 @@ def inject_global_css(theme: dict[str, str] | None = None) -> None:
             .dashboard-table th, .dashboard-table td {{ padding: 0.58rem 0.55rem; }}
             .dashboard-footer {{ align-items: start; flex-direction: column; gap: 0.25rem; }}
             .dashboard-intro {{ align-items: start; flex-direction: column; gap: 0.25rem; }}
-            .signal-deck {{ grid-template-columns: 1fr; gap: 0.65rem; }}
+            [data-testid="stTabs"] [data-baseweb="tab-list"] {{ gap: 0.1rem; padding: 0.25rem; }}
+            [data-testid="stTabs"] button[data-baseweb="tab"] {{
+                min-height: 44px;
+                padding: 0.4rem 0.42rem;
+                font-size: 0.78rem;
+            }}            .signal-deck {{ grid-template-columns: 1fr; gap: 0.65rem; }}
             .signal-primary {{ grid-column: auto; padding: 1rem; }}
             .signal-value {{ font-size: 2.45rem; }}
             .signal-card {{ min-height: 94px; }}
+            .guidance-heading {{ display: grid; }}
+            .guidance-time {{ text-align: left; }}
+            .guidance-grid {{ grid-template-columns: 1fr; }}
             .priority-row {{ grid-template-columns: 1.75rem minmax(0, 1fr) auto; gap: 0.5rem; }}
             .priority-rank {{ width: 1.75rem; height: 1.75rem; }}
             .watch-grid {{ grid-template-columns: 1fr; }}
@@ -1160,6 +1221,39 @@ def signal_deck(
     )
 
 
+def activity_guidance_panel(latest_aqi: object, data_source: str, observed_at: object) -> None:
+    guidance = aqi_guidance(latest_aqi if observed_at is not None and not pd.isna(observed_at) else None)
+    status = format_observation_status(observed_at, data_source)
+    source_note = (
+        "Sample Data 僅供模擬，不是官方即時資訊。"
+        if data_source != "API Data"
+        else "資料時效取決於上游 API，重要決策請查閱官方資訊。"
+    )
+    st.markdown(
+        f"""
+        <section class="guidance-panel" aria-label="空氣品質活動建議">
+            <div class="guidance-heading">
+                <div>
+                    <span class="guidance-kicker">空氣品質活動建議</span>
+                    <h2>{escape(str(guidance['category']))}</h2>
+                </div>
+                <div class="guidance-time">
+                    <span>{escape(status['label'])}</span>
+                    <strong>{escape(status['value'])}</strong>
+                </div>
+            </div>
+            <div class="guidance-grid">
+                <div><span>一般民眾</span><p>{escape(str(guidance['general']))}</p></div>
+                <div><span>敏感族群</span><p>{escape(str(guidance['sensitive']))}</p></div>
+            </div>
+            <p class="guidance-disclaimer">依環境部 AQI 分級整理。{escape(source_note)}
+                <a href="https://airtw.moenv.gov.tw/CHT/Information/Standard/AirQualityIndicatorNew.aspx" target="_blank" rel="noopener noreferrer">查看環境部 AQI 說明</a>
+            </p>
+        </section>
+        """,
+        unsafe_allow_html=True,
+    )
+
 def section_header(kicker: str, title: str, context: str = "") -> None:
     context_html = f'<span class="section-context">{escape(context)}</span>' if context else ""
     st.markdown(
@@ -1204,7 +1298,7 @@ def _display_source(source: str) -> str:
 
 
 def _source_caption(source: str) -> str:
-    return "環保署 API 資料" if source == "API Data" else "Sample Data（模擬資料）"
+    return "環境部 API 資料" if source == "API Data" else "Sample Data（模擬資料）"
 
 
 def _rename_for_display(df: pd.DataFrame) -> pd.DataFrame:
@@ -1687,11 +1781,9 @@ def main() -> None:
     source_code = infer_data_source(config, features)
     data_source = _display_source(source_code)
     date_limits = _safe_date_range(features)
-    header_range = (
-        f"{date_limits[0]:%Y/%m/%d} - {date_limits[1]:%Y/%m/%d}"
-        if date_limits
-        else "尚未產生"
-    )
+
+    latest_global_time = features["datetime"].max() if not features.empty and "datetime" in features else None
+    global_observation_status = format_observation_status(latest_global_time, source_code)
 
     st.markdown(
         f"""
@@ -1707,7 +1799,7 @@ def main() -> None:
           <div class="hero-meta">
             <span class="hero-meta-item">預測週期 <strong>下一小時</strong></span>
             <span class="hero-meta-item">資料來源 <strong>{escape(_display_source(source_code))}</strong></span>
-            <span class="hero-meta-item">資料區間 <strong>{escape(header_range)}</strong></span>
+            <span class="hero-meta-item">最新資料時點 <strong>{escape(global_observation_status["value"])}</strong></span>
           </div>
         </div>
         """,
@@ -1817,6 +1909,44 @@ def main() -> None:
                 unsafe_allow_html=True,
             )
 
+    selection_label = selected_site_display
+    if selected_site_display == "全部測站" and selected_county != "全部縣市":
+        selection_label = selected_county
+    consumer_summary = build_consumer_summary(
+        filtered_features,
+        filtered_anomalies,
+        source_code,
+        selection_label,
+    )
+    latest_filtered_time = (
+        filtered_features["datetime"].max()
+        if not filtered_features.empty and "datetime" in filtered_features
+        else None
+    )
+    download_date = (
+        pd.to_datetime(latest_filtered_time).strftime("%Y%m%d")
+        if latest_filtered_time is not None and not pd.isna(latest_filtered_time)
+        else "no-data"
+    )
+    with st.sidebar:
+        with st.expander("下載", expanded=False):
+            st.download_button(
+                "下載目前篩選資料 (.csv)",
+                data=export_csv_bytes(filtered_features),
+                file_name=f"taiwan_aqi_{download_date}.csv",
+                mime="text/csv",
+                use_container_width=True,
+                disabled=filtered_features.empty,
+            )
+            st.download_button(
+                "下載監測摘要 (.txt)",
+                data=consumer_summary.encode("utf-8-sig"),
+                file_name=f"taiwan_aqi_summary_{download_date}.txt",
+                mime="text/plain",
+                use_container_width=True,
+                disabled=filtered_features.empty,
+            )
+            st.caption("匯出內容只包含目前篩選後的公開觀測欄位，不含模型內部特徵。")
     kpis = compute_kpis(filtered_features, filtered_anomalies)
     category, _category_color = aqi_category(float(kpis["latest_aqi"]))
     predictor_metrics = load_metrics(resolve_path(config, "reports.metrics_dir") / "predictor_metrics.json")
@@ -1846,6 +1976,7 @@ def main() -> None:
         unsafe_allow_html=True,
     )
     signal_deck(kpis["latest_aqi"], category, latest_note, signal_items)
+    activity_guidance_panel(kpis["latest_aqi"], source_code, latest_filtered_time)
 
     overview_tab, prediction_tab, anomaly_tab, quality_tab, metrics_tab = st.tabs(
         ["總覽", "預測", "異常偵測", "資料品質", "模型指標"]
@@ -1927,7 +2058,7 @@ def main() -> None:
 
     with prediction_tab:
         st.markdown(
-            '<div class="section-note">預測任務是 next-hour nowcasting：使用當下與過去資料預測同一測站下一小時 AQI，並用時間序列切分避免資料洩漏。</div>',
+            '<div class="section-note">根據目前及過去資料估計同一測站下一小時 AQI；模型不會使用預測時點之後的資料。</div>',
             unsafe_allow_html=True,
         )
         if filtered_predictions.empty:
@@ -1994,7 +2125,7 @@ def main() -> None:
             if confidence_table.empty or not confidence_columns.issubset(filtered_predictions.columns):
                 st.info("尚無預測可信度產物；請重新執行 sample pipeline 以建立經驗預測區間。")
             else:
-                section_header("可信度", "預測區間與跨級監測", "rolling-origin 殘差校準 · final test 僅用於覆蓋率報告")
+                section_header("可信度", "預測區間與跨級監測", "歷史預測誤差校準 · 顯示合理波動範圍")
                 intervals = confidence_metrics.get("intervals", {})
                 confidence_columns_ui = st.columns(4, gap="large")
                 coverage_80 = intervals.get("80", {}).get("empirical_coverage")
@@ -2071,7 +2202,7 @@ def main() -> None:
 
     with anomaly_tab:
         st.markdown(
-            '<div class="section-note">異常偵測使用 AQI、PM2.5 與移動統計建立 pseudo-label，再用 Z-score 與 Isolation Forest 找出值得人工檢視的可疑事件。每一筆事件會保留觸發證據，而不是只顯示黑盒分數。</div>',
+            '<div class="section-note">系統整合污染門檻與近期變化，標示值得人工確認的觀測。每筆事件都保留觸發依據，但不代表污染來源已被確認。</div>',
             unsafe_allow_html=True,
         )
         st.subheader("事件調查摘要")
@@ -2172,10 +2303,12 @@ def main() -> None:
                 fig = apply_plotly_theme(fig, theme)
                 _plot_chart(fig)
 
-        st.markdown(
-            '<div class="section-note">判讀依據：達到規則門檻代表 AQI > 100、PM2.5 > 35，或 AQI 高於該站 12 小時移動平均加上 2.5 個標準差；偏離近期分布來自 Z-score；多變量型態偏離來自 Isolation Forest。這些是 pseudo-label 訊號，正式應用仍需真實事件標註驗證。</div>',
-            unsafe_allow_html=True,
-        )
+        with st.expander("了解異常判讀方法", expanded=False):
+            st.markdown(
+                "達到規則門檻代表 AQI > 100、PM2.5 > 35，或 AQI 高於該站 12 小時移動平均加上 "
+                "2.5 個標準差；Z-score 用於判斷近期偏離，Isolation Forest 用於辨識多變量型態偏離。"
+            )
+            st.caption("目前以規則產生 pseudo-label，precision、recall 與 F1 不等同真實污染事件準確率；正式應用仍需人工事件標註。")
 
     with quality_tab:
         st.markdown(
