@@ -34,7 +34,7 @@ def test_app_imports_without_crashing_and_theme_exists():
     assert app.DISPLAY_COLUMN_MAP["site_name_display"] == "測站"
     assert app.DISPLAY_COLUMN_MAP["aqi"] == "AQI"
     assert app.DISPLAY_COLUMN_MAP["timestamp"] == "時間"
-    assert app.DISPLAY_COLUMN_MAP["station_name"] == "站點名稱"
+    assert "available_bikes" not in app.DISPLAY_COLUMN_MAP
 
     required = {
         "background",
@@ -82,6 +82,11 @@ def test_app_imports_without_crashing_and_theme_exists():
     assert "台灣測站分布" in app_source
     assert 'on_select="rerun"' in app_source
     assert "build_station_risk_brief" in app_source
+    assert "空氣品質活動建議" in app_source
+    assert "下載目前篩選資料" in app_source
+    assert "下載監測摘要" in app_source
+    assert "最新資料時點" in app_source
+    assert "根據目前及過去資料估計同一測站下一小時 AQI" in app_source
     assert "展示用途" not in app_source
     assert "background: transparent;" in app_source
     assert "box-shadow: none;" in app_source
@@ -94,6 +99,8 @@ def test_streamlit_theme_config_uses_explicit_valid_colors():
         assert f'{color_name} = "#' in config_source
 
     assert "[theme.sidebar]" in config_source
+    assert "[client]" in config_source
+    assert 'toolbarMode = "minimal"' in config_source
 
 
 def test_app_paths_and_missing_data_helpers_are_safe(tmp_path):

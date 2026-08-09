@@ -36,6 +36,16 @@ Dashboard 會標示預測區間是否跨過下一個 AQI 分級門檻，並明�
 
 Sample data 是模擬資料，只用於本地 Demo、測試與面試展示，不代表真實官方監測資料。預設會產生最近 30 天、8 個中文測站、每小時一筆資料，並模擬日夜週期、週末差異、測站差異、少量缺失值與污染異常事件。若要固定測試日期，可使用 `python src/generate_sample_data.py --start-date 2026-06-01 --days 30`。
 
+### 使用者資訊與資料責任
+
+Dashboard 會把資料來源與最新資料時點放在首屏。使用 Sample Data 時，介面會明確標示「模擬資料時點」與「不是官方即時資訊」，避免將本地 Demo 誤認為即時監測服務。
+
+- AQI 活動建議依[環境部 AQI 分級與活動建議](https://airtw.moenv.gov.tw/CHT/Information/Standard/AirQualityIndicatorNew.aspx)整理，分別呈現一般民眾與敏感族群資訊。
+- 重要健康、行程或防護決策仍應查閱環境部官方即時資訊；本專案不提供醫療診斷、官方警報或污染來源判定。
+- 使用者可下載目前篩選資料 CSV 與純文字監測摘要。CSV 採 UTF-8 BOM，能直接以中文版 Excel 開啟。
+- 匯出只包含公開觀測欄位，不包含訓練 target、lag、rolling window 或其他模型內部特徵。
+- Dashboard 與 sample pipeline 可完全在本機執行；Streamlit 使用統計已停用。只有 API mode 會連線至使用者設定的資料端點。
+
 ## 系統架構
 
 ```text
@@ -82,6 +92,7 @@ aqi-anomaly-dashboard/
 │   ├── train_anomaly_model.py
 │   ├── evaluate.py
 │   ├── app_helpers.py
+│   ├── consumer_brief.py
 │   ├── risk_brief.py
 │   ├── smoke_test.py
 │   ├── theme.py
@@ -170,10 +181,12 @@ python run_all.py --mode sample
 
 Dashboard 為繁體中文網站，包含：
 
-- 專案介紹與資料來源狀態
+- 專案介紹、資料來源狀態與最新資料時點
 - 側邊欄深色主題切換
 - 縣市、測站與日期區間篩選
 - KPI cards：最新 AQI、AQI 等級、平均 AQI、最新 PM2.5、異常事件數、資料筆數、測站數
+- 依環境部 AQI 分級整理的一般民眾與敏感族群活動建議
+- 目前篩選資料 CSV 與純文字監測摘要下載
 - 可點選的台灣測站地圖：標記大小代表目前 AQI，形狀與顏色共同標示關注程度，點選後同步套用測站篩選
 - 測站脈絡風險排序：比較本站近 14 天同時段基準、近 6 小時變化、下一小時預測與異常證據
 - AQI 趨勢圖
