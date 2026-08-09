@@ -21,6 +21,11 @@
 - 台灣測站地圖可直接點選站點，讓地理篩選同步更新趨勢、預測、異常與品質頁面。地圖只顯示目前資料中有可對照座標的測站，不宣稱覆蓋未收錄的地區。
 
 這個設計刻意避免以生成式文字包裝模型結論。每一項判讀都能回查到明確資料欄位與計算規則，適合在面試中討論產品取捨、資料限制與可驗證性。
+### 專案差異化：預測可信度與 AQI 跨級監測
+
+單一點預測容易讓使用者誤以為模型很確定，因此預測頁同時呈現 80% / 95% 經驗預測區間。區間寬度由 final test 之前的 rolling-origin out-of-fold 絕對殘差校準；每一個校準預測都只使用更早資料訓練，final test target 只用來報告 empirical coverage，不參與校準。
+
+Dashboard 會標示預測區間是否跨過下一個 AQI 分級門檻，並明確區分 80% 區間跨級與只有 95% 區間跨級。這是透明的人工關注提示，不宣稱超標機率、官方警報或健康風險。
 
 ## 使用資料來源
 
@@ -38,6 +43,7 @@ Sample data 是模擬資料，只用於本地 Demo、測試與面試展示，不
   -> preprocess 欄位標準化、缺失值處理與中文顯示欄位
   -> features 依測站建立 lag / rolling / target
   -> train_predictor 下一小時 AQI 預測
+  -> forecast_confidence rolling-origin conformal 區間與 AQI 跨級監測
   -> train_anomaly_model 污染異常偵測
   -> evaluate metrics 與 figures
   -> risk_brief 測站脈絡化優先排序與證據摘要
@@ -173,6 +179,7 @@ Dashboard 為繁體中文網站，包含：
 - AQI 趨勢圖
 - PM2.5 趨勢圖
 - 實際下一小時 AQI vs 預測下一小時 AQI
+- 80% / 95% 經驗預測區間、final-test coverage 與 AQI 跨級關注表
 - 預測誤差圖
 - 異常污染時間軸
 - 高風險異常事件表格
@@ -208,6 +215,13 @@ target_next_hour_aqi = groupby(site_name)["aqi"].shift(-1)
 - R2
 - baseline MAE / RMSE / R2
 
+### 預測可信度
+
+- 使用 rolling-origin out-of-fold 絕對殘差校準 model-agnostic conformal interval。
+- 輸出 80% / 95% 區間下界與上界，AQI 下界裁切為 0。
+- 在 final test 報告 empirical coverage 與平均區間寬度，但不以 final test 調整 quantile。
+- 跨級監測只說明區間是否跨過 50、100、150、200、300 門檻，不轉換為未經校準的機率。
+
 ### 污染異常偵測
 
 異常偵測使用 pseudo-label，規則如下：
@@ -242,6 +256,7 @@ target_next_hour_aqi = groupby(site_name)["aqi"].shift(-1)
 - `county_display` 與 `site_name_display` 只作為顯示欄位，不放進模型 feature columns。
 - train/test 使用完整 timestamp 邊界切分，同一時刻的不同測站不會分散在兩側，也不使用 random split。
 - 使用當下 AQI 預測下一小時 AQI 是 nowcasting 設定，Dashboard 與 README 均明確說明。
+- 預測區間只用 final test 之前的 rolling-origin 殘差校準；final test target 只計算 coverage。
 
 ## 評估輸出
 
@@ -263,6 +278,7 @@ reports/metrics/
 ├── predictor_metrics.json
 ├── anomaly_metrics.json
 ├── backtest_metrics.json
+├── forecast_confidence.json
 ├── data_health.json
 └── evaluation_summary.json
 
@@ -311,7 +327,8 @@ Dashboard 預設使用深色主題，使用者可以在側邊欄「選擇深色�
 - 午夜藍：`midnight_blue`
 - 深海綠：`deep_teal`
 - 炭黑橘：`charcoal_orange`
-- 深藍金：`navy_gold`
+- 深藍金：
+avy_gold`
 - 石板紫：`slate_purple`
 
 每個主題都包含 `background`、`surface`、`card`、`sidebar`、`primary`、`secondary`、`accent`、`danger`、`success`、`warning`、`text`、`muted_text`、`border`、`table_header`、`chart_grid`。Dashboard 的 Sidebar、KPI cards、section notes、Plotly 圖表、hover tooltip、表格與提示訊息都會依目前主題同步套用。
@@ -345,6 +362,7 @@ Dashboard 預設使用深色主題，使用者可以在側邊欄「選擇深色�
 - 本專案是本地端技術展示，不是正式環境監測系統。
 - API schema 可能因來源不同而變動，需要維護 alias mapping。
 - 模型以傳統機器學習與 baseline 為主，不使用 GPU 或大型深度學習模型。
+- 預測區間是 sample / 歷史誤差下的 empirical coverage，不是對未來資料的保證機率；資料分布改變時需要重新校準。
 - 測站脈絡排序是透明的人工檢視輔助，不應取代環境部正式 AQI 資訊、污染源調查或健康建議。
 - 地圖座標內建涵蓋 sample data 測站，其他 API 測站會使用可用的縣市中心點；正式部署應改用官方測站經緯度資料。
 
@@ -353,6 +371,7 @@ Dashboard 預設使用深色主題，使用者可以在側邊欄「選擇深色�
 預測流程採三段式時間序列切分：早期資料用於訓練，中段資料只用於模型選擇，最後一段資料只用於最終報告。候選模型依 validation RMSE 選擇後，才以 train + validation 重新訓練並在 final test 產生 `MAE`、`RMSE`、`R2`。這避免了用最終測試資料挑選模型的選擇偏差。
 
 此外，`backtest_metrics.json` 會使用 rolling-origin backtest：每一個時間窗皆只用先前資料訓練、用後續資料評估。Dashboard 的「預測」與「模型指標」分頁會顯示其平均表現，讓 Demo 不只呈現單一切分的分數。
+`forecast_confidence.json` 使用相同的時間順序產生所選模型的 out-of-fold 殘差，再以有限樣本 conformal quantile 建立 80% / 95% 區間。它同時保存校準期間、final-test 期間、校準筆數、coverage 與平均寬度，讓面試時可直接說明「模型有多準」和「模型有多確定」是兩個不同問題。
 
 異常觀測會輸出為 `aqi_anomaly_events.csv`。同一測站、在設定允許間隔內連續發生的異常會合併成一個事件，保留起迄時間、持續小時數、峰值 AQI / PM2.5、最大異常分數與觸發證據；不同測站永遠不會合併。這讓使用者能從「點狀異常」切換為可調查的事件單位。
 
@@ -391,11 +410,12 @@ GitHub Actions 的 `Quality Gate` 會在 `main` 的 push / pull request 上重�
 - Built an end-to-end local AQI forecasting and anomaly detection project with API/sample-data fallback, preprocessing, leakage-aware station-level time-series features, model training, evaluation, and a Traditional Chinese Streamlit dashboard.
 - Implemented next-hour AQI nowcasting with Moving Average, Linear Regression, and Random Forest, plus pseudo-label anomaly detection with Z-score and Isolation Forest.
 - Added a station-context decision layer that ranks inspection priority from station-specific historical baselines, recent movement, forecast and explicit anomaly evidence instead of opaque alert copy.
+- Calibrated 80% / 95% model-agnostic forecast intervals from leakage-safe rolling-origin residuals and translated interval threshold crossings into transparent AQI review cues.
 - Added reproducible local execution through `run_all.py`, `src/smoke_test.py`, pytest coverage, and Windows `run_project.bat`.
 
 ## 面試 1 分鐘介紹稿
 
-這個專案是一個台灣 AQI 預測與污染異常偵測 Dashboard。我先把資料流程拆成 API 或 sample data fallback、前處理、時間序列特徵工程、下一小時 AQI 預測、異常偵測、模型評估與 Streamlit 前端。模型任務是 next-hour nowcasting，也就是使用當下與過去資料預測同測站下一小時 AQI。為了避免資料洩漏，我用 `site_name` 分組計算 lag 與 rolling features，target 則用同測站 `shift(-1)`，train/test 採時間序列切分。和一般模型展示不同的是，我在總覽增加一個測站脈絡判讀層：以該站近 14 天同時段基準、近 6 小時變化、下一小時預測和三類異常訊號，透明地排序人工應先檢視的站點，並在地圖上直接選站。這個排序不宣稱是官方警報，而是讓每個結論都有資料證據可回查。即使沒有 API，也能透過 sample mode 和 `run_project.bat` 在本地端完整重現 Demo。
+這個專案是一個台灣 AQI 預測與污染異常偵測 Dashboard。我先把資料流程拆成 API 或 sample data fallback、前處理、時間序列特徵工程、下一小時 AQI 預測、異常偵測、模型評估與 Streamlit 前端。模型任務是 next-hour nowcasting，也就是使用當下與過去資料預測同測站下一小時 AQI。為了避免資料洩漏，我用 `site_name` 分組計算 lag 與 rolling features，target 則用同測站 `shift(-1)`，train/test 採時間序列切分。和一般模型展示不同的是，我在總覽增加一個測站脈絡判讀層：以該站近 14 天同時段基準、近 6 小時變化、下一小時預測和三類異常訊號，透明地排序人工應先檢視的站點，並在地圖上直接選站。這個排序不宣稱是官方警報，而是讓每個結論都有資料證據可回查。預測頁也不是只給點估計，而是用 final test 之前的 rolling-origin 殘差校準 80% / 95% 區間，顯示 coverage、區間寬度與是否跨過下一個 AQI 門檻。即使沒有 API，也能透過 sample mode 和 `run_project.bat` 在本地端完整重現 Demo。
 
 ## Security
 

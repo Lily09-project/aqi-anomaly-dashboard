@@ -20,6 +20,7 @@ models:
 reports:
   metrics_dir: reports/metrics
   figures_dir: reports/figures
+  confidence_file: reports/metrics/forecast_confidence.json
 selected_sites:
   - 松山測站
   - 西屯測站
@@ -50,6 +51,11 @@ train:
     - pm25_rolling_3h
     - aqi_diff
     - pm25_diff
+forecast_confidence:
+  levels:
+    - 0.8
+    - 0.95
+  aqi_thresholds: [50, 100, 150, 200, 300]
 anomaly:
   contamination: 0.05
   zscore_threshold: 2.5

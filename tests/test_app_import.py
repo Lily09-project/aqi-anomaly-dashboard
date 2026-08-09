@@ -123,3 +123,97 @@ def test_date_filter_does_not_include_next_day_midnight():
     )
 
     assert filtered["datetime"].tolist() == [pd.Timestamp("2026-06-01 23:00")]
+
+
+def test_backtest_metrics_are_flattened_before_rendering():
+    app = importlib.import_module("app")
+    metrics = {
+        "fold_count": 2,
+        "aggregate": {
+            "moving_average": {"mae": 6.5, "rmse": 8.4, "r2": 0.75},
+            "random_forest": {"mae": 5.0, "rmse": 6.7, "r2": 0.84},
+        },
+    }
+
+    table = app._backtest_aggregate_table(metrics)
+
+    assert list(table.columns) == ["模型", "MAE", "RMSE", "R2"]
+    assert table["模型"].tolist() == ["Moving Average 基準模型", "Random Forest"]
+    assert not any(isinstance(value, dict) for value in table.to_numpy().ravel())
+
+
+def test_confidence_metrics_are_flattened_for_dashboard():
+    app = importlib.import_module("app")
+    metrics = {
+        "calibration_rows": 120,
+        "intervals": {
+            "80": {"residual_quantile": 8.5, "empirical_coverage": 0.82, "mean_width": 17.0},
+            "95": {"residual_quantile": 13.0, "empirical_coverage": 0.96, "mean_width": 26.0},
+        },
+    }
+
+    table = app._confidence_summary_table(metrics)
+
+    assert list(table.columns) == ["預測區間", "校準誤差分位數", "最終測試覆蓋率", "平均區間寬度"]
+    assert table["預測區間"].tolist() == ["80%", "95%"]
+    assert table["最終測試覆蓋率"].tolist() == ["82.0%", "96.0%"]
+
+
+def test_threshold_watch_table_prioritizes_actionable_crossings():
+    app = importlib.import_module("app")
+    predictions = pd.DataFrame(
+        {
+            "datetime": pd.to_datetime(["2026-08-01 01:00", "2026-08-01 02:00", "2026-08-01 03:00"]),
+            "site_name_display": ["松山測站", "西屯測站", "前金測站"],
+            "predicted_next_hour_aqi": [48.0, 95.0, 40.0],
+            "upper_80_aqi": [52.0, 99.0, 45.0],
+            "upper_95_aqi": [55.0, 105.0, 48.0],
+            "threshold_watch_level": ["跨級關注", "不確定性關注", "區間穩定"],
+            "threshold_watch_reason": ["80% 跨過 50", "95% 跨過 100", "未跨級"],
+        }
+    )
+
+    table = app._threshold_watch_table(predictions)
+
+    assert table["關注層級"].tolist() == ["跨級關注", "不確定性關注"]
+    assert table["測站"].tolist() == ["松山測站", "西屯測站"]
+    assert "區間穩定" not in set(table["關注層級"])
+
+def test_confidence_table_css_can_be_injected(monkeypatch):
+    app = importlib.import_module("app")
+
+    class FakeStreamlit:
+        rendered = ""
+
+        def markdown(self, value, unsafe_allow_html=False):
+            self.rendered = value
+
+    fake_streamlit = FakeStreamlit()
+    monkeypatch.setattr(app, "st", fake_streamlit)
+
+    app.inject_global_css(app.THEME)
+
+    assert ".confidence-watch-table" in fake_streamlit.rendered
+    assert "min-width: 6.5rem" in fake_streamlit.rendered
+
+def test_threshold_watch_cards_keep_context_without_raw_table_markup():
+    app = importlib.import_module("app")
+    table = pd.DataFrame(
+        {
+            "時間": [pd.Timestamp("2026-08-01 01:00")],
+            "測站": ["松山測站"],
+            "預測 AQI": [48.2],
+            "80% 上界": [52.0],
+            "95% 上界": [55.0],
+            "關注層級": ["跨級關注"],
+            "判讀依據": ["80% 預測區間上界跨過 AQI 50"],
+        }
+    )
+
+    html = app._threshold_watch_cards_html(table)
+
+    assert "松山測站" in html
+    assert "08/01 01:00" in html
+    assert "48.2" in html
+    assert "80% 預測區間上界跨過 AQI 50" in html
+    assert "<table" not in html

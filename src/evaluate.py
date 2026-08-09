@@ -213,6 +213,8 @@ def evaluate() -> dict[str, object]:
     predictor_metrics = json.loads(predictor_metrics_path.read_text(encoding="utf-8")) if predictor_metrics_path.exists() else {}
     anomaly_metrics = json.loads(anomaly_metrics_path.read_text(encoding="utf-8")) if anomaly_metrics_path.exists() else {}
     backtest_metrics = json.loads(backtest_metrics_path.read_text(encoding="utf-8")) if backtest_metrics_path.exists() else {}
+    confidence_path = resolve_path(config, "reports.confidence_file")
+    confidence_metrics = json.loads(confidence_path.read_text(encoding="utf-8")) if confidence_path.exists() else {}
     data_health = build_data_health(features)
 
     summary = {
@@ -230,11 +232,13 @@ def evaluate() -> dict[str, object]:
         "predictor_metrics": predictor_metrics,
         "anomaly_metrics": anomaly_metrics,
         "backtest_metrics": backtest_metrics,
+        "forecast_confidence": confidence_metrics,
         "data_health": data_health,
         "interpretation": [
             "Moving Average 作為下一小時 AQI 預測 baseline。",
             "預測模型僅以 validation split 選擇，final test 僅用於最終報告；rolling-origin backtest 用於檢查多個歷史時間窗。",
             "異常偵測使用 pseudo-label 評估，正式應用前應以真實污染事件標註驗證。",
+            "預測區間由 final test 之前的 rolling-origin 殘差校準；final test 只用於報告 empirical coverage。",
             "本專案是本地端技術展示，不是正式環境監測系統。",
         ],
     }

@@ -73,7 +73,7 @@ def run_smoke_test() -> None:
         if key == "reports.metrics_dir":
             summary = resolve_path(config, key) / "evaluation_summary.json"
             assert summary.exists() and summary.stat().st_size > 0, f"Missing summary: {summary}"
-            for report_name in ["backtest_metrics.json", "data_health.json"]:
+            for report_name in ["backtest_metrics.json", "data_health.json", "forecast_confidence.json"]:
                 report = resolve_path(config, key) / report_name
                 assert report.exists() and report.stat().st_size > 0, f"Missing report: {report}"
         else:
@@ -90,6 +90,8 @@ def run_smoke_test() -> None:
     anomalies = pd.read_csv(resolve_path(config, "data.anomaly_file"))
     events = pd.read_csv(resolve_path(config, "data.events_file"))
     assert {"county_display", "site_name_display"}.issubset(predictions.columns), "Predictions missing display columns"
+    confidence_columns = {"lower_80_aqi", "upper_80_aqi", "lower_95_aqi", "upper_95_aqi", "threshold_watch_level"}
+    assert confidence_columns.issubset(predictions.columns), "Predictions missing confidence columns"
     assert {"county_display", "site_name_display"}.issubset(anomalies.columns), "Anomaly results missing display columns"
     assert {"event_id", "duration_hours", "peak_aqi", "evidence_summary"}.issubset(events.columns), "Events missing investigation columns"
     assert "Taipei" not in set(features["site_name_display"].astype(str)), "English site name leaked to display column"
@@ -110,6 +112,7 @@ def run_smoke_test() -> None:
     summary_path = resolve_path(config, "reports.metrics_dir") / "evaluation_summary.json"
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     assert "data_health" in summary and "backtest_metrics" in summary, "Evaluation summary missing reliability reports"
+    assert summary.get("forecast_confidence", {}).get("method") == "rolling_origin_conformal", "Evaluation summary missing forecast confidence"
     load_model(resolve_path(config, "models.predictor"))
     load_model(resolve_path(config, "models.anomaly_detector"))
 
