@@ -60,6 +60,7 @@ def _output_summary() -> list[Path]:
         resolve_path(config, "reports.metrics_dir") / "predictor_metrics.json",
         resolve_path(config, "reports.metrics_dir") / "anomaly_metrics.json",
         resolve_path(config, "reports.metrics_dir") / "backtest_metrics.json",
+        resolve_path(config, "reports.confidence_file"),
         resolve_path(config, "reports.metrics_dir") / "data_health.json",
         resolve_path(config, "reports.metrics_dir") / "evaluation_summary.json",
         resolve_path(config, "reports.figures_dir") / "aqi_trend.png",

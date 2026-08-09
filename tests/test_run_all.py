@@ -34,9 +34,11 @@ def test_run_all_sample_creates_required_outputs():
         resolve_path(config, "models.predictor"),
         resolve_path(config, "models.anomaly_detector"),
         resolve_path(config, "reports.metrics_dir") / "backtest_metrics.json",
+        resolve_path(config, "reports.confidence_file"),
         resolve_path(config, "reports.metrics_dir") / "data_health.json",
         resolve_path(config, "reports.metrics_dir") / "evaluation_summary.json",
     ]
+    assert resolve_path(config, "reports.confidence_file") in outputs
     for path in required:
         assert path.exists()
         assert path.stat().st_size > 0

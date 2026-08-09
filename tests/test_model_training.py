@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 import time
 from pathlib import Path
@@ -48,6 +49,22 @@ def test_models_train_save_load_and_predict_quickly():
     assert anomaly_metrics["event_count"] >= 0
     assert resolve_path(config, "data.events_file").exists()
     assert (resolve_path(config, "reports.metrics_dir") / "backtest_metrics.json").exists()
+    confidence_path = resolve_path(config, "reports.metrics_dir") / "forecast_confidence.json"
+    assert confidence_path.exists()
+    confidence = json.loads(confidence_path.read_text(encoding="utf-8"))
+    assert confidence["calibration_rows"] > 0
+    assert confidence["calibration_period"]["end"] < confidence["final_test_period"]["start"]
+    assert confidence["intervals"]["95"]["residual_quantile"] >= confidence["intervals"]["80"]["residual_quantile"]
+    assert {
+        "lower_80_aqi",
+        "upper_80_aqi",
+        "lower_95_aqi",
+        "upper_95_aqi",
+        "threshold_watch_level",
+        "threshold_watch_reason",
+    }.issubset(predictions.columns)
+    assert (predictions["lower_95_aqi"] <= predictions["lower_80_aqi"]).all()
+    assert (predictions["upper_95_aqi"] >= predictions["upper_80_aqi"]).all()
 
     predictor = load_model(predictor_path)
     anomaly = load_model(anomaly_path)

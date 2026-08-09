@@ -16,7 +16,15 @@ from src.app_helpers import (
     load_metrics,
 )
 from src.risk_brief import build_station_risk_brief, describe_anomaly_evidence, select_risk_brief_columns
-from src.theme import DEFAULT_THEME_NAME, THEME, THEME_OPTIONS, chart_color_sequence, get_theme, validate_theme_contrast
+from src.theme import (
+    DEFAULT_THEME_NAME,
+    THEME,
+    THEME_OPTIONS,
+    chart_color_sequence,
+    get_theme,
+    hex_to_rgb,
+    validate_theme_contrast,
+)
 from src.utils import load_config, resolve_path
 
 
@@ -57,6 +65,12 @@ DISPLAY_COLUMN_MAP = {
     "pred_linear_regression": "Linear Regression 預測",
     "pred_random_forest": "Random Forest 預測",
     "prediction_error": "預測誤差",
+    "lower_80_aqi": "80% 區間下界",
+    "upper_80_aqi": "80% 區間上界",
+    "lower_95_aqi": "95% 區間下界",
+    "upper_95_aqi": "95% 區間上界",
+    "threshold_watch_level": "關注層級",
+    "threshold_watch_reason": "判讀依據",
     "absolute_error": "絕對誤差",
     "is_anomaly": "是否異常",
     "anomaly_score": "異常分數",
@@ -612,7 +626,46 @@ def inject_global_css(theme: dict[str, str] | None = None) -> None:
             padding: 0.25rem;
             overflow: hidden;
         }}
-        .map-selection-note {{
+        .watch-grid {{
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.75rem;
+            margin: 0.55rem 0 1rem;
+        }}
+        .watch-card {{
+            min-width: 0;
+            padding: 0.9rem 0.95rem;
+            border: 1px solid var(--border);
+            border-top: 2px solid var(--warning);
+            border-radius: 8px;
+            background: var(--card);
+        }}
+        .watch-card.critical {{ border-top-color: var(--danger); }}
+        .watch-card-head {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.65rem;
+            color: var(--text);
+            font-size: 0.9rem;
+            font-weight: 800;
+        }}
+        .watch-level {{
+            flex: 0 0 auto;
+            padding: 0.2rem 0.42rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--accent);
+            background: var(--surface);
+            font-size: 0.74rem;
+        }}
+        .watch-card-main {{ display: flex; align-items: baseline; gap: 0.55rem; margin-top: 0.75rem; }}
+        .watch-card-main strong {{ color: var(--text); font-size: 1.65rem; line-height: 1; }}
+        .watch-card-main span, .watch-card p, .watch-bounds {{ color: var(--muted-text); }}
+        .watch-card-main span {{ font-size: 0.76rem; }}
+        .watch-card p {{ margin: 0.65rem 0; font-size: 0.82rem; line-height: 1.5; }}
+        .watch-bounds {{ display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; font-size: 0.76rem; }}
+        .watch-bounds strong {{ color: var(--text); font-variant-numeric: tabular-nums; }}        .map-selection-note {{
             margin: 0.4rem 0 0.9rem;
             color: var(--muted-text) !important;
             font-size: 0.82rem;
@@ -679,6 +732,22 @@ def inject_global_css(theme: dict[str, str] | None = None) -> None:
             transition: background-color 160ms ease;
         }}
         .dashboard-table tbody tr:hover td {{ background: var(--surface); }}
+        .anomaly-case-table th:nth-child(1), .anomaly-case-table td:nth-child(1) {{ min-width: 4.8rem; }}
+        .anomaly-case-table th:nth-child(2), .anomaly-case-table td:nth-child(2) {{
+            min-width: 2.8rem;
+            white-space: nowrap;
+        }}
+        .confidence-watch-table th:nth-child(6), .confidence-watch-table td:nth-child(6) {{
+            min-width: 6.5rem;
+            white-space: nowrap;
+            font-weight: 800;
+            color: var(--accent);
+        }}
+        .anomaly-case-table th:nth-child(3), .anomaly-case-table td:nth-child(3),
+        .anomaly-case-table th:nth-child(4), .anomaly-case-table td:nth-child(4) {{
+            min-width: 3.4rem;
+            white-space: nowrap;
+        }}
         .sidebar-summary {{ margin: 0; }}
         .sidebar-summary div {{
             display: flex;
@@ -699,11 +768,272 @@ def inject_global_css(theme: dict[str, str] | None = None) -> None:
             color: var(--muted-text);
             font-size: 0.75rem;
         }}
+        .stApp, .stApp button, .stApp input, .stApp textarea, .stApp select {{
+            font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+        }}
+        .block-container {{
+            max-width: 1480px;
+            padding-top: 1.6rem;
+        }}
+        [data-testid="stVerticalBlock"] {{ gap: 1rem; }}
+        .hero-band {{
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: end;
+            column-gap: 2rem;
+            padding: 1rem 0 1.25rem;
+            margin-bottom: 1.6rem;
+        }}
+        .hero-band h1 {{
+            font-size: 2.15rem !important;
+            letter-spacing: 0 !important;
+        }}
+        .hero-copy {{ min-width: 0; }}
+        .hero-band p {{ max-width: 64ch; }}
+        .hero-meta {{
+            align-self: end;
+            margin: 0;
+            padding: 0;
+            border-top: 0;
+            justify-content: end;
+        }}
+        .hero-meta-item {{
+            min-height: 2.15rem;
+            padding: 0.25rem 0.75rem;
+        }}
+        .dashboard-intro {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin: 0 0 1.15rem;
+            padding: 0.7rem 0.85rem;
+            color: var(--muted-text);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            font-size: 0.86rem;
+            line-height: 1.55;
+        }}
+        .dashboard-intro strong {{ color: var(--text); }}
+        .signal-deck {{
+            display: grid;
+            grid-template-columns: minmax(230px, 1.25fr) repeat(3, minmax(150px, 1fr));
+            gap: 0.75rem;
+            margin: 0.45rem 0 1.85rem;
+        }}
+        .signal-primary, .signal-card {{
+            min-width: 0;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--card);
+        }}
+        .signal-primary {{
+            grid-row: span 2;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 1.15rem 1.2rem 1.05rem;
+            border-left: 4px solid var(--accent);
+        }}
+        .signal-label {{
+            color: var(--muted-text);
+            font-size: 0.76rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+        }}
+        .signal-value {{
+            display: block;
+            margin-top: 0.55rem;
+            color: var(--text);
+            font-size: 2.8rem;
+            font-weight: 800;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+        }}
+        .signal-context {{
+            margin-top: 0.55rem;
+            color: var(--muted-text);
+            font-size: 0.84rem;
+            line-height: 1.45;
+        }}
+        .signal-level {{
+            display: inline-flex;
+            width: fit-content;
+            margin-top: 1.05rem;
+            padding: 0.28rem 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--surface);
+            color: var(--text);
+            font-size: 0.82rem;
+            font-weight: 800;
+        }}
+        .signal-card {{
+            display: flex;
+            min-height: 106px;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 0.9rem 0.95rem;
+            transition: border-color 180ms ease, background-color 180ms ease;
+        }}
+        .signal-card:hover {{
+            background: var(--surface);
+            border-color: var(--secondary);
+        }}
+        .signal-card .signal-value {{
+            margin: 0.35rem 0 0;
+            font-size: 1.5rem;
+            line-height: 1.15;
+        }}
+        .signal-card .signal-context {{
+            margin-top: 0.4rem;
+            font-size: 0.75rem;
+        }}
+        .signal-card.accent {{ border-top: 2px solid var(--accent); }}
+        .signal-card.alert {{ border-top: 2px solid var(--danger); }}
+        .signal-card.calm {{ border-top: 2px solid var(--secondary); }}
+        .priority-queue {{
+            display: grid;
+            gap: 0.55rem;
+            margin-top: 0.55rem;
+        }}
+        .priority-row {{
+            display: grid;
+            grid-template-columns: 1.85rem minmax(0, 1fr) auto;
+            align-items: start;
+            gap: 0.65rem;
+            padding: 0.76rem 0;
+            border-bottom: 1px solid var(--border);
+        }}
+        .priority-row:first-child {{ padding-top: 0.25rem; }}
+        .priority-row:last-child {{ border-bottom: 0; }}
+        .priority-rank {{
+            display: grid;
+            place-items: center;
+            width: 1.85rem;
+            height: 1.85rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--accent);
+            background: var(--surface);
+            font-size: 0.78rem;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+        }}
+        .priority-place {{
+            min-width: 0;
+            color: var(--text);
+            font-size: 0.95rem;
+            font-weight: 800;
+            line-height: 1.35;
+        }}
+        .priority-evidence {{
+            display: block;
+            margin-top: 0.22rem;
+            color: var(--muted-text);
+            font-size: 0.77rem;
+            line-height: 1.45;
+        }}
+        .priority-aqi {{
+            color: var(--text);
+            font-size: 1rem;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            text-align: right;
+            white-space: nowrap;
+        }}
+        .priority-aqi span {{
+            display: block;
+            margin-top: 0.12rem;
+            color: var(--muted-text);
+            font-size: 0.68rem;
+            font-weight: 700;
+        }}
+        .queue-empty {{
+            margin: 0.75rem 0 0;
+            color: var(--muted-text);
+            font-size: 0.88rem;
+        }}
+        .watch-grid {{
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.75rem;
+            margin: 0.55rem 0 1rem;
+        }}
+        .watch-card {{
+            min-width: 0;
+            padding: 0.9rem 0.95rem;
+            border: 1px solid var(--border);
+            border-top: 2px solid var(--warning);
+            border-radius: 8px;
+            background: var(--card);
+        }}
+        .watch-card.critical {{ border-top-color: var(--danger); }}
+        .watch-card-head {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.65rem;
+            color: var(--text);
+            font-size: 0.9rem;
+            font-weight: 800;
+        }}
+        .watch-level {{
+            flex: 0 0 auto;
+            padding: 0.2rem 0.42rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--accent);
+            background: var(--surface);
+            font-size: 0.74rem;
+        }}
+        .watch-card-main {{ display: flex; align-items: baseline; gap: 0.55rem; margin-top: 0.75rem; }}
+        .watch-card-main strong {{ color: var(--text); font-size: 1.65rem; line-height: 1; }}
+        .watch-card-main span, .watch-card p, .watch-bounds {{ color: var(--muted-text); }}
+        .watch-card-main span {{ font-size: 0.76rem; }}
+        .watch-card p {{ margin: 0.65rem 0; font-size: 0.82rem; line-height: 1.5; }}
+        .watch-bounds {{ display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; font-size: 0.76rem; }}
+        .watch-bounds strong {{ color: var(--text); font-variant-numeric: tabular-nums; }}        .map-selection-note {{
+            display: flex;
+            align-items: center;
+            min-height: 2rem;
+            margin: 0.2rem 0 0;
+            padding: 0.25rem 0;
+            border-top: 1px solid var(--border);
+        }}
+        .section-divider {{
+            height: 1px;
+            margin: 1.8rem 0;
+            background: var(--border);
+        }}
+        [data-testid="stPlotlyChart"] {{
+            border-radius: 8px;
+            padding: 0.45rem;
+        }}
+        .table-shell {{
+            margin: 0.5rem 0 1.15rem;
+            border-radius: 6px;
+        }}
+        .dashboard-table th {{
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            padding: 0.68rem 0.72rem;
+            font-size: 0.78rem;
+        }}
+        .dashboard-table td {{
+            padding: 0.7rem 0.72rem;
+            vertical-align: top;
+        }}
         @media (max-width: 900px) {{
             .block-container {{ padding: 1.5rem 1.35rem 3rem; }}
             h1 {{ font-size: 2rem !important; }}
             .section-header {{ align-items: start; flex-direction: column; gap: 0.25rem; }}
             .section-context {{ text-align: left; }}
+            .hero-band {{ grid-template-columns: 1fr; gap: 0.9rem; }}
+            .hero-meta {{ justify-content: start; }}
+            .signal-deck {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+            .signal-primary {{ grid-row: auto; grid-column: span 2; }}
         }}
         @media (max-width: 640px) {{
             .block-container {{ padding: 3.75rem 0.9rem 2.5rem; }}
@@ -739,6 +1069,15 @@ def inject_global_css(theme: dict[str, str] | None = None) -> None:
             .dashboard-table {{ font-size: 0.84rem; }}
             .dashboard-table th, .dashboard-table td {{ padding: 0.58rem 0.55rem; }}
             .dashboard-footer {{ align-items: start; flex-direction: column; gap: 0.25rem; }}
+            .dashboard-intro {{ align-items: start; flex-direction: column; gap: 0.25rem; }}
+            .signal-deck {{ grid-template-columns: 1fr; gap: 0.65rem; }}
+            .signal-primary {{ grid-column: auto; padding: 1rem; }}
+            .signal-value {{ font-size: 2.45rem; }}
+            .signal-card {{ min-height: 94px; }}
+            .priority-row {{ grid-template-columns: 1.75rem minmax(0, 1fr) auto; gap: 0.5rem; }}
+            .priority-rank {{ width: 1.75rem; height: 1.75rem; }}
+            .watch-grid {{ grid-template-columns: 1fr; }}
+            .watch-card {{ padding: 0.85rem; }}
         }}
         @media (prefers-reduced-motion: reduce) {{
             *, *::before, *::after {{
@@ -786,6 +1125,41 @@ def metric_card(label: str, value: object, note: str = "") -> None:
     )
 
 
+def signal_deck(
+    latest_aqi: object,
+    category: object,
+    latest_note: str,
+    metric_items: list[tuple[str, object, str, str]],
+) -> None:
+    """Render a compact, signal-first overview without nested Streamlit cards."""
+    cards = "".join(
+        f"""
+        <article class="signal-card {escape(tone)}">
+            <span class="signal-label">{escape(label)}</span>
+            <strong class="signal-value">{escape(_format_value(value))}</strong>
+            <span class="signal-context">{escape(note)}</span>
+        </article>
+        """
+        for label, value, note, tone in metric_items
+    )
+    st.markdown(
+        f"""
+        <section class="signal-deck" aria-label="核心空氣品質指標">
+            <article class="signal-primary">
+                <div>
+                    <span class="signal-label">最新 AQI</span>
+                    <strong class="signal-value">{escape(_format_value(latest_aqi))}</strong>
+                    <span class="signal-context">{escape(latest_note)}</span>
+                </div>
+                <span class="signal-level">AQI 等級：{escape(str(category))}</span>
+            </article>
+            {cards}
+        </section>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def section_header(kicker: str, title: str, context: str = "") -> None:
     context_html = f'<span class="section-context">{escape(context)}</span>' if context else ""
     st.markdown(
@@ -806,6 +1180,7 @@ def render_table(
     df: pd.DataFrame,
     empty_message: str = "目前沒有可顯示的資料。",
     label: str = "資料表",
+    table_class: str = "",
 ) -> None:
     if df.empty:
         st.info(empty_message)
@@ -816,7 +1191,8 @@ def render_table(
             display[column] = display[column].dt.strftime("%Y/%m/%d %H:%M")
         elif pd.api.types.is_float_dtype(display[column]):
             display[column] = display[column].round(3)
-    table_html = display.to_html(index=False, border=0, classes="dashboard-table", escape=True)
+    table_classes = " ".join(part for part in ["dashboard-table", table_class] if part)
+    table_html = display.to_html(index=False, border=0, classes=table_classes, escape=True)
     st.markdown(
         f'<div class="table-shell" role="region" aria-label="{escape(label)}" tabindex="0">{table_html}</div>',
         unsafe_allow_html=True,
@@ -847,6 +1223,106 @@ def _model_metrics_table(metrics: dict[str, Any]) -> pd.DataFrame:
         return table
     return table.rename(columns={k: v for k, v in METRIC_DISPLAY_COLUMNS.items() if k in table.columns})
 
+
+def _backtest_aggregate_table(metrics: dict[str, Any]) -> pd.DataFrame:
+    """Flatten rolling-origin aggregate metrics into dashboard-ready rows."""
+    aggregate = metrics.get("aggregate", {})
+    if not isinstance(aggregate, dict):
+        return pd.DataFrame()
+
+    rows: list[dict[str, Any]] = []
+    for model_name, values in aggregate.items():
+        if isinstance(values, dict):
+            rows.append({"模型": MODEL_DISPLAY_NAMES.get(model_name, model_name), **values})
+
+    table = pd.DataFrame(rows)
+    if table.empty:
+        return table
+    return table.rename(columns={key: value for key, value in METRIC_DISPLAY_COLUMNS.items() if key in table.columns})
+
+
+
+def _confidence_summary_table(metrics: dict[str, Any]) -> pd.DataFrame:
+    intervals = metrics.get("intervals", {})
+    if not isinstance(intervals, dict):
+        return pd.DataFrame()
+    rows: list[dict[str, object]] = []
+    for key in sorted(intervals, key=lambda value: int(value) if str(value).isdigit() else 999):
+        values = intervals.get(key)
+        if not isinstance(values, dict):
+            continue
+        coverage = values.get("empirical_coverage")
+        rows.append(
+            {
+                "預測區間": f"{key}%",
+                "校準誤差分位數": values.get("residual_quantile", "N/A"),
+                "最終測試覆蓋率": "N/A" if coverage is None else f"{float(coverage) * 100:.1f}%",
+                "平均區間寬度": values.get("mean_width", "N/A"),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def _threshold_watch_table(predictions: pd.DataFrame) -> pd.DataFrame:
+    columns = ["時間", "測站", "預測 AQI", "80% 上界", "95% 上界", "關注層級", "判讀依據"]
+    required = {
+        "datetime",
+        "site_name_display",
+        "predicted_next_hour_aqi",
+        "upper_80_aqi",
+        "upper_95_aqi",
+        "threshold_watch_level",
+        "threshold_watch_reason",
+    }
+    if predictions.empty or not required.issubset(predictions.columns):
+        return pd.DataFrame(columns=columns)
+    table = predictions[predictions["threshold_watch_level"] != "區間穩定"].copy()
+    if table.empty:
+        return pd.DataFrame(columns=columns)
+    table["_severity"] = table["threshold_watch_level"].map({"跨級關注": 0, "不確定性關注": 1}).fillna(2)
+    table = table.sort_values(["_severity", "upper_95_aqi", "datetime"], ascending=[True, False, False])
+    table = table[
+        [
+            "datetime",
+            "site_name_display",
+            "predicted_next_hour_aqi",
+            "upper_80_aqi",
+            "upper_95_aqi",
+            "threshold_watch_level",
+            "threshold_watch_reason",
+        ]
+    ].rename(
+        columns={
+            "datetime": "時間",
+            "site_name_display": "測站",
+            "predicted_next_hour_aqi": "預測 AQI",
+            "upper_80_aqi": "80% 上界",
+            "upper_95_aqi": "95% 上界",
+            "threshold_watch_level": "關注層級",
+            "threshold_watch_reason": "判讀依據",
+        }
+    )
+    return table.reset_index(drop=True)
+
+def _threshold_watch_cards_html(table: pd.DataFrame, limit: int = 6) -> str:
+    cards: list[str] = []
+    for _, row in table.head(limit).iterrows():
+        timestamp = pd.to_datetime(row.get("時間"), errors="coerce")
+        time_label = "時間未知" if pd.isna(timestamp) else timestamp.strftime("%m/%d %H:%M")
+        level = str(row.get("關注層級", "不確定性關注"))
+        tone = "critical" if level == "跨級關注" else "uncertain"
+        cards.append(
+            f'<article class="watch-card {tone}">'
+            f'<div class="watch-card-head"><span>{escape(str(row.get("測站", "未知測站")))}</span>'
+            f'<span class="watch-level">{escape(level)}</span></div>'
+            f'<div class="watch-card-main"><strong>{escape(_format_optional_number(row.get("預測 AQI")))}</strong>'
+            f'<span>預測 AQI · {escape(time_label)}</span></div>'
+            f'<p>{escape(str(row.get("判讀依據", "尚無判讀依據")))}</p>'
+            f'<div class="watch-bounds"><span>80% 上界 <strong>{escape(_format_optional_number(row.get("80% 上界")))}</strong></span>'
+            f'<span>95% 上界 <strong>{escape(_format_optional_number(row.get("95% 上界")))}</strong></span></div>'
+            "</article>"
+        )
+    return f'<section class="watch-grid" aria-label="AQI 預測區間跨級關注">{"".join(cards)}</section>'
 
 def apply_plotly_theme(fig: Any, theme: dict[str, str], title: str | None = None):
     layout: dict[str, Any] = {
@@ -963,6 +1439,27 @@ def _render_risk_brief(brief: pd.DataFrame) -> None:
         """,
         unsafe_allow_html=True,
     )
+
+
+def _render_priority_queue(brief: pd.DataFrame, limit: int = 4) -> None:
+    if brief.empty:
+        st.markdown('<p class="queue-empty">目前沒有足夠資料建立測站優先序。</p>', unsafe_allow_html=True)
+        return
+    rows: list[str] = []
+    for rank, (_, row) in enumerate(brief.head(limit).iterrows(), start=1):
+        latest_aqi = _format_optional_number(row.get("latest_aqi"))
+        site_name = str(row.get("site_name_display", "未知測站"))
+        evidence = str(row.get("evidence_summary", "尚無判讀依據"))
+        attention = str(row.get("attention_level", "一般觀察"))
+        rows.append(
+            f'<article class="priority-row" aria-label="第 {rank} 優先檢視測站">'
+            f'<span class="priority-rank">{rank}</span>'
+            f'<div><div class="priority-place">{escape(site_name)}</div>'
+            f'<span class="priority-evidence">{escape(evidence)}</span></div>'
+            f'<div class="priority-aqi">{escape(latest_aqi)}<span>{escape(attention)}</span></div>'
+            "</article>"
+        )
+    st.markdown(f'<section class="priority-queue">{"".join(rows)}</section>', unsafe_allow_html=True)
 
 
 def _risk_brief_table(brief: pd.DataFrame) -> pd.DataFrame:
@@ -1199,12 +1696,14 @@ def main() -> None:
     st.markdown(
         f"""
         <div class="hero-band">
-          <div class="hero-kicker">
-            <span>空氣品質監測</span>
-            <span class="status-pill"><span class="status-dot"></span>{escape(_source_caption(source_code))}</span>
+          <div class="hero-copy">
+            <div class="hero-kicker">
+              <span>空氣品質監測</span>
+              <span class="status-pill"><span class="status-dot"></span>{escape(_source_caption(source_code))}</span>
+            </div>
+            <h1>台灣 AQI 監測與預測</h1>
+            <p>以測站歷史脈絡排序污染異常，並檢視下一小時 AQI 預測與資料品質。</p>
           </div>
-          <h1>台灣 AQI 監測與預測</h1>
-          <p>以測站歷史脈絡排序污染異常，並檢視下一小時 AQI 預測與資料品質。</p>
           <div class="hero-meta">
             <span class="hero-meta-item">預測週期 <strong>下一小時</strong></span>
             <span class="hero-meta-item">資料來源 <strong>{escape(_display_source(source_code))}</strong></span>
@@ -1323,36 +1822,36 @@ def main() -> None:
     predictor_metrics = load_metrics(resolve_path(config, "reports.metrics_dir") / "predictor_metrics.json")
     anomaly_metrics = load_metrics(resolve_path(config, "reports.metrics_dir") / "anomaly_metrics.json")
     backtest_metrics = load_metrics(resolve_path(config, "reports.metrics_dir") / "backtest_metrics.json")
+    confidence_metrics = load_metrics(resolve_path(config, "reports.confidence_file"))
     data_health = load_metrics(resolve_path(config, "reports.metrics_dir") / "data_health.json")
     evaluation_summary = load_metrics(resolve_path(config, "reports.metrics_dir") / "evaluation_summary.json")
 
     station_count = filtered_features["site_name_display"].nunique() if "site_name_display" in filtered_features else 0
     latest_note = "最新時點平均" if selected_site is None else selected_site_display
-    metric_items = [
-        ("最新 AQI", kpis["latest_aqi"], latest_note),
-        ("AQI 等級", category, "目前空氣品質"),
-        ("平均 AQI", kpis["avg_aqi"], "目前篩選範圍"),
-        ("最新 PM2.5", kpis["latest_pm25"], "μg/m³"),
-        ("異常事件數", kpis["anomaly_count"], "模型與規則綜合"),
-        ("資料筆數", len(filtered_features), data_source),
-        ("測站數", station_count, "目前篩選範圍"),
+    signal_items = [
+        ("平均 AQI", kpis["avg_aqi"], "目前篩選範圍", "calm"),
+        ("最新 PM2.5", kpis["latest_pm25"], "μg/m³", "accent"),
+        ("異常觀測", kpis["anomaly_count"], "模型與規則綜合", "alert"),
+        ("資料筆數", len(filtered_features), data_source, "calm"),
+        ("測站數", station_count, "目前篩選範圍", "calm"),
+        ("資料狀態", data_health.get("status", "尚未評估"), "完整資料可靠性檢查", "calm"),
     ]
-    section_header("摘要", "目前空氣品質", f"{data_source} · {len(filtered_features):,} 筆資料")
-    for items in (metric_items[:4], metric_items[4:]):
-        columns = st.columns(len(items), gap="large")
-        for column, (label, value, note) in zip(columns, items):
-            with column:
-                metric_card(label, value, note)
+    st.markdown(
+        f"""
+        <div class="dashboard-intro">
+            <span><strong>監測摘要</strong>　以目前篩選結果建立今日的工作優先序。</span>
+            <span>{escape(data_source)} · {len(filtered_features):,} 筆資料</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    signal_deck(kpis["latest_aqi"], category, latest_note, signal_items)
 
     overview_tab, prediction_tab, anomaly_tab, quality_tab, metrics_tab = st.tabs(
         ["總覽", "預測", "異常偵測", "資料品質", "模型指標"]
     )
 
     with overview_tab:
-        st.markdown(
-            '<div class="section-note">先用測站自身的歷史基準建立優先順序，再查看 AQI 與 PM2.5 趨勢。這能避免只以全體平均或單一固定門檻判讀不同地區。</div>',
-            unsafe_allow_html=True,
-        )
         risk_brief = build_station_risk_brief(
             filtered_features,
             reference_features=features,
@@ -1367,24 +1866,27 @@ def main() -> None:
             anomalies=map_anomalies,
             policy=config.get("risk_policy"),
         )
-        section_header("地圖篩選", "台灣測站分布", "點選測站即可同步更新左側測站篩選")
-        _render_station_map(map_risk_brief, theme, selected_site_display)
-        st.markdown(
-            '<p class="map-selection-note">標記大小代表目前 AQI；菱形 / 方形 / 圓形依序代表優先檢視、持續觀察、一般監測，並以紅 / 橘 / 藍輔助區分。只顯示目前資料中可對照座標的測站。</p>',
-            unsafe_allow_html=True,
-        )
-        section_header("行動判讀", "目前優先關注測站", "近 14 天同時段基準 · 僅使用當前時點以前資料")
-        _render_risk_brief(risk_brief)
-        render_table(
-            _risk_brief_table(risk_brief.head(5)),
-            empty_message="目前沒有可排序的測站資料。",
-            label="測站脈絡風險排序表",
-        )
-        st.markdown(
-            '<div class="section-note">排序結合當前 AQI、PM2.5、相對本站同時段基準、近 6 小時變化、同時點模型預測與異常旗標；它是可追溯的檢視順序，不是官方警報。</div>',
-            unsafe_allow_html=True,
-        )
-        section_header("趨勢", "測站污染變化", "依左側縣市、測站與日期區間篩選")
+        map_column, queue_column = st.columns([1.3, 0.7], gap="large")
+        with map_column:
+            section_header("地圖篩選", "台灣測站分布", "點選測站同步更新篩選條件")
+            _render_station_map(map_risk_brief, theme, selected_site_display)
+            st.markdown(
+                '<p class="map-selection-note">標記大小代表 AQI；圓形、方形與菱形分別代表一般監測、持續觀察與優先檢視。</p>',
+                unsafe_allow_html=True,
+            )
+        with queue_column:
+            section_header("工作優先序", "先檢視哪些測站", "本站基準、預測與異常訊號")
+            _render_risk_brief(risk_brief)
+            _render_priority_queue(risk_brief)
+            with st.expander("檢視完整測站判讀", expanded=False):
+                render_table(
+                    _risk_brief_table(risk_brief),
+                    empty_message="目前沒有可排序的測站資料。",
+                    label="測站脈絡風險排序表",
+                )
+
+        st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+        section_header("趨勢監測", "AQI 與 PM2.5 變化", "依目前選取的地區、測站與日期範圍呈現")
         left, right = st.columns([1.15, 1], gap="large")
         with left:
             st.subheader("AQI 趨勢")
@@ -1401,7 +1903,7 @@ def main() -> None:
                     labels=DISPLAY_COLUMN_MAP,
                     color_discrete_sequence=chart_color_sequence(theme),
                 )
-                fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=390)
+                fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=400)
                 fig = apply_plotly_theme(fig, theme)
                 _plot_chart(fig)
         with right:
@@ -1419,7 +1921,7 @@ def main() -> None:
                     labels=DISPLAY_COLUMN_MAP,
                     color_discrete_sequence=chart_color_sequence(theme),
                 )
-                fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=390)
+                fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=400)
                 fig = apply_plotly_theme(fig, theme)
                 _plot_chart(fig)
 
@@ -1433,9 +1935,13 @@ def main() -> None:
         else:
             prediction_plot = filtered_predictions.sort_values("datetime").copy()
             if selected_site is None:
-                prediction_plot = prediction_plot.groupby("datetime", as_index=False)[
-                    ["actual_next_hour_aqi", "predicted_next_hour_aqi"]
-                ].mean()
+                aggregate_columns = ["actual_next_hour_aqi", "predicted_next_hour_aqi"]
+                aggregate_columns.extend(
+                    column
+                    for column in ["lower_80_aqi", "upper_80_aqi", "lower_95_aqi", "upper_95_aqi"]
+                    if column in prediction_plot.columns
+                )
+                prediction_plot = prediction_plot.groupby("datetime", as_index=False)[aggregate_columns].mean()
             st.subheader("實際 AQI 與預測 AQI")
             line_cols = ["datetime", "actual_next_hour_aqi", "predicted_next_hour_aqi"]
             line_df = prediction_plot[line_cols].melt(id_vars="datetime", var_name="series", value_name="aqi")
@@ -1454,9 +1960,66 @@ def main() -> None:
                     }
                 )
             )
+            if go is not None and {"lower_80_aqi", "upper_80_aqi"}.issubset(prediction_plot.columns):
+                band_red, band_green, band_blue = hex_to_rgb(theme["secondary"])
+                fig.add_trace(
+                    go.Scatter(
+                        x=prediction_plot["datetime"],
+                        y=prediction_plot["upper_80_aqi"],
+                        mode="lines",
+                        line={"width": 0},
+                        hoverinfo="skip",
+                        showlegend=False,
+                        name="80% 預測區間上界",
+                    )
+                )
+                fig.add_trace(
+                    go.Scatter(
+                        x=prediction_plot["datetime"],
+                        y=prediction_plot["lower_80_aqi"],
+                        mode="lines",
+                        line={"width": 0},
+                        fill="tonexty",
+                        fillcolor=f"rgba({band_red}, {band_green}, {band_blue}, 0.18)",
+                        hoverinfo="skip",
+                        name="80% 經驗預測區間",
+                    )
+                )
             fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=360, xaxis_title="時間", yaxis_title="AQI")
             fig = apply_plotly_theme(fig, theme)
             _plot_chart(fig)
+
+            confidence_table = _confidence_summary_table(confidence_metrics)
+            confidence_columns = {"lower_80_aqi", "upper_80_aqi", "lower_95_aqi", "upper_95_aqi"}
+            if confidence_table.empty or not confidence_columns.issubset(filtered_predictions.columns):
+                st.info("尚無預測可信度產物；請重新執行 sample pipeline 以建立經驗預測區間。")
+            else:
+                section_header("可信度", "預測區間與跨級監測", "rolling-origin 殘差校準 · final test 僅用於覆蓋率報告")
+                intervals = confidence_metrics.get("intervals", {})
+                confidence_columns_ui = st.columns(4, gap="large")
+                coverage_80 = intervals.get("80", {}).get("empirical_coverage")
+                coverage_95 = intervals.get("95", {}).get("empirical_coverage")
+                width_80 = intervals.get("80", {}).get("mean_width")
+                confidence_columns_ui[0].metric("80% 實際覆蓋率", "N/A" if coverage_80 is None else f"{float(coverage_80) * 100:.1f}%")
+                confidence_columns_ui[1].metric("95% 實際覆蓋率", "N/A" if coverage_95 is None else f"{float(coverage_95) * 100:.1f}%")
+                confidence_columns_ui[2].metric("80% 平均寬度", "N/A" if width_80 is None else f"{float(width_80):.1f} AQI")
+                confidence_columns_ui[3].metric("校準殘差", f"{int(confidence_metrics.get('calibration_rows', 0)):,} 筆")
+
+                watch_table = _threshold_watch_table(filtered_predictions)
+                st.subheader("AQI 跨級關注")
+                if watch_table.empty:
+                    st.success("目前篩選範圍的 95% 預測區間未跨過下一個 AQI 分級門檻。")
+                else:
+                    st.markdown(_threshold_watch_cards_html(watch_table), unsafe_allow_html=True)
+                    with st.expander("檢視完整跨級清單", expanded=False):
+                        render_table(
+                            watch_table.head(30),
+                            label="AQI 預測區間跨級關注表",
+                            table_class="confidence-watch-table",
+                        )
+                with st.expander("檢視區間校準摘要", expanded=False):
+                    render_table(confidence_table, label="預測區間校準摘要")
+                st.caption("區間來自歷史 rolling-origin 誤差的經驗校準，不代表保證機率，也不是官方警報或健康風險判定。")
 
             st.subheader("預測誤差")
             error_df = prediction_plot.copy()
@@ -1498,11 +2061,12 @@ def main() -> None:
                 )
 
         st.subheader("滾動回測")
-        backtest_table = _model_metrics_table(backtest_metrics)
+        backtest_table = _backtest_aggregate_table(backtest_metrics)
         if backtest_table.empty:
             st.info("尚無滾動回測結果；請先執行 sample pipeline。")
         else:
-            st.caption("每個測試窗只使用更早的資料訓練，用於檢查不同時間段的穩定性。")
+            fold_count = int(backtest_metrics.get("fold_count", 0))
+            st.caption(f"{fold_count} 個測試窗皆只使用更早資料訓練，用於檢查不同時間段的穩定性。")
             render_table(backtest_table, label="滾動回測模型比較")
 
     with anomaly_tab:
@@ -1526,7 +2090,6 @@ def main() -> None:
                 "duration_hours",
                 "peak_aqi",
                 "peak_pm25",
-                "max_anomaly_score",
                 "evidence_summary",
             ]
             render_table(
@@ -1581,17 +2144,19 @@ def main() -> None:
                 top_cases["anomaly_evidence"] = top_cases.apply(describe_anomaly_evidence, axis=1)
                 display_cols = [
                     "datetime",
-                    "county_display",
                     "site_name_display",
                     "aqi",
                     "pm25",
-                    "anomaly_score",
                     "anomaly_evidence",
                 ]
                 table = _rename_for_display(_select_columns(top_cases.head(15), display_cols)).rename(
-                    columns={"anomaly_evidence": "判讀依據"}
+                    columns={"anomaly_evidence": "異常證據"}
                 )
-                render_table(table, label="高風險異常事件表")
+                if "時間" in table.columns:
+                    table["時間"] = pd.to_datetime(table["時間"], errors="coerce").dt.strftime("%m/%d %H:%M")
+                if "測站" in table.columns:
+                    table["測站"] = table["測站"].astype(str).str.replace(r"測站$", "", regex=True)
+                render_table(table, label="高風險異常事件表", table_class="anomaly-case-table")
             with right:
                 st.subheader("各測站異常數")
                 station_col = "site_name_display" if "site_name_display" in filtered_anomalies.columns else "site_name"
@@ -1645,11 +2210,16 @@ def main() -> None:
         missing_table = filtered_features.isna().sum().reset_index()
         missing_table.columns = ["欄位", "缺失值數量"]
         missing_table["欄位"] = missing_table["欄位"].replace(DISPLAY_COLUMN_MAP)
-        render_table(missing_table)
+        missing_cells = int(missing_table["缺失值數量"].sum())
+        if missing_cells == 0:
+            st.success("欄位完整性通過：目前篩選資料沒有缺失值。")
+        with st.expander("檢視欄位缺失統計", expanded=missing_cells > 0):
+            render_table(missing_table, label="各欄位缺失值")
 
-        st.subheader("資料樣本")
+        st.subheader("近期資料樣本")
         sample_cols = ["datetime", "county_display", "site_name_display", "aqi", "pm25", "pm10", "o3", "co", "wind_speed"]
-        render_table(_rename_for_display(_select_columns(filtered_features.tail(20), sample_cols)))
+        with st.expander("檢視最近 20 筆資料", expanded=False):
+            render_table(_rename_for_display(_select_columns(filtered_features.tail(20), sample_cols)), label="近期資料樣本")
 
     with metrics_tab:
         st.markdown(
@@ -1664,7 +2234,7 @@ def main() -> None:
             render_table(predictor_table)
 
         st.subheader("時間序列穩定性")
-        backtest_table = _model_metrics_table(backtest_metrics)
+        backtest_table = _backtest_aggregate_table(backtest_metrics)
         if backtest_table.empty:
             st.info("尚無滾動回測結果。")
         else:

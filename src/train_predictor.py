@@ -6,6 +6,12 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+from src.forecast_confidence import (
+    apply_prediction_intervals,
+    build_confidence_metrics,
+    calibrate_interval_widths,
+    classify_threshold_watch,
+)
 from src.utils import ensure_parent, load_config, resolve_path, save_model, write_json
 
 
@@ -105,6 +111,7 @@ def rolling_origin_backtest(
     feature_cols: list[str],
     random_state: int,
     folds: int,
+    calibration_model: str | None = None,
 ) -> dict[str, object]:
     """Evaluate every candidate on successive future windows without look-ahead."""
     ordered = df.sort_values("datetime").reset_index(drop=True)
@@ -118,6 +125,9 @@ def rolling_origin_backtest(
     window = max(1, available // fold_count)
     fold_rows: list[dict[str, object]] = []
     aggregate: dict[str, list[dict[str, float]]] = {}
+    calibration_residuals: list[float] = []
+    calibration_starts: list[pd.Timestamp] = []
+    calibration_ends: list[pd.Timestamp] = []
     for fold_index in range(fold_count):
         test_start_index = initial_train_count + fold_index * window
         test_end_index = len(timestamps) if fold_index == fold_count - 1 else min(
@@ -133,10 +143,15 @@ def rolling_origin_backtest(
         if train.empty or test.empty:
             continue
         models, _ = _fit_model(train, train["target_next_hour_aqi"].to_numpy(dtype=float), feature_cols, random_state)
-        metrics = _model_metrics(
-            test["target_next_hour_aqi"].to_numpy(dtype=float),
-            _predict_candidates(models, test, feature_cols),
-        )
+        candidate_predictions = _predict_candidates(models, test, feature_cols)
+        actual = test["target_next_hour_aqi"].to_numpy(dtype=float)
+        metrics = _model_metrics(actual, candidate_predictions)
+        if calibration_model is not None:
+            if calibration_model not in candidate_predictions:
+                raise ValueError(f"Calibration model is unavailable: {calibration_model}")
+            calibration_residuals.extend(np.abs(actual - candidate_predictions[calibration_model]).tolist())
+            calibration_starts.append(pd.Timestamp(test_start))
+            calibration_ends.append(pd.Timestamp(test_end))
         for model_name, model_values in metrics.items():
             aggregate.setdefault(model_name, []).append(model_values)
         fold_rows.append(
@@ -157,7 +172,18 @@ def rolling_origin_backtest(
         }
         for model_name, model_folds in aggregate.items()
     }
-    return {"fold_count": len(fold_rows), "folds": fold_rows, "aggregate": aggregate_metrics}
+    result: dict[str, object] = {"fold_count": len(fold_rows), "folds": fold_rows, "aggregate": aggregate_metrics}
+    if calibration_model is not None:
+        result["calibration"] = {
+            "model": calibration_model,
+            "residuals": calibration_residuals,
+            "rows": len(calibration_residuals),
+            "period": {
+                "start": str(min(calibration_starts)) if calibration_starts else "",
+                "end": str(max(calibration_ends)) if calibration_ends else "",
+            },
+        }
+    return result
 
 
 def train_predictor() -> dict[str, object]:
@@ -205,10 +231,29 @@ def train_predictor() -> dict[str, object]:
     best_metrics = model_metrics[preferred_model]
     baseline_metrics = model_metrics["moving_average"]
     backtest = rolling_origin_backtest(
-        df,
+        train_validation_df,
         feature_cols,
         int(config["random_state"]),
         int(config["train"].get("backtest_folds", 3)),
+        calibration_model=preferred_model,
+    )
+    calibration = backtest.pop("calibration")
+    confidence_config = config.get("forecast_confidence", {})
+    confidence_levels = tuple(float(value) for value in confidence_config.get("levels", [0.8, 0.95]))
+    confidence_thresholds = [float(value) for value in confidence_config.get("aqi_thresholds", [50, 100, 150, 200, 300])]
+    interval_widths = calibrate_interval_widths(calibration["residuals"], confidence_levels)
+    test_out = apply_prediction_intervals(test_out, "predicted_next_hour_aqi", interval_widths)
+    test_out = classify_threshold_watch(test_out, confidence_thresholds)
+    confidence_metrics = build_confidence_metrics(
+        test_out,
+        widths=interval_widths,
+        calibration_rows=int(calibration["rows"]),
+        calibration_period=calibration["period"],
+        final_test_period={
+            "start": str(test_df["datetime"].min()),
+            "end": str(test_df["datetime"].max()),
+        },
+        thresholds=confidence_thresholds,
     )
     metrics: dict[str, object] = {
         "mae": best_metrics["mae"],
@@ -234,6 +279,7 @@ def train_predictor() -> dict[str, object]:
     save_model(resolve_path(config, "models.predictor"), final_models[preferred_model])
     write_json(resolve_path(config, "reports.metrics_dir") / "predictor_metrics.json", metrics)
     write_json(resolve_path(config, "reports.metrics_dir") / "backtest_metrics.json", backtest)
+    write_json(resolve_path(config, "reports.confidence_file"), confidence_metrics)
     return metrics
 
 
