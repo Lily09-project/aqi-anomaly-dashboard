@@ -10,5 +10,5 @@ pyyaml
 pytest
 python-dotenv
 # Streamlit's transitive dependencies must stay on versions with known fixes.
-GitPython>=3.1.51,<4
+GitPython>=3.1.58,<4
 Pillow>=12.3.0,<13
