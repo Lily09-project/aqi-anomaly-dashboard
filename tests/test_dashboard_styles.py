@@ -28,6 +28,14 @@ def test_dashboard_styles_render_high_contrast_responsive_css() -> None:
     assert "width: 100% !important" in fake.rendered
     assert "repeat(3, minmax(0, 1fr))" in fake.rendered
     assert "@media (max-width: 640px)" in fake.rendered
+    assert "button:focus-visible" in fake.rendered
+    assert "outline: 3px solid var(--accent)" in fake.rendered
+    assert "button:disabled" in fake.rendered
+    assert "cursor: not-allowed" in fake.rendered
+    assert "button:not(:disabled)" in fake.rendered
+    assert '[data-testid="stExpandSidebarButton"]' in fake.rendered
+    assert "min-width: 44px !important" in fake.rendered
+    assert "cursor: pointer" in fake.rendered
 
 
 def test_app_css_wrapper_uses_the_current_streamlit_binding(monkeypatch) -> None:
