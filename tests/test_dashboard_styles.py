@@ -23,8 +23,9 @@ def test_dashboard_styles_render_high_contrast_responsive_css() -> None:
     assert ".signal-card" in fake.rendered
     assert ".comparison-card" in fake.rendered
     assert "var(--text)" in fake.rendered
-    assert '[data-testid="stSegmentedControl"]' in fake.rendered
+    assert '[data-testid="stButtonGroup"]' in fake.rendered
     assert "min-height: 44px" in fake.rendered
+    assert "width: 100% !important" in fake.rendered
     assert "repeat(3, minmax(0, 1fr))" in fake.rendered
     assert "@media (max-width: 640px)" in fake.rendered
 

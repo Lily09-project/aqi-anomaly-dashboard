@@ -165,20 +165,25 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             border-color: var(--border);
             box-shadow: inset 0 -2px 0 var(--accent);
         }}
-        [data-testid="stSegmentedControl"] {{
+        .st-key-dashboard_view {{
+            width: 100%;
+        }}
+        [data-testid="stButtonGroup"] {{
+            width: 100%;
             margin: 0.8rem 0 1.25rem;
         }}
-        [data-testid="stSegmentedControl"] [data-baseweb="button-group"] {{
+        [data-testid="stButtonGroup"] [data-baseweb="button-group"] {{
             display: grid !important;
             grid-template-columns: repeat(6, minmax(0, 1fr));
-            width: 100%;
+            width: 100% !important;
+            max-width: none !important;
             gap: 0.25rem;
             padding: 0.35rem;
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 8px;
         }}
-        [data-testid="stSegmentedControl"] button {{
+        [data-testid="stButtonGroup"] button {{
             width: 100%;
             min-width: 0;
             min-height: 44px;
@@ -192,12 +197,13 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             overflow-wrap: anywhere;
             line-height: 1.25;
         }}
-        [data-testid="stSegmentedControl"] button:hover {{
+        [data-testid="stButtonGroup"] button:hover {{
             background: var(--card) !important;
             color: var(--text) !important;
         }}
-        [data-testid="stSegmentedControl"] button[aria-pressed="true"],
-        [data-testid="stSegmentedControl"] button[aria-selected="true"] {{
+        [data-testid="stButtonGroup"] button[kind="segmented_controlActive"],
+        [data-testid="stButtonGroup"] button[aria-pressed="true"],
+        [data-testid="stButtonGroup"] button[aria-selected="true"] {{
             background: var(--card) !important;
             color: var(--text) !important;
             border-color: var(--border) !important;
@@ -1079,12 +1085,12 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             .dashboard-table th, .dashboard-table td {{ padding: 0.58rem 0.55rem; }}
             .dashboard-footer {{ align-items: start; flex-direction: column; gap: 0.25rem; }}
             .dashboard-intro {{ align-items: start; flex-direction: column; gap: 0.25rem; }}
-            [data-testid="stSegmentedControl"] [data-baseweb="button-group"] {{
+            [data-testid="stButtonGroup"] [data-baseweb="button-group"] {{
                 grid-template-columns: repeat(3, minmax(0, 1fr));
                 gap: 0.25rem;
                 padding: 0.25rem;
             }}
-            [data-testid="stSegmentedControl"] button {{
+            [data-testid="stButtonGroup"] button {{
                 min-height: 44px;
                 padding: 0.4rem 0.25rem;
                 font-size: 0.8rem;

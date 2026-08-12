@@ -1,78 +1,49 @@
-from html import escape
-
 import pandas as pd
 
-from src.app_helpers import data_quality_summary
 from src.dashboard.components import (
-    DISPLAY_COLUMN_MAP,
     _backtest_aggregate_table,
-    _confidence_summary_table,
-    _format_optional_number,
     _model_metrics_table,
-    _plot_chart,
-    _rename_for_display,
-    _render_priority_queue,
-    _render_risk_brief,
-    _risk_brief_table,
-    _select_columns,
-    _threshold_watch_cards_html,
-    _threshold_watch_table,
-    apply_plotly_theme,
-    comparison_cards_html,
     metric_card,
     render_table,
-    section_header,
 )
 from src.dashboard.context import PageContext
-from src.dashboard.maps import _render_station_map
-from src.risk_brief import build_station_risk_brief, describe_anomaly_evidence
-from src.station_comparison import build_station_comparison, choose_recommended_station, export_comparison_csv
-from src.theme import chart_color_sequence, hex_to_rgb
-
-try:
-    import plotly.express as px  # type: ignore
-except Exception:  # pragma: no cover
-    px = None
-
-try:
-    import plotly.graph_objects as go  # type: ignore
-except Exception:  # pragma: no cover
-    go = None
 
 try:
     import streamlit as st  # type: ignore
 except Exception:  # pragma: no cover
     st = None
 
+def reliability_station_table(predictor_metrics: dict[str, object]) -> pd.DataFrame:
+    reliability = predictor_metrics.get("reliability", {})
+    rows = reliability.get("by_station", []) if isinstance(reliability, dict) else []
+    columns = ["station", "rows", "mae", "rmse", "r2"]
+    return pd.DataFrame(rows).reindex(columns=columns)
+
+
+def station_coverage_table(confidence_metrics: dict[str, object]) -> pd.DataFrame:
+    coverage = confidence_metrics.get("station_coverage", {})
+    groups = coverage.get("groups", []) if isinstance(coverage, dict) else []
+    rows: list[dict[str, object]] = []
+    for group in groups:
+        intervals = group.get("intervals", {})
+        row: dict[str, object] = {
+            "station": group.get("station", "N/A"),
+            "rows": group.get("rows", 0),
+        }
+        for level in ("80", "95"):
+            values = intervals.get(level, {})
+            row[f"rows_{level}"] = values.get("rows", 0)
+            row[f"coverage_{level}"] = values.get("empirical_coverage", 0.0)
+            row[f"mean_width_{level}"] = values.get("mean_width", 0.0)
+        rows.append(row)
+    return pd.DataFrame(rows)
+
 def render(context: PageContext) -> None:
-    source = context.data.source
-    selected = context.data.selected
-    regional = context.data.regional
-    comparison_scope = context.data.comparison
-    features = source.features
-    filtered_features = selected.features
-    filtered_predictions = selected.predictions
-    filtered_anomalies = selected.anomalies
-    filtered_events = selected.events
-    map_features = regional.features
-    map_predictions = regional.predictions
-    map_anomalies = regional.anomalies
-    comparison_features = comparison_scope.features
-    comparison_predictions = comparison_scope.predictions
-    comparison_anomalies = comparison_scope.anomalies
     predictor_metrics = context.metrics.predictor
     anomaly_metrics = context.metrics.anomaly
     backtest_metrics = context.metrics.backtest
     confidence_metrics = context.metrics.confidence
-    data_health = context.metrics.data_health
     evaluation_summary = context.metrics.evaluation
-    config = context.config
-    theme = context.theme
-    source_code = context.source_code
-    data_source = context.data_source
-    selected_site = context.filters.site_name
-    selected_site_display = context.filters.site_display
-    quality = data_quality_summary(filtered_features)
     st.markdown(
         '<div class="section-note">此頁整理預測與異常偵測指標。異常偵測 precision、recall、F1 是對 pseudo-label 評估，不代表真實污染事件準確率。</div>',
         unsafe_allow_html=True,
@@ -84,6 +55,56 @@ def render(context: PageContext) -> None:
     else:
         render_table(predictor_table)
 
+    reliability = predictor_metrics.get("reliability", {})
+    if isinstance(reliability, dict) and reliability:
+        st.subheader("模型可靠性與弱點")
+        improvement = reliability.get("baseline_improvement", {})
+        worst = reliability.get("worst_station", {})
+        summary_columns = st.columns(3)
+        with summary_columns[0]:
+            metric_card("相對移動平均 MAE 改善", f'{float(improvement.get("mae_reduction_pct", 0)):.1f}%', f'樣本 {int(improvement.get("rows", 0)):,} 筆')
+        with summary_columns[1]:
+            metric_card("最弱測站", worst.get("station", "N/A"), f'RMSE {float(worst.get("rmse", 0)):.2f}')
+        with summary_columns[2]:
+            metric_card("最弱站樣本數", int(worst.get("rows", 0)), "樣本少時僅作診斷提示")
+
+        station_table = reliability_station_table(predictor_metrics)
+        if not station_table.empty:
+            render_table(
+                station_table.rename(
+                    columns={"station": "測站", "rows": "樣本數", "mae": "MAE", "rmse": "RMSE", "r2": "R2"}
+                ),
+                label="各測站 final-test 可靠性",
+            )
+        band_table = pd.DataFrame(reliability.get("by_aqi_band", []))
+        if not band_table.empty:
+            render_table(
+                band_table.rename(
+                    columns={"aqi_band": "實際 AQI 區間", "rows": "樣本數", "mae": "MAE", "rmse": "RMSE", "r2": "R2"}
+                ),
+                label="各 AQI 區間可靠性",
+            )
+        st.caption("分組指標皆顯示樣本數；小樣本測站或高 AQI 區間的數值波動較大，不應單獨作為部署依據。")
+
+    coverage_table = station_coverage_table(confidence_metrics)
+    if not coverage_table.empty:
+        st.subheader("分測站預測區間覆蓋率")
+        render_table(
+            coverage_table.rename(
+                columns={
+                    "station": "測站",
+                    "rows": "實際值樣本數",
+                    "rows_80": "80% 有效樣本",
+                    "coverage_80": "80% 覆蓋率",
+                    "mean_width_80": "80% 平均寬度",
+                    "rows_95": "95% 有效樣本",
+                    "coverage_95": "95% 覆蓋率",
+                    "mean_width_95": "95% 平均寬度",
+                }
+            ),
+            label="各測站 final-test 區間校準檢查",
+        )
+        st.caption("區間由 final test 之前的 rolling-origin 殘差校準；此表只評估覆蓋率，不用測試結果回頭調整寬度。")
     st.subheader("時間序列穩定性")
     backtest_table = _backtest_aggregate_table(backtest_metrics)
     if backtest_table.empty:
