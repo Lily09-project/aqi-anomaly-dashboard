@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+from src.model_reliability import build_reliability_report
 from src.forecast_confidence import (
     apply_prediction_intervals,
     build_confidence_metrics,
@@ -300,6 +301,7 @@ def train_predictor() -> dict[str, object]:
         },
         thresholds=confidence_thresholds,
     )
+    reliability = build_reliability_report(test_out)
     metrics: dict[str, object] = {
         "mae": best_metrics["mae"],
         "rmse": best_metrics["rmse"],
@@ -316,6 +318,7 @@ def train_predictor() -> dict[str, object]:
             "validation": int(len(validation_df)),
             "final_test": int(len(test_df)),
         },
+        "reliability": reliability,
         "limitation_note": "This is a next-hour AQI nowcasting demo. Models are selected by pre-test rolling-origin RMSE and reported once on a later final test split.",
     }
 
