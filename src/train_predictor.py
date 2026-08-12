@@ -25,6 +25,12 @@ class NumpyLinearModel:
         return matrix @ np.array(self.coefficients)
 
 
+@dataclass
+class MovingAverageModel:
+    """Serializable baseline that follows the predictor ``predict`` contract."""
+
+    def predict(self, x: pd.DataFrame) -> np.ndarray:
+        return x["rolling_3h_aqi"].fillna(x["lag_1_aqi"]).to_numpy(dtype=float)
 def _metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
     err = y_true - y_pred
     mae = float(np.mean(np.abs(err)))
@@ -106,12 +112,24 @@ def _model_metrics(y_true: np.ndarray, predictions: dict[str, np.ndarray]) -> di
     return {name: _metrics(y_true, predicted) for name, predicted in predictions.items()}
 
 
+def select_model_from_backtest(backtest: dict[str, object], available_models: list[str]) -> str:
+    """Select from pre-test aggregate RMSE, requiring learned models to beat the baseline."""
+    aggregate = backtest.get("aggregate", {})
+    if not isinstance(aggregate, dict) or "moving_average" not in aggregate:
+        raise ValueError("Backtest must include moving_average aggregate metrics.")
+    baseline_rmse = float(aggregate["moving_average"]["rmse"])
+    learned = [name for name in available_models if name in aggregate]
+    if not learned:
+        return "moving_average"
+    winner = min(learned, key=lambda name: (float(aggregate[name]["rmse"]), name))
+    return winner if float(aggregate[winner]["rmse"]) < baseline_rmse else "moving_average"
 def rolling_origin_backtest(
     df: pd.DataFrame,
     feature_cols: list[str],
     random_state: int,
     folds: int,
     calibration_model: str | None = None,
+    collect_calibration_candidates: bool = False,
 ) -> dict[str, object]:
     """Evaluate every candidate on successive future windows without look-ahead."""
     ordered = df.sort_values("datetime").reset_index(drop=True)
@@ -126,6 +144,7 @@ def rolling_origin_backtest(
     fold_rows: list[dict[str, object]] = []
     aggregate: dict[str, list[dict[str, float]]] = {}
     calibration_residuals: list[float] = []
+    candidate_residuals: dict[str, list[float]] = {}
     calibration_starts: list[pd.Timestamp] = []
     calibration_ends: list[pd.Timestamp] = []
     for fold_index in range(fold_count):
@@ -146,6 +165,12 @@ def rolling_origin_backtest(
         candidate_predictions = _predict_candidates(models, test, feature_cols)
         actual = test["target_next_hour_aqi"].to_numpy(dtype=float)
         metrics = _model_metrics(actual, candidate_predictions)
+        if collect_calibration_candidates:
+            for model_name, predicted in candidate_predictions.items():
+                candidate_residuals.setdefault(model_name, []).extend(np.abs(actual - predicted).tolist())
+        if collect_calibration_candidates:
+            calibration_starts.append(pd.Timestamp(test_start))
+            calibration_ends.append(pd.Timestamp(test_end))
         if calibration_model is not None:
             if calibration_model not in candidate_predictions:
                 raise ValueError(f"Calibration model is unavailable: {calibration_model}")
@@ -173,6 +198,20 @@ def rolling_origin_backtest(
         for model_name, model_folds in aggregate.items()
     }
     result: dict[str, object] = {"fold_count": len(fold_rows), "folds": fold_rows, "aggregate": aggregate_metrics}
+    if collect_calibration_candidates:
+        period = {
+            "start": str(min(calibration_starts)) if calibration_starts else "",
+            "end": str(max(calibration_ends)) if calibration_ends else "",
+        }
+        result["calibration_candidates"] = {
+            model_name: {
+                "model": model_name,
+                "residuals": residuals,
+                "rows": len(residuals),
+                "period": period,
+            }
+            for model_name, residuals in candidate_residuals.items()
+        }
     if calibration_model is not None:
         result["calibration"] = {
             "model": calibration_model,
@@ -204,18 +243,31 @@ def train_predictor() -> dict[str, object]:
     )
     validation_predictions = _predict_candidates(selection_models, validation_df, feature_cols)
     validation_metrics = _model_metrics(validation_df[target_col].to_numpy(dtype=float), validation_predictions)
-    candidate_models = [
-        name for name in ("linear_regression", "random_forest") if name in selection_models and selection_models[name] is not None
-    ]
-    preferred_model = min(candidate_models, key=lambda name: validation_metrics[name]["rmse"])
 
     train_validation_df = pd.concat([train_df, validation_df], ignore_index=True).sort_values("datetime")
+    backtest = rolling_origin_backtest(
+        train_validation_df,
+        feature_cols,
+        int(config["random_state"]),
+        int(config["train"].get("backtest_folds", 3)),
+        collect_calibration_candidates=True,
+    )
+    calibration_candidates = backtest.pop("calibration_candidates")
+    candidate_models = [
+        name
+        for name in ("linear_regression", "random_forest")
+        if name in selection_models and selection_models[name] is not None
+    ]
+    preferred_model = select_model_from_backtest(backtest, candidate_models)
+    calibration = calibration_candidates[preferred_model]
+
     final_models, _ = _fit_model(
         train_validation_df,
         train_validation_df[target_col].to_numpy(dtype=float),
         feature_cols,
         int(config["random_state"]),
     )
+    serializable_models = {**final_models, "moving_average": MovingAverageModel()}
     predictions = _predict_candidates(final_models, test_df, feature_cols)
     model_metrics = _model_metrics(test_df[target_col].to_numpy(dtype=float), predictions)
     output_cols = ["datetime", "site_name", "county", "aqi", "pm25", target_col]
@@ -230,14 +282,7 @@ def train_predictor() -> dict[str, object]:
     test_out["predicted_next_hour_aqi"] = test_out[preferred_col]
     best_metrics = model_metrics[preferred_model]
     baseline_metrics = model_metrics["moving_average"]
-    backtest = rolling_origin_backtest(
-        train_validation_df,
-        feature_cols,
-        int(config["random_state"]),
-        int(config["train"].get("backtest_folds", 3)),
-        calibration_model=preferred_model,
-    )
-    calibration = backtest.pop("calibration")
+
     confidence_config = config.get("forecast_confidence", {})
     confidence_levels = tuple(float(value) for value in confidence_config.get("levels", [0.8, 0.95]))
     confidence_thresholds = [float(value) for value in confidence_config.get("aqi_thresholds", [50, 100, 150, 200, 300])]
@@ -265,18 +310,18 @@ def train_predictor() -> dict[str, object]:
         "best_model": preferred_model,
         "model_comparison": model_metrics,
         "validation_model_comparison": validation_metrics,
-        "selection_basis": "validation_rmse",
+        "selection_basis": "rolling_origin_rmse",
         "split_rows": {
             "train": int(len(train_df)),
             "validation": int(len(validation_df)),
             "final_test": int(len(test_df)),
         },
-        "limitation_note": "This is a next-hour AQI nowcasting demo. Models are selected on a chronological validation split and reported once on a later final test split.",
+        "limitation_note": "This is a next-hour AQI nowcasting demo. Models are selected by pre-test rolling-origin RMSE and reported once on a later final test split.",
     }
 
     ensure_parent(resolve_path(config, "data.predictions_file"))
     test_out.to_csv(resolve_path(config, "data.predictions_file"), index=False, encoding="utf-8")
-    save_model(resolve_path(config, "models.predictor"), final_models[preferred_model])
+    save_model(resolve_path(config, "models.predictor"), serializable_models[preferred_model])
     write_json(resolve_path(config, "reports.metrics_dir") / "predictor_metrics.json", metrics)
     write_json(resolve_path(config, "reports.metrics_dir") / "backtest_metrics.json", backtest)
     write_json(resolve_path(config, "reports.confidence_file"), confidence_metrics)
