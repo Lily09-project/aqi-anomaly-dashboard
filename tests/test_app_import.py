@@ -87,6 +87,11 @@ def test_app_imports_without_crashing_and_theme_exists():
     assert "下載監測摘要" in app_source
     assert "最新資料時點" in app_source
     assert "根據目前及過去資料估計同一測站下一小時 AQI" in app_source
+    assert '"地區比較"' in app_source
+    assert 'max_selections=3' in app_source
+    assert "目前較佳選擇" in app_source
+    assert "比較結果不是官方行程或健康建議" in app_source
+    assert "export_comparison_csv" in app_source
     assert "展示用途" not in app_source
     assert "background: transparent;" in app_source
     assert "box-shadow: none;" in app_source
@@ -224,3 +229,54 @@ def test_threshold_watch_cards_keep_context_without_raw_table_markup():
     assert "48.2" in html
     assert "80% 預測區間上界跨過 AQI 50" in html
     assert "<table" not in html
+
+
+def test_comparison_cards_are_escaped_and_keep_decision_context():
+    app = importlib.import_module("app")
+    comparison = pd.DataFrame(
+        {
+            "site_name_display": ["松山<script>"],
+            "county_display": ["臺北市"],
+            "observed_at": [pd.Timestamp("2026-08-12 10:00")],
+            "freshness_state": ["可比較"],
+            "current_aqi": [65.0],
+            "aqi_category": ["普通"],
+            "pm25": [22.0],
+            "predicted_next_hour_aqi": [62.0],
+            "lower_80_aqi": [56.0],
+            "upper_80_aqi": [68.0],
+            "forecast_change": [-3.0],
+            "is_anomaly": [False],
+        }
+    )
+
+    html = app.comparison_cards_html(comparison)
+
+    assert "松山&lt;script&gt;" in html
+    assert "目前 AQI" in html
+    assert "下一小時" in html
+    assert "56.0–68.0" in html
+    assert "08/12 10:00" in html
+    assert "<script>" not in html
+    assert 'class="comparison-grid"' in html
+
+
+def test_comparison_css_is_responsive_and_high_contrast(monkeypatch):
+    app = importlib.import_module("app")
+
+    class FakeStreamlit:
+        rendered = ""
+
+        def markdown(self, value, unsafe_allow_html=False):
+            self.rendered = value
+
+    fake_streamlit = FakeStreamlit()
+    monkeypatch.setattr(app, "st", fake_streamlit)
+
+    app.inject_global_css(app.THEME)
+
+    assert ".comparison-grid" in fake_streamlit.rendered
+    assert ".comparison-card" in fake_streamlit.rendered
+    assert "grid-template-columns: 1fr" in fake_streamlit.rendered
+    assert "flex-wrap: wrap" in fake_streamlit.rendered
+    assert "flex: 1 1 calc(33.333%" in fake_streamlit.rendered

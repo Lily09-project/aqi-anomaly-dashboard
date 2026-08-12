@@ -22,11 +22,11 @@ The Dashboard will add a sixth tab named `地區比較`. This is preferred over 
 
 Create `src/station_comparison.py` with:
 
-- `build_station_comparison(features, predictions=None, anomalies=None, selected_sites=None, stale_after_hours=2) -> pd.DataFrame`
+- `build_station_comparison(features, predictions=None, anomalies=None, selected_sites=None, stale_after_hours=2, reference_features=None) -> pd.DataFrame`
 - `choose_recommended_station(comparison) -> dict[str, object]`
 - `export_comparison_csv(comparison) -> bytes`
 
-The comparison table contains station identity, county, observation time, lag hours, freshness state, current AQI and category, PM2.5, next-hour point forecast, 80% interval, forecast change, anomaly flag, and anomaly evidence. Optional prediction and anomaly inputs must degrade to missing values without raising errors.
+The comparison table contains station identity, county, observation time, lag hours, freshness state, current AQI and category, PM2.5, next-hour point forecast, 80% interval, forecast change, station-specific same-hour baseline, change versus baseline, recent six-hour change, attention context, anomaly flag, and anomaly evidence. `reference_features` is optional history used only for station-specific context. Optional history, prediction and anomaly inputs must degrade to missing values without raising errors.
 
 ## Interface
 
