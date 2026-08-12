@@ -17,7 +17,14 @@ from src.features import build_features
 from src.generate_sample_data import generate_sample_aqi
 from src.preprocess import preprocess
 from src.train_anomaly_model import train_anomaly_model
-from src.train_predictor import _time_split, rolling_origin_backtest, temporal_train_validation_test_split, train_predictor
+from src.train_predictor import (
+    MovingAverageModel,
+    _time_split,
+    rolling_origin_backtest,
+    select_model_from_backtest,
+    temporal_train_validation_test_split,
+    train_predictor,
+)
 from src.utils import load_config, load_model, resolve_path
 
 
@@ -44,7 +51,7 @@ def test_models_train_save_load_and_predict_quickly():
     anomaly_results = pd.read_csv(resolve_path(config, "data.anomaly_file"))
     assert {"county_display", "site_name_display"}.issubset(predictions.columns)
     assert {"county_display", "site_name_display"}.issubset(anomaly_results.columns)
-    assert predictor_metrics["selection_basis"] == "validation_rmse"
+    assert predictor_metrics["selection_basis"] == "rolling_origin_rmse"
     assert set(predictor_metrics["split_rows"]) == {"train", "validation", "final_test"}
     assert anomaly_metrics["event_count"] >= 0
     assert resolve_path(config, "data.events_file").exists()
@@ -115,3 +122,31 @@ def test_temporal_split_and_backtest_keep_future_rows_out_of_training():
     assert {"moving_average", "linear_regression"}.issubset(backtest["aggregate"])
     for fold in backtest["folds"]:
         assert pd.Timestamp(fold["train_end"]) < pd.Timestamp(fold["test_start"])
+
+
+def test_backtest_selection_chooses_learned_model_only_when_it_beats_baseline() -> None:
+    backtest = {
+        "aggregate": {
+            "moving_average": {"rmse": 8.0},
+            "linear_regression": {"rmse": 6.0},
+            "random_forest": {"rmse": 7.0},
+        }
+    }
+    assert select_model_from_backtest(backtest, ["linear_regression", "random_forest"]) == "linear_regression"
+
+
+def test_backtest_selection_keeps_moving_average_when_learned_models_do_not_win() -> None:
+    backtest = {
+        "aggregate": {
+            "moving_average": {"rmse": 5.0},
+            "linear_regression": {"rmse": 5.0},
+            "random_forest": {"rmse": 6.0},
+        }
+    }
+    assert select_model_from_backtest(backtest, ["linear_regression", "random_forest"]) == "moving_average"
+
+
+def test_moving_average_model_is_serializable_predictor_contract() -> None:
+    frame = pd.DataFrame({"rolling_3h_aqi": [10.0, float("nan")], "lag_1_aqi": [8.0, 9.0]})
+    prediction = MovingAverageModel().predict(frame)
+    assert prediction.tolist() == [10.0, 9.0]
