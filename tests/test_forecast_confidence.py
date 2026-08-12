@@ -15,6 +15,7 @@ if str(ROOT) not in sys.path:
 from src.forecast_confidence import (
     apply_prediction_intervals,
     build_confidence_metrics,
+    build_group_coverage,
     calibrate_interval_widths,
     classify_threshold_watch,
 )
@@ -89,3 +90,25 @@ def test_confidence_metrics_report_empirical_coverage_without_recalibration():
     assert metrics["intervals"]["95"]["empirical_coverage"] == 1.0
     assert metrics["intervals"]["80"]["mean_width"] == 9.75
     assert metrics["calibration_period"]["end"] < metrics["final_test_period"]["start"]
+
+
+def test_group_coverage_reports_known_station_outcomes_and_small_groups() -> None:
+    frame = pd.DataFrame(
+        {
+            "site_name_display": ["站 A", "站 A", "站 B"],
+            "actual_next_hour_aqi": [10.0, 20.0, 30.0],
+            "lower_80_aqi": [8.0, 21.0, 25.0],
+            "upper_80_aqi": [12.0, 25.0, 35.0],
+            "lower_95_aqi": [5.0, 15.0, 20.0],
+            "upper_95_aqi": [15.0, 25.0, 40.0],
+        }
+    )
+    report = build_group_coverage(frame, "site_name_display", levels=(0.8, 0.95))
+    by_station = {row["station"]: row for row in report["groups"]}
+
+    assert report["group_column"] == "site_name_display"
+    assert by_station["站 A"]["rows"] == 2
+    assert by_station["站 A"]["intervals"]["80"]["rows"] == 2
+    assert by_station["站 A"]["intervals"]["80"]["empirical_coverage"] == 0.5
+    assert by_station["站 A"]["intervals"]["95"]["empirical_coverage"] == 1.0
+    assert by_station["站 B"]["rows"] == 1

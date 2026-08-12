@@ -10,6 +10,7 @@ from src.model_reliability import build_reliability_report
 from src.forecast_confidence import (
     apply_prediction_intervals,
     build_confidence_metrics,
+    build_group_coverage,
     calibrate_interval_widths,
     classify_threshold_watch,
 )
@@ -302,6 +303,10 @@ def train_predictor() -> dict[str, object]:
         thresholds=confidence_thresholds,
     )
     reliability = build_reliability_report(test_out)
+    coverage_group_col = "site_name_display" if "site_name_display" in test_out else "site_name"
+    confidence_metrics["station_coverage"] = build_group_coverage(
+        test_out, coverage_group_col, confidence_levels
+    )
     metrics: dict[str, object] = {
         "mae": best_metrics["mae"],
         "rmse": best_metrics["rmse"],
