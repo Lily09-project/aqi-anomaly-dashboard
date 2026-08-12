@@ -269,6 +269,9 @@ target_next_hour_aqi = groupby(site_name)["aqi"].shift(-1)
 
 ## 避免資料洩漏的做法
 
+- `station_hour_baseline_aqi` 以單次時間順序掃描建立，只使用該列時間戳之前的資料；同一時間戳的其他測站不會先進入歷史。
+- 基準依序使用同測站同小時中位數、同測站中位數、全域歷史中位數，三者都不讀取未來值。
+
 - target 使用 `groupby(site_name)["aqi"].shift(-1)`，只預測同測站下一小時 AQI。
 - feature columns 不包含 `target_aqi` 或 `target_next_hour_aqi`。
 - lag / rolling features 都依 `site_name` 分組計算。
@@ -391,9 +394,11 @@ avy_gold`
 
 ## 評估設計與可靠性
 
-預測流程採三段式時間序列切分：早期資料用於訓練，中段資料只用於模型選擇，最後一段資料只用於最終報告。候選模型依 validation RMSE 選擇後，才以 train + validation 重新訓練並在 final test 產生 `MAE`、`RMSE`、`R2`。這避免了用最終測試資料挑選模型的選擇偏差。
+預測流程採三段式時間序列切分：早期資料用於訓練、中段資料併入 pre-test rolling-origin 回測，最後一段資料只用於最終報告。Moving Average、Linear Regression 與 Random Forest 依多個滾動時間窗的平均 RMSE 選擇；學習模型必須嚴格優於 Moving Average 才會勝出，再以 train + validation 重新訓練並在 final test 產生 `MAE`、`RMSE`、`R2`。final test 不參與選模或區間校準。
 
 此外，`backtest_metrics.json` 會使用 rolling-origin backtest：每一個時間窗皆只用先前資料訓練、用後續資料評估。Dashboard 的「預測」與「模型指標」分頁會顯示其平均表現，讓 Demo 不只呈現單一切分的分數。
+
+`predictor_metrics.json` 另含 `reliability`：總體、分測站、分實際 AQI 區間的 final-test 指標、相對 Moving Average 的 MAE/RMSE 改善，以及最弱測站。每個分組都保留樣本數。`forecast_confidence.json` 另含每個測站的 80%/95% empirical coverage、有效樣本數與平均區間寬度；小樣本結果只用於診斷，不宣稱可泛化。
 `forecast_confidence.json` 使用相同的時間順序產生所選模型的 out-of-fold 殘差，再以有限樣本 conformal quantile 建立 80% / 95% 區間。它同時保存校準期間、final-test 期間、校準筆數、coverage 與平均寬度，讓面試時可直接說明「模型有多準」和「模型有多確定」是兩個不同問題。
 
 異常觀測會輸出為 `aqi_anomaly_events.csv`。同一測站、在設定允許間隔內連續發生的異常會合併成一個事件，保留起迄時間、持續小時數、峰值 AQI / PM2.5、最大異常分數與觸發證據；不同測站永遠不會合併。這讓使用者能從「點狀異常」切換為可調查的事件單位。
@@ -435,11 +440,12 @@ GitHub Actions 的 `Quality Gate` 會在 `main` 的 push / pull request 上重�
 - Added a station-context decision layer that ranks inspection priority from station-specific historical baselines, recent movement, forecast and explicit anomaly evidence instead of opaque alert copy.
 - Built a 2-3 station comparison workflow with freshness gating, forecast fallback, calibrated intervals, evidence-rich cards and a privacy-conscious CSV export.
 - Calibrated 80% / 95% model-agnostic forecast intervals from leakage-safe rolling-origin residuals and translated interval threshold crossings into transparent AQI review cues.
+- Selected learned predictors only when pre-test rolling-origin RMSE beat Moving Average, then reported station-level and AQI-band reliability with explicit sample sizes.
 - Added reproducible local execution through `run_all.py`, `src/smoke_test.py`, pytest coverage, and Windows `run_project.bat`.
 
 ## 面試 1 分鐘介紹稿
 
-這個專案是一個台灣 AQI 預測與污染異常偵測 Dashboard。我先把資料流程拆成 API 或 sample data fallback、前處理、時間序列特徵工程、下一小時 AQI 預測、異常偵測、模型評估與 Streamlit 前端。模型任務是 next-hour nowcasting，也就是使用當下與過去資料預測同測站下一小時 AQI。為了避免資料洩漏，我用 `site_name` 分組計算 lag 與 rolling features，target 則用同測站 `shift(-1)`，train/test 採時間序列切分。和一般模型展示不同的是，我在總覽增加一個測站脈絡判讀層：以該站近 14 天同時段基準、近 6 小時變化、下一小時預測和三類異常訊號，透明地排序人工應先檢視的站點，並在地圖上直接選站。我也加入 2 至 3 站的地區比較，把資料時差、目前 AQI、下一小時預測、80% 區間和本站基準放在同一決策畫面，並排除落後超過 2 小時的測站。這個排序與比較不宣稱是官方警報，而是讓每個結論都有資料證據可回查。預測頁也不是只給點估計，而是用 final test 之前的 rolling-origin 殘差校準 80% / 95% 區間，顯示 coverage、區間寬度與是否跨過下一個 AQI 門檻。即使沒有 API，也能透過 sample mode 和 `run_project.bat` 在本地端完整重現 Demo。
+這個專案是一個台灣 AQI 預測與污染異常偵測 Dashboard。我先把資料流程拆成 API 或 sample data fallback、前處理、時間序列特徵工程、下一小時 AQI 預測、異常偵測、模型評估與 Streamlit 前端。模型任務是 next-hour nowcasting，也就是使用當下與過去資料預測同測站下一小時 AQI。為了避免資料洩漏，我用 `site_name` 分組計算 lag 與 rolling features，target 則用同測站 `shift(-1)`，train/test 採時間序列切分。和一般模型展示不同的是，我在總覽增加一個測站脈絡判讀層：以該站近 14 天同時段基準、近 6 小時變化、下一小時預測和三類異常訊號，透明地排序人工應先檢視的站點，並在地圖上直接選站。我也加入 2 至 3 站的地區比較，把資料時差、目前 AQI、下一小時預測、80% 區間和本站基準放在同一決策畫面，並排除落後超過 2 小時的測站。這個排序與比較不宣稱是官方警報，而是讓每個結論都有資料證據可回查。預測頁也不是只給點估計，而是用 final test 之前的 rolling-origin 殘差校準 80% / 95% 區間，顯示 coverage、區間寬度與是否跨過下一個 AQI 門檻。模型選擇不是看 final test，也不是只看單一 validation：學習模型必須在 pre-test rolling-origin 回測優於 Moving Average；Dashboard 會再揭露各測站、各 AQI 區間與預測區間覆蓋率，連最弱測站和樣本數都能直接說明。即使沒有 API，也能透過 sample mode 和 `run_project.bat` 在本地端完整重現 Demo。
 
 ## Dashboard 效能基準
 

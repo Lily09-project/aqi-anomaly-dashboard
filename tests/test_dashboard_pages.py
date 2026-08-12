@@ -75,3 +75,40 @@ def test_overview_empty_state_is_explicit(monkeypatch) -> None:
 @pytest.mark.parametrize("label", sorted(EXPECTED_PAGES))
 def test_registered_renderers_accept_page_context(label: str) -> None:
     assert PAGE_RENDERERS[label].__annotations__["context"] is PageContext
+
+
+def test_metrics_page_builds_reliability_tables_without_raw_json() -> None:
+    from src.dashboard.pages.metrics import reliability_station_table, station_coverage_table
+
+    predictor = {
+        "reliability": {
+            "by_station": [{"station": "站 A", "rows": 12, "mae": 3.0, "rmse": 4.0, "r2": 0.8}],
+            "worst_station": {"station": "站 A", "rows": 12, "rmse": 4.0},
+            "baseline_improvement": {"rows": 12, "mae_reduction_pct": 10.0},
+        }
+    }
+    confidence = {
+        "station_coverage": {
+            "groups": [
+                {
+                    "station": "站 A",
+                    "rows": 12,
+                    "intervals": {
+                        "80": {"rows": 12, "empirical_coverage": 0.75, "mean_width": 10.0},
+                        "95": {"rows": 12, "empirical_coverage": 1.0, "mean_width": 20.0},
+                    },
+                }
+            ]
+        }
+    }
+
+    reliability_table = reliability_station_table(predictor)
+    coverage_table = station_coverage_table(confidence)
+    source = (Path(__file__).parents[1] / "src" / "dashboard" / "pages" / "metrics.py").read_text(encoding="utf-8")
+
+    assert reliability_table.loc[0, "rows"] == 12
+    assert coverage_table.loc[0, "coverage_80"] == 0.75
+    assert coverage_table.loc[0, "rows_95"] == 12
+    assert "baseline_improvement" in source
+    assert "worst_station" in source
+    assert "st.json" not in source
