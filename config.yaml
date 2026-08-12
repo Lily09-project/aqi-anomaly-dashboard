@@ -42,6 +42,7 @@ train:
     - day_of_week
     - month
     - is_weekend
+    - station_hour_baseline_aqi
     - lag_1_aqi
     - lag_3_aqi
     - rolling_3h_aqi
