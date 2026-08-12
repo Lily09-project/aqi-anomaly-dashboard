@@ -69,32 +69,40 @@ def test_app_imports_without_crashing_and_theme_exists():
     assert theme.get_theme(theme.DEFAULT_THEME_NAME)["success_soft"].startswith("rgba(")
 
     app_source = (ROOT / "app.py").read_text(encoding="utf-8")
-    assert "prefers-reduced-motion" in app_source
-    assert "min-height: 44px" in app_source
-    assert "transition: all" not in app_source
-    assert "st.json(" not in app_source
-    assert "st.dataframe(" not in app_source
-    assert 'role="region"' in app_source
-    assert "異常事件（菱形）" in app_source
-    assert "台灣 AQI 監測與預測" in app_source
-    assert "環境監測資料工作台" in app_source
-    assert "測站脈絡決策摘要" in app_source
-    assert "台灣測站分布" in app_source
-    assert 'on_select="rerun"' in app_source
-    assert "build_station_risk_brief" in app_source
-    assert "空氣品質活動建議" in app_source
-    assert "下載目前篩選資料" in app_source
-    assert "下載監測摘要" in app_source
-    assert "最新資料時點" in app_source
-    assert "根據目前及過去資料估計同一測站下一小時 AQI" in app_source
-    assert '"地區比較"' in app_source
-    assert 'max_selections=3' in app_source
-    assert "目前較佳選擇" in app_source
-    assert "比較結果不是官方行程或健康建議" in app_source
-    assert "export_comparison_csv" in app_source
-    assert "展示用途" not in app_source
-    assert "background: transparent;" in app_source
-    assert "box-shadow: none;" in app_source
+    styles_source = (ROOT / "src" / "dashboard" / "styles.py").read_text(encoding="utf-8")
+    components_source = (ROOT / "src" / "dashboard" / "components.py").read_text(encoding="utf-8")
+    maps_source = (ROOT / "src" / "dashboard" / "maps.py").read_text(encoding="utf-8")
+    pages_source = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (ROOT / "src" / "dashboard" / "pages").glob("*.py")
+    )
+    ui_source = "\n".join([app_source, styles_source, components_source, maps_source, pages_source])
+    assert "prefers-reduced-motion" in styles_source
+    assert "min-height: 44px" in styles_source
+    assert "transition: all" not in styles_source
+    assert "st.json(" not in ui_source
+    assert "st.dataframe(" not in ui_source
+    assert 'role="region"' in ui_source
+    assert "異常事件（菱形）" in ui_source
+    assert "台灣 AQI 監測與預測" in ui_source
+    assert "環境監測資料工作台" in ui_source
+    assert "測站脈絡決策摘要" in ui_source
+    assert "台灣測站分布" in ui_source
+    assert 'on_select="rerun"' in ui_source
+    assert "build_station_risk_brief" in ui_source
+    assert "空氣品質活動建議" in ui_source
+    assert "下載目前篩選資料" in ui_source
+    assert "下載監測摘要" in ui_source
+    assert "最新資料時點" in ui_source
+    assert "根據目前及過去資料估計同一測站下一小時 AQI" in ui_source
+    assert '"地區比較"' in ui_source
+    assert 'max_selections=3' in ui_source
+    assert "目前較佳選擇" in ui_source
+    assert "比較結果不是官方行程或健康建議" in ui_source
+    assert "export_comparison_csv" in ui_source
+    assert "展示用途" not in ui_source
+    assert "background: transparent;" in styles_source
+    assert "box-shadow: none;" in styles_source
 
 
 def test_streamlit_theme_config_uses_explicit_valid_colors():
