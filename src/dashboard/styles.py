@@ -165,7 +165,44 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             border-color: var(--border);
             box-shadow: inset 0 -2px 0 var(--accent);
         }}
-        section[data-testid="stSidebar"] small,
+        [data-testid="stSegmentedControl"] {{
+            margin: 0.8rem 0 1.25rem;
+        }}
+        [data-testid="stSegmentedControl"] [data-baseweb="button-group"] {{
+            display: grid !important;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            width: 100%;
+            gap: 0.25rem;
+            padding: 0.35rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }}
+        [data-testid="stSegmentedControl"] button {{
+            width: 100%;
+            min-width: 0;
+            min-height: 44px;
+            padding: 0.5rem 0.65rem;
+            border: 1px solid transparent !important;
+            border-radius: 6px !important;
+            background: transparent !important;
+            color: var(--muted-text) !important;
+            font-weight: 700;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            line-height: 1.25;
+        }}
+        [data-testid="stSegmentedControl"] button:hover {{
+            background: var(--card) !important;
+            color: var(--text) !important;
+        }}
+        [data-testid="stSegmentedControl"] button[aria-pressed="true"],
+        [data-testid="stSegmentedControl"] button[aria-selected="true"] {{
+            background: var(--card) !important;
+            color: var(--text) !important;
+            border-color: var(--border) !important;
+            box-shadow: inset 0 -2px 0 var(--accent);
+        }}        section[data-testid="stSidebar"] small,
         section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {{
             color: var(--muted-text) !important;
         }}
@@ -1042,7 +1079,16 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             .dashboard-table th, .dashboard-table td {{ padding: 0.58rem 0.55rem; }}
             .dashboard-footer {{ align-items: start; flex-direction: column; gap: 0.25rem; }}
             .dashboard-intro {{ align-items: start; flex-direction: column; gap: 0.25rem; }}
-            [data-testid="stTabs"] [data-baseweb="tab-list"] {{
+            [data-testid="stSegmentedControl"] [data-baseweb="button-group"] {{
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 0.25rem;
+                padding: 0.25rem;
+            }}
+            [data-testid="stSegmentedControl"] button {{
+                min-height: 44px;
+                padding: 0.4rem 0.25rem;
+                font-size: 0.8rem;
+            }}            [data-testid="stTabs"] [data-baseweb="tab-list"] {{
                 flex-wrap: wrap;
                 gap: 0.2rem;
                 overflow-x: visible;

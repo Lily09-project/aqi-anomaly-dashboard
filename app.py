@@ -36,8 +36,11 @@ from src.dashboard.components import (
     signal_deck,
 )
 from src.dashboard.maps import _build_station_map, _render_station_map, _station_map_data
-from src.dashboard.context import DashboardData, DashboardMetrics, FilteredData, FilterState, PageContext
+from src.dashboard.context import FilterState, PageContext
+from src.dashboard.data_service import build_filtered_data, load_dashboard_artifacts
+from src.dashboard.navigation import VIEW_LABELS, render_active_view
 from src.dashboard.pages import (
+    PAGE_RENDERERS,
     render_anomaly,
     render_comparison,
     render_metrics,
@@ -55,11 +58,8 @@ from src.app_helpers import (
     aqi_category,
     compute_kpis,
     data_quality_summary,
-    filter_by_site_and_date,
     get_station_coordinates,
     infer_data_source,
-    load_dashboard_data,
-    load_metrics,
 )
 from src.risk_brief import build_station_risk_brief, describe_anomaly_evidence, select_risk_brief_columns
 from src.station_comparison import (
@@ -146,11 +146,11 @@ def main() -> None:
     if fallback_theme_used:
         st.warning("目前主題部分顏色對比不足，已使用預設主題。")
 
-    data = load_dashboard_data(config)
-    features = data["features"]
-    predictions = data["predictions"]
-    anomalies = data["anomalies"]
-    events = data["events"]
+    source_data, dashboard_metrics = load_dashboard_artifacts(config)
+    features = source_data.features
+    predictions = source_data.predictions
+    anomalies = source_data.anomalies
+    events = source_data.events
     source_code = infer_data_source(config, features)
     data_source = _display_source(source_code)
     date_limits = _safe_date_range(features)
@@ -221,68 +221,24 @@ def main() -> None:
 
     start_date = date_range[0] if isinstance(date_range, tuple) and len(date_range) == 2 else None
     end_date = date_range[1] if isinstance(date_range, tuple) and len(date_range) == 2 else None
-    filtered_features = filter_by_site_and_date(
-        features,
+    filter_state = FilterState(
+        county=county_filter,
         site_name=selected_site,
-        county_display=county_filter,
-        start_datetime=start_date,
-        end_datetime=end_date,
+        site_display=selected_site_display,
+        start_date=start_date,
+        end_date=end_date,
     )
-    filtered_predictions = filter_by_site_and_date(
-        predictions,
-        site_name=selected_site,
-        county_display=county_filter,
-        start_datetime=start_date,
-        end_datetime=end_date,
-    )
-    filtered_anomalies = filter_by_site_and_date(
-        anomalies,
-        site_name=selected_site,
-        county_display=county_filter,
-        start_datetime=start_date,
-        end_datetime=end_date,
-    )
-    filtered_events = filter_by_site_and_date(
-        events,
-        site_name=selected_site,
-        county_display=county_filter,
-        start_datetime=start_date,
-        end_datetime=end_date,
-    )
-    map_features = filter_by_site_and_date(
-        features,
-        county_display=county_filter,
-        start_datetime=start_date,
-        end_datetime=end_date,
-    )
-    map_predictions = filter_by_site_and_date(
-        predictions,
-        county_display=county_filter,
-        start_datetime=start_date,
-        end_datetime=end_date,
-    )
-    map_anomalies = filter_by_site_and_date(
-        anomalies,
-        county_display=county_filter,
-        start_datetime=start_date,
-        end_datetime=end_date,
-    )
-    comparison_features = filter_by_site_and_date(
-        features,
-        start_datetime=start_date,
-        end_datetime=end_date,
-    )
-    comparison_predictions = filter_by_site_and_date(
-        predictions,
-        start_datetime=start_date,
-        end_datetime=end_date,
-    )
-    comparison_anomalies = filter_by_site_and_date(
-        anomalies,
-        start_datetime=start_date,
-        end_datetime=end_date,
-    )
-
+    filtered_data = build_filtered_data(source_data, filter_state)
+    filtered_features = filtered_data.selected.features
+    filtered_predictions = filtered_data.selected.predictions
+    filtered_anomalies = filtered_data.selected.anomalies
+    filtered_events = filtered_data.selected.events
+    map_features = filtered_data.regional.features
+    map_predictions = filtered_data.regional.predictions
+    map_anomalies = filtered_data.regional.anomalies
+    comparison_features = filtered_data.comparison.features
+    comparison_predictions = filtered_data.comparison.predictions
+    comparison_anomalies = filtered_data.comparison.anomalies
     quality = data_quality_summary(filtered_features)
     with st.sidebar:
         with st.expander("資料摘要", expanded=False):
@@ -337,13 +293,12 @@ def main() -> None:
             st.caption("匯出內容只包含目前篩選後的公開觀測欄位，不含模型內部特徵。")
     kpis = compute_kpis(filtered_features, filtered_anomalies)
     category, _category_color = aqi_category(float(kpis["latest_aqi"]))
-    predictor_metrics = load_metrics(resolve_path(config, "reports.metrics_dir") / "predictor_metrics.json")
-    anomaly_metrics = load_metrics(resolve_path(config, "reports.metrics_dir") / "anomaly_metrics.json")
-    backtest_metrics = load_metrics(resolve_path(config, "reports.metrics_dir") / "backtest_metrics.json")
-    confidence_metrics = load_metrics(resolve_path(config, "reports.confidence_file"))
-    data_health = load_metrics(resolve_path(config, "reports.metrics_dir") / "data_health.json")
-    evaluation_summary = load_metrics(resolve_path(config, "reports.metrics_dir") / "evaluation_summary.json")
-
+    predictor_metrics = dashboard_metrics.predictor
+    anomaly_metrics = dashboard_metrics.anomaly
+    backtest_metrics = dashboard_metrics.backtest
+    confidence_metrics = dashboard_metrics.confidence
+    data_health = dashboard_metrics.data_health
+    evaluation_summary = dashboard_metrics.evaluation
     station_count = filtered_features["site_name_display"].nunique() if "site_name_display" in filtered_features else 0
     latest_note = "最新時點平均" if selected_site is None else selected_site_display
     signal_items = [
@@ -367,53 +322,22 @@ def main() -> None:
     activity_guidance_panel(kpis["latest_aqi"], source_code, latest_filtered_time)
 
     page_context = PageContext(
-        data=FilteredData(
-            source=DashboardData(features, predictions, anomalies, events),
-            selected=DashboardData(filtered_features, filtered_predictions, filtered_anomalies, filtered_events),
-            regional=DashboardData(map_features, map_predictions, map_anomalies, pd.DataFrame()),
-            comparison=DashboardData(
-                comparison_features,
-                comparison_predictions,
-                comparison_anomalies,
-                pd.DataFrame(),
-            ),
-        ),
-        metrics=DashboardMetrics(
-            predictor=predictor_metrics,
-            anomaly=anomaly_metrics,
-            backtest=backtest_metrics,
-            confidence=confidence_metrics,
-            data_health=data_health,
-            evaluation=evaluation_summary,
-        ),
-        filters=FilterState(
-            county=county_filter,
-            site_name=selected_site,
-            site_display=selected_site_display,
-            start_date=start_date,
-            end_date=end_date,
-        ),
+        data=filtered_data,
+        metrics=dashboard_metrics,
+        filters=filter_state,
         theme=theme,
         config=config,
         source_code=source_code,
         data_source=data_source,
     )
-
-    overview_tab, comparison_tab, prediction_tab, anomaly_tab, quality_tab, metrics_tab = st.tabs(
-        ["總覽", "地區比較", "預測", "異常偵測", "資料品質", "模型指標"]
+    selected_view = st.segmented_control(
+        "Dashboard view",
+        options=VIEW_LABELS,
+        default=VIEW_LABELS[0],
+        label_visibility="collapsed",
+        key="dashboard_view",
     )
-    with overview_tab:
-        render_overview(page_context)
-    with comparison_tab:
-        render_comparison(page_context)
-    with prediction_tab:
-        render_prediction(page_context)
-    with anomaly_tab:
-        render_anomaly(page_context)
-    with quality_tab:
-        render_quality(page_context)
-    with metrics_tab:
-        render_metrics(page_context)
+    render_active_view(selected_view or VIEW_LABELS[0], page_context, PAGE_RENDERERS)
     st.markdown(
         f"""
         <div class="dashboard-footer">

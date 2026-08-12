@@ -441,6 +441,13 @@ GitHub Actions 的 `Quality Gate` 會在 `main` 的 push / pull request 上重�
 
 這個專案是一個台灣 AQI 預測與污染異常偵測 Dashboard。我先把資料流程拆成 API 或 sample data fallback、前處理、時間序列特徵工程、下一小時 AQI 預測、異常偵測、模型評估與 Streamlit 前端。模型任務是 next-hour nowcasting，也就是使用當下與過去資料預測同測站下一小時 AQI。為了避免資料洩漏，我用 `site_name` 分組計算 lag 與 rolling features，target 則用同測站 `shift(-1)`，train/test 採時間序列切分。和一般模型展示不同的是，我在總覽增加一個測站脈絡判讀層：以該站近 14 天同時段基準、近 6 小時變化、下一小時預測和三類異常訊號，透明地排序人工應先檢視的站點，並在地圖上直接選站。我也加入 2 至 3 站的地區比較，把資料時差、目前 AQI、下一小時預測、80% 區間和本站基準放在同一決策畫面，並排除落後超過 2 小時的測站。這個排序與比較不宣稱是官方警報，而是讓每個結論都有資料證據可回查。預測頁也不是只給點估計，而是用 final test 之前的 rolling-origin 殘差校準 80% / 95% 區間，顯示 coverage、區間寬度與是否跨過下一個 AQI 門檻。即使沒有 API，也能透過 sample mode 和 `run_project.bat` 在本地端完整重現 Demo。
 
+## Dashboard 效能基準
+
+Dashboard 以檔案絕對路徑、修改時間與檔案大小作為快取版本，並只渲染目前選取的頁面。可用下列指令量測冷載入、暖快取與篩選範圍建構時間；數值只供同一台機器前後比較，不設跨機器固定門檻。
+
+```bash
+python src/benchmark_dashboard.py
+```
 ## Security
 
 - `.env` 與 Streamlit secrets 不納入 Git；請只提交 `.env.example`，不要把 API key、token 或密碼寫入設定檔。
