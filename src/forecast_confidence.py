@@ -100,6 +100,57 @@ def classify_threshold_watch(
     return result
 
 
+def build_group_coverage(
+    frame: pd.DataFrame,
+    group_col: str,
+    levels: Iterable[float] = DEFAULT_LEVELS,
+) -> dict[str, Any]:
+    """Report empirical interval coverage by group without recalibrating widths."""
+    if group_col not in frame:
+        raise ValueError(f"Missing coverage group column: {group_col}")
+    if "actual_next_hour_aqi" not in frame:
+        raise ValueError("Missing coverage outcome column: actual_next_hour_aqi")
+
+    resolved_levels = sorted(set(float(level) for level in levels))
+    required = {
+        column
+        for level in resolved_levels
+        for column in (f"lower_{_level_key(level)}_aqi", f"upper_{_level_key(level)}_aqi")
+    }
+    missing = sorted(required - set(frame.columns))
+    if missing:
+        raise ValueError("Missing group coverage columns: " + ", ".join(missing))
+
+    groups: list[dict[str, Any]] = []
+    for group_name, group in frame.groupby(group_col, sort=True):
+        actual = pd.to_numeric(group["actual_next_hour_aqi"], errors="coerce")
+        intervals: dict[str, dict[str, float | int]] = {}
+        for level in resolved_levels:
+            key = _level_key(level)
+            lower = pd.to_numeric(group[f"lower_{key}_aqi"], errors="coerce")
+            upper = pd.to_numeric(group[f"upper_{key}_aqi"], errors="coerce")
+            valid = actual.notna() & lower.notna() & upper.notna()
+            rows = int(valid.sum())
+            coverage = (
+                float(((actual[valid] >= lower[valid]) & (actual[valid] <= upper[valid])).mean())
+                if rows
+                else 0.0
+            )
+            mean_width = float((upper[valid] - lower[valid]).mean()) if rows else 0.0
+            intervals[key] = {
+                "rows": rows,
+                "empirical_coverage": round(coverage, 4),
+                "mean_width": round(mean_width, 4),
+            }
+        groups.append(
+            {
+                "station": str(group_name),
+                "rows": int(actual.notna().sum()),
+                "intervals": intervals,
+            }
+        )
+    return {"group_column": group_col, "groups": groups}
+
 def build_confidence_metrics(
     frame: pd.DataFrame,
     widths: dict[str, float],
