@@ -1,6 +1,6 @@
 # Dashboard Architecture Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Turn `app.py` into a composition root with explicit page contexts and six independently testable page renderers.
 
@@ -29,7 +29,7 @@
 - Produces: `DashboardData`, `FilteredData`, `DashboardMetrics`, `FilterState`, `PageContext`, `DataContractError`
 - Consumes: pandas DataFrames and existing metric dictionaries
 
-- [ ] **Step 1: Write failing context tests**
+- [x] **Step 1: Write failing context tests**
 
 ```python
 def test_dashboard_data_requires_named_frames():
@@ -45,12 +45,12 @@ def test_page_context_validates_required_selected_columns():
         context.validate_selected_features({"datetime", "aqi"})
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `python -m pytest -q tests/test_dashboard_context.py`
 Expected: collection fails because `src.dashboard.context` does not exist.
 
-- [ ] **Step 3: Implement immutable contracts**
+- [x] **Step 3: Implement immutable contracts**
 
 ```python
 @dataclass(frozen=True)
@@ -91,12 +91,12 @@ class DataContractError(ValueError):
     pass
 ```
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `python -m pytest -q tests/test_dashboard_context.py`
 Expected: all context tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/dashboard tests/test_dashboard_context.py
@@ -117,7 +117,7 @@ git commit -m "refactor: add typed dashboard contexts"
 - Produces: `inject_global_css`, `metric_card`, `signal_deck`, `section_header`, `render_table`, `apply_plotly_theme`, `comparison_cards_html`, `render_station_map`
 - Consumes: explicit Streamlit object where rendering is required, theme dictionaries, and DataFrames
 
-- [ ] **Step 1: Add failing import and escaping tests**
+- [x] **Step 1: Add failing import and escaping tests**
 
 ```python
 def test_comparison_cards_escape_station_labels():
@@ -142,12 +142,12 @@ def test_app_reexports_component_helpers():
     assert app.render_table is dashboard_components.render_table
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `python -m pytest -q tests/test_dashboard_components.py tests/test_app_import.py`
 Expected: imports fail because the new modules do not exist.
 
-- [ ] **Step 3: Extract pure formatting and HTML helpers first**
+- [x] **Step 3: Extract pure formatting and HTML helpers first**
 
 ```python
 def comparison_cards_html(comparison: pd.DataFrame) -> str:
@@ -162,16 +162,16 @@ def render_table(st_api: Any, df: pd.DataFrame, label: str = "資料表", table_
     )
 ```
 
-- [ ] **Step 4: Move CSS and station map functions without behavior changes**
+- [x] **Step 4: Move CSS and station map functions without behavior changes**
 
 `styles.py` owns `inject_global_css`. `maps.py` owns `_station_map_data`, `_build_station_map`, and `render_station_map`. Pass `st_api`, `theme`, and selected station explicitly instead of reading globals.
 
-- [ ] **Step 5: Re-export compatibility names from `app.py` and verify GREEN**
+- [x] **Step 5: Re-export compatibility names from `app.py` and verify GREEN**
 
 Run: `python -m pytest -q tests/test_dashboard_components.py tests/test_app_import.py`
 Expected: component and legacy import tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app.py src/dashboard tests/test_dashboard_components.py tests/test_app_import.py
@@ -191,7 +191,7 @@ git commit -m "refactor: extract dashboard components and styles"
 - Produces: `render_overview(st_api, context) -> None`, `render_comparison(st_api, context) -> None`
 - Consumes: `PageContext`, shared components, map module, risk brief, and station comparison functions
 
-- [ ] **Step 1: Write failing renderer tests**
+- [x] **Step 1: Write failing renderer tests**
 
 ```python
 def test_overview_empty_state_is_rendered(fake_streamlit, empty_context):
@@ -203,12 +203,12 @@ def test_comparison_does_not_read_files(monkeypatch, fake_streamlit, context):
     render_comparison(fake_streamlit, context)
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `python -m pytest -q tests/test_dashboard_pages.py -k 'overview or comparison'`
 Expected: page module imports fail.
 
-- [ ] **Step 3: Implement explicit renderers**
+- [x] **Step 3: Implement explicit renderers**
 
 ```python
 def render_overview(st_api: Any, context: PageContext) -> None:
@@ -227,7 +227,7 @@ def render_comparison(st_api: Any, context: PageContext) -> None:
     _render_station_selector_and_comparison(st_api, context)
 ```
 
-- [ ] **Step 4: Replace the corresponding bodies in `app.py` with calls**
+- [x] **Step 4: Replace the corresponding bodies in `app.py` with calls**
 
 ```python
 with overview_tab:
@@ -236,12 +236,12 @@ with comparison_tab:
     render_comparison(st, page_context)
 ```
 
-- [ ] **Step 5: Verify GREEN and regression tests**
+- [x] **Step 5: Verify GREEN and regression tests**
 
 Run: `python -m pytest -q tests/test_dashboard_pages.py tests/test_app_import.py tests/test_station_comparison.py tests/test_risk_brief.py`
 Expected: all tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app.py src/dashboard/pages tests/test_dashboard_pages.py
@@ -260,9 +260,9 @@ git commit -m "refactor: extract overview and comparison pages"
 - Produces: `render_prediction(st_api, context) -> None`, `render_anomaly(st_api, context) -> None`
 - Consumes: selected prediction/anomaly/event frames and `DashboardMetrics`
 
-- [ ] **Step 1: Add failing empty-state and no-file-read tests**
-- [ ] **Step 2: Verify RED with `python -m pytest -q tests/test_dashboard_pages.py -k 'prediction or anomaly'`**
-- [ ] **Step 3: Extract prediction rendering behind this interface**
+- [x] **Step 1: Add failing empty-state and no-file-read tests**
+- [x] **Step 2: Verify RED with `python -m pytest -q tests/test_dashboard_pages.py -k 'prediction or anomaly'`**
+- [x] **Step 3: Extract prediction rendering behind this interface**
 
 ```python
 def render_prediction(st_api: Any, context: PageContext) -> None:
@@ -275,7 +275,7 @@ def render_prediction(st_api: Any, context: PageContext) -> None:
     render_error_and_model_tables(st_api, context)
 ```
 
-- [ ] **Step 4: Extract anomaly rendering behind this interface**
+- [x] **Step 4: Extract anomaly rendering behind this interface**
 
 ```python
 def render_anomaly(st_api: Any, context: PageContext) -> None:
@@ -287,7 +287,7 @@ def render_anomaly(st_api: Any, context: PageContext) -> None:
     render_anomaly_timeline_and_cases(st_api, context)
 ```
 
-- [ ] **Step 5: Replace app bodies, run focused and full tests, then commit**
+- [x] **Step 5: Replace app bodies, run focused and full tests, then commit**
 
 Run: `python -m pytest -q tests/test_dashboard_pages.py tests/test_app_import.py tests/test_forecast_confidence.py tests/test_anomaly_events.py`
 Expected: all pass.
@@ -308,16 +308,16 @@ git commit -m "refactor: extract prediction and anomaly pages"
 **Interfaces:**
 - Produces: `render_quality(st_api, context) -> None`, `render_metrics(st_api, context) -> None`
 
-- [ ] **Step 1: Add failing renderer tests for empty metrics and no raw JSON**
-- [ ] **Step 2: Verify RED with `python -m pytest -q tests/test_dashboard_pages.py -k 'quality or metrics'`**
-- [ ] **Step 3: Extract both renderers with explicit context arguments**
-- [ ] **Step 4: Replace app bodies with renderer calls**
-- [ ] **Step 5: Verify focused tests and full suite**
+- [x] **Step 1: Add failing renderer tests for empty metrics and no raw JSON**
+- [x] **Step 2: Verify RED with `python -m pytest -q tests/test_dashboard_pages.py -k 'quality or metrics'`**
+- [x] **Step 3: Extract both renderers with explicit context arguments**
+- [x] **Step 4: Replace app bodies with renderer calls**
+- [x] **Step 5: Verify focused tests and full suite**
 
 Run: `python -m pytest -q tests/test_dashboard_pages.py tests/test_app_import.py tests/test_data_health.py tests/test_evaluate.py`
 Expected: all pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app.py src/dashboard/pages tests/test_dashboard_pages.py
@@ -335,7 +335,7 @@ git commit -m "refactor: extract quality and metrics pages"
 **Interfaces:**
 - Produces: `build_page_context(filtered: FilteredData, metrics: DashboardMetrics, filters: FilterState, theme: dict[str, str], source_code: str, data_source: str) -> PageContext`, page dispatch calls, compatibility re-exports
 
-- [ ] **Step 1: Write failing architecture tests**
+- [x] **Step 1: Write failing architecture tests**
 
 ```python
 def test_app_is_a_composition_root():
@@ -352,14 +352,14 @@ def test_page_modules_do_not_read_artifacts():
         assert "load_model(" not in source
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `python -m pytest -q tests/test_dashboard_architecture.py`
 Expected: app line-count assertion fails until all duplicated blocks are removed.
 
-- [ ] **Step 3: Remove dead duplicates and complete compatibility re-exports**
-- [ ] **Step 4: Update README architecture section**
-- [ ] **Step 5: Run Stage 1 verification**
+- [x] **Step 3: Remove dead duplicates and complete compatibility re-exports**
+- [x] **Step 4: Update README architecture section**
+- [x] **Step 5: Run Stage 1 verification**
 
 Run:
 
@@ -372,7 +372,7 @@ git diff --check
 
 Expected: all tests and checks pass; app contains fewer than 900 lines.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app.py src/dashboard tests README.md
