@@ -22,6 +22,11 @@ from src.app_helpers import (
     load_metrics,
 )
 from src.risk_brief import build_station_risk_brief, describe_anomaly_evidence, select_risk_brief_columns
+from src.station_comparison import (
+    build_station_comparison,
+    choose_recommended_station,
+    export_comparison_csv,
+)
 from src.theme import (
     DEFAULT_THEME_NAME,
     THEME,
@@ -114,6 +119,13 @@ DISPLAY_COLUMN_MAP = {
     "pm25_rolling_3h": "PM2.5 3 小時移動平均",
     "aqi_diff": "AQI 時差",
     "pm25_diff": "PM2.5 時差",
+    "observed_at": "觀測時間",
+    "data_lag_hours": "資料落後小時",
+    "freshness_state": "資料狀態",
+    "current_aqi": "目前 AQI",
+    "aqi_category": "AQI 等級",
+    "forecast_change": "預測變化",
+    "anomaly_evidence": "異常證據",
     "data_source": "資料來源",
 }
 
@@ -945,6 +957,59 @@ def inject_global_css(theme: dict[str, str] | None = None) -> None:
             line-height: 1.5;
         }}
         .guidance-disclaimer a {{ color: var(--accent) !important; font-weight: 800; }}
+        .comparison-recommendation {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin: 0.25rem 0 1rem;
+            padding: 0.95rem 1rem;
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            border-radius: 8px;
+            background: var(--surface);
+            color: var(--text);
+        }}
+        .comparison-recommendation span {{ color: var(--muted-text); font-size: 0.78rem; font-weight: 700; }}
+        .comparison-recommendation strong {{ display: block; margin-top: 0.18rem; color: var(--text); font-size: 1.12rem; }}
+        .comparison-recommendation-value {{ color: var(--accent); font-size: 1rem; font-weight: 800; white-space: nowrap; }}
+        .comparison-grid {{
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.75rem;
+            margin: 0.75rem 0 1.2rem;
+        }}
+        .comparison-card {{
+            min-width: 0;
+            padding: 0.95rem 1rem;
+            border: 1px solid var(--border);
+            border-top: 3px solid var(--secondary);
+            border-radius: 8px;
+            background: var(--card);
+            color: var(--text);
+        }}
+        .comparison-card.stale {{ border-top-color: var(--warning); }}
+        .comparison-card.anomaly {{ border-top-color: var(--danger); }}
+        .comparison-card-head {{ display: flex; align-items: start; justify-content: space-between; gap: 0.6rem; }}
+        .comparison-card-head strong {{ color: var(--text); font-size: 1rem; overflow-wrap: anywhere; }}
+        .comparison-card-head span {{ color: var(--muted-text); font-size: 0.74rem; }}
+        .comparison-state {{
+            flex: 0 0 auto;
+            padding: 0.2rem 0.4rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--surface);
+            color: var(--text) !important;
+            font-weight: 800;
+        }}
+        .comparison-aqi {{ display: flex; align-items: end; gap: 0.55rem; margin-top: 0.85rem; }}
+        .comparison-aqi strong {{ color: var(--text); font-size: 2rem; line-height: 1; font-variant-numeric: tabular-nums; }}
+        .comparison-aqi span {{ color: var(--accent); font-size: 0.78rem; font-weight: 800; }}
+        .comparison-facts {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; margin-top: 0.85rem; }}
+        .comparison-fact {{ padding-top: 0.55rem; border-top: 1px solid var(--border); min-width: 0; }}
+        .comparison-fact span {{ display: block; color: var(--muted-text); font-size: 0.7rem; }}
+        .comparison-fact strong {{ display: block; margin-top: 0.16rem; color: var(--text); font-size: 0.88rem; overflow-wrap: anywhere; }}
+        .comparison-time {{ margin: 0.75rem 0 0; color: var(--muted-text) !important; font-size: 0.72rem; }}
         .priority-queue {{
             display: grid;
             gap: 0.55rem;
@@ -1086,6 +1151,7 @@ def inject_global_css(theme: dict[str, str] | None = None) -> None:
             .hero-band {{ grid-template-columns: 1fr; gap: 0.9rem; }}
             .hero-meta {{ justify-content: start; }}
             .signal-deck {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+            .comparison-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
             .signal-primary {{ grid-row: auto; grid-column: span 2; }}
         }}
         @media (max-width: 640px) {{
@@ -1123,18 +1189,29 @@ def inject_global_css(theme: dict[str, str] | None = None) -> None:
             .dashboard-table th, .dashboard-table td {{ padding: 0.58rem 0.55rem; }}
             .dashboard-footer {{ align-items: start; flex-direction: column; gap: 0.25rem; }}
             .dashboard-intro {{ align-items: start; flex-direction: column; gap: 0.25rem; }}
-            [data-testid="stTabs"] [data-baseweb="tab-list"] {{ gap: 0.1rem; padding: 0.25rem; }}
+            [data-testid="stTabs"] [data-baseweb="tab-list"] {{
+                flex-wrap: wrap;
+                gap: 0.2rem;
+                overflow-x: visible;
+                padding: 0.25rem;
+            }}
             [data-testid="stTabs"] button[data-baseweb="tab"] {{
+                flex: 1 1 calc(33.333% - 0.2rem);
+                min-width: 0;
                 min-height: 44px;
-                padding: 0.4rem 0.42rem;
-                font-size: 0.78rem;
-            }}            .signal-deck {{ grid-template-columns: 1fr; gap: 0.65rem; }}
+                padding: 0.4rem 0.3rem;
+                font-size: 0.75rem;
+                justify-content: center;
+            }}
+            .signal-deck {{ grid-template-columns: 1fr; gap: 0.65rem; }}
             .signal-primary {{ grid-column: auto; padding: 1rem; }}
             .signal-value {{ font-size: 2.45rem; }}
             .signal-card {{ min-height: 94px; }}
             .guidance-heading {{ display: grid; }}
             .guidance-time {{ text-align: left; }}
             .guidance-grid {{ grid-template-columns: 1fr; }}
+            .comparison-recommendation {{ align-items: start; flex-direction: column; }}
+            .comparison-grid {{ grid-template-columns: 1fr; }}
             .priority-row {{ grid-template-columns: 1.75rem minmax(0, 1fr) auto; gap: 0.5rem; }}
             .priority-rank {{ width: 1.75rem; height: 1.75rem; }}
             .watch-grid {{ grid-template-columns: 1fr; }}
@@ -1417,6 +1494,39 @@ def _threshold_watch_cards_html(table: pd.DataFrame, limit: int = 6) -> str:
             "</article>"
         )
     return f'<section class="watch-grid" aria-label="AQI 預測區間跨級關注">{"".join(cards)}</section>'
+
+
+def comparison_cards_html(comparison: pd.DataFrame) -> str:
+    cards: list[str] = []
+    for _, row in comparison.iterrows():
+        timestamp = pd.to_datetime(row.get("observed_at"), errors="coerce")
+        time_label = "時間未知" if pd.isna(timestamp) else timestamp.strftime("%m/%d %H:%M")
+        state = str(row.get("freshness_state", "資料狀態未知"))
+        is_anomaly = bool(row.get("is_anomaly", False))
+        tone = "anomaly" if is_anomaly else "stale" if state == "資料較舊" else "current"
+        interval = (
+            f"{_format_optional_number(row.get('lower_80_aqi'))}–{_format_optional_number(row.get('upper_80_aqi'))}"
+            if pd.notna(row.get("lower_80_aqi")) and pd.notna(row.get("upper_80_aqi"))
+            else "資料不足"
+        )
+        cards.append(
+            f'<article class="comparison-card {tone}">'
+            f'<div class="comparison-card-head"><div><strong>{escape(str(row.get("site_name_display", "未知測站")))}</strong>'
+            f'<span>{escape(str(row.get("county_display", "未知地區")))}</span></div>'
+            f'<span class="comparison-state">{escape(state)}</span></div>'
+            f'<div class="comparison-aqi"><strong>{escape(_format_optional_number(row.get("current_aqi")))}</strong>'
+            f'<span>{escape(str(row.get("aqi_category", "無資料")))}</span></div>'
+            f'<div class="comparison-facts">'
+            f'<div class="comparison-fact"><span>目前 AQI</span><strong>{escape(_format_optional_number(row.get("current_aqi")))}</strong></div>'
+            f'<div class="comparison-fact"><span>下一小時</span><strong>{escape(_format_optional_number(row.get("predicted_next_hour_aqi")))}</strong></div>'
+            f'<div class="comparison-fact"><span>80% 預測區間</span><strong>{escape(interval)}</strong></div>'
+            f'<div class="comparison-fact"><span>本站同時段基準</span><strong>{escape(_format_optional_number(row.get("baseline_aqi")))}</strong></div>'
+            f'<div class="comparison-fact"><span>相對本站基準</span><strong>{escape(_format_optional_number(row.get("aqi_vs_baseline"), signed=True))}</strong></div>'
+            f'<div class="comparison-fact"><span>PM2.5</span><strong>{escape(_format_optional_number(row.get("pm25")))}</strong></div>'
+            f'</div><p class="comparison-time">觀測時間 {escape(time_label)}</p></article>'
+        )
+    return f'<section class="comparison-grid" aria-label="測站比較卡片">{"".join(cards)}</section>'
+
 
 def apply_plotly_theme(fig: Any, theme: dict[str, str], title: str | None = None):
     layout: dict[str, Any] = {
@@ -1894,6 +2004,21 @@ def main() -> None:
         start_datetime=start_date,
         end_datetime=end_date,
     )
+    comparison_features = filter_by_site_and_date(
+        features,
+        start_datetime=start_date,
+        end_datetime=end_date,
+    )
+    comparison_predictions = filter_by_site_and_date(
+        predictions,
+        start_datetime=start_date,
+        end_datetime=end_date,
+    )
+    comparison_anomalies = filter_by_site_and_date(
+        anomalies,
+        start_datetime=start_date,
+        end_datetime=end_date,
+    )
 
     quality = data_quality_summary(filtered_features)
     with st.sidebar:
@@ -1978,8 +2103,8 @@ def main() -> None:
     signal_deck(kpis["latest_aqi"], category, latest_note, signal_items)
     activity_guidance_panel(kpis["latest_aqi"], source_code, latest_filtered_time)
 
-    overview_tab, prediction_tab, anomaly_tab, quality_tab, metrics_tab = st.tabs(
-        ["總覽", "預測", "異常偵測", "資料品質", "模型指標"]
+    overview_tab, comparison_tab, prediction_tab, anomaly_tab, quality_tab, metrics_tab = st.tabs(
+        ["總覽", "地區比較", "預測", "異常偵測", "資料品質", "模型指標"]
     )
 
     with overview_tab:
@@ -2056,6 +2181,144 @@ def main() -> None:
                 fig = apply_plotly_theme(fig, theme)
                 _plot_chart(fig)
 
+    with comparison_tab:
+        st.markdown(
+            '<div class="section-note">同時比較 2–3 個測站的目前 AQI、下一小時預測與資料時點；此分頁不受側欄單站篩選限制，但會沿用日期區間。</div>',
+            unsafe_allow_html=True,
+        )
+        latest_station_rows = pd.DataFrame()
+        if not comparison_features.empty and {"site_name_display", "site_name", "datetime", "aqi"}.issubset(comparison_features.columns):
+            latest_station_rows = (
+                comparison_features.sort_values(["site_name", "datetime"])
+                .groupby("site_name", sort=False, as_index=False)
+                .tail(1)
+                .sort_values("aqi", ascending=False)
+            )
+        comparison_options = (
+            sorted(latest_station_rows["site_name_display"].dropna().astype(str).unique().tolist())
+            if not latest_station_rows.empty
+            else []
+        )
+        default_comparison_sites = (
+            latest_station_rows["site_name_display"].dropna().astype(str).drop_duplicates().head(3).tolist()
+            if not latest_station_rows.empty
+            else []
+        )
+        selected_comparison_sites = st.multiselect(
+            "比較測站（最多 3 個）",
+            options=comparison_options,
+            default=default_comparison_sites,
+            max_selections=3,
+        )
+        comparison = pd.DataFrame()
+        if len(selected_comparison_sites) < 2:
+            st.info("請至少選擇 2 個測站，才能建立可比較的決策摘要。")
+        else:
+            comparison = build_station_comparison(
+                comparison_features,
+                comparison_predictions,
+                comparison_anomalies,
+                selected_comparison_sites,
+                reference_features=features,
+            )
+            recommendation = choose_recommended_station(comparison)
+            if comparison.empty or recommendation["site_name"] is None:
+                st.info("目前選取的測站沒有足夠且時點可比的資料。")
+            else:
+                recommendation_site = escape(str(recommendation["site_name_display"]))
+                recommendation_basis = escape(str(recommendation["basis"]))
+                recommendation_value = escape(_format_optional_number(recommendation["value"]))
+                st.markdown(
+                    f"""
+                    <section class="comparison-recommendation" aria-label="目前較佳選擇">
+                        <div><span>目前較佳選擇</span><strong>{recommendation_site}</strong></div>
+                        <div class="comparison-recommendation-value">{recommendation_basis} {recommendation_value}</div>
+                    </section>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                st.markdown(comparison_cards_html(comparison), unsafe_allow_html=True)
+
+                chart_column, trend_column = st.columns(2, gap="large")
+                with chart_column:
+                    st.subheader("目前與下一小時")
+                    chart_data = comparison[
+                        ["site_name_display", "current_aqi", "predicted_next_hour_aqi"]
+                    ].melt(id_vars="site_name_display", var_name="series", value_name="aqi").dropna(subset=["aqi"])
+                    chart_data["series"] = chart_data["series"].replace(
+                        {"current_aqi": "目前 AQI", "predicted_next_hour_aqi": "下一小時預測"}
+                    )
+                    fig = px.bar(
+                        chart_data,
+                        x="site_name_display",
+                        y="aqi",
+                        color="series",
+                        barmode="group",
+                        labels={"site_name_display": "測站", "aqi": "AQI", "series": "資料"},
+                        color_discrete_sequence=[theme["primary"], theme["secondary"]],
+                    )
+                    fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=330)
+                    _plot_chart(apply_plotly_theme(fig, theme))
+                with trend_column:
+                    st.subheader("近 24 小時 AQI")
+                    newest_selected_time = pd.to_datetime(comparison["observed_at"], errors="coerce").max()
+                    trend_data = comparison_features[
+                        comparison_features["site_name_display"].astype(str).isin(selected_comparison_sites)
+                    ].copy()
+                    if pd.notna(newest_selected_time):
+                        trend_data = trend_data[
+                            (trend_data["datetime"] >= newest_selected_time - pd.Timedelta(hours=24))
+                            & (trend_data["datetime"] <= newest_selected_time)
+                        ]
+                    fig = px.line(
+                        trend_data,
+                        x="datetime",
+                        y="aqi",
+                        color="site_name_display",
+                        labels=DISPLAY_COLUMN_MAP,
+                        color_discrete_sequence=chart_color_sequence(theme),
+                    )
+                    fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=330)
+                    _plot_chart(apply_plotly_theme(fig, theme))
+
+                comparison_table_columns = [
+                    "observed_at",
+                    "county_display",
+                    "site_name_display",
+                    "freshness_state",
+                    "current_aqi",
+                    "aqi_category",
+                    "pm25",
+                    "predicted_next_hour_aqi",
+                    "lower_80_aqi",
+                    "upper_80_aqi",
+                    "forecast_change",
+                    "baseline_aqi",
+                    "aqi_vs_baseline",
+                    "recent_6h_change",
+                    "attention_level",
+                    "context_evidence",
+                    "is_anomaly",
+                    "anomaly_evidence",
+                ]
+                comparison_table = _rename_for_display(
+                    _select_columns(comparison, comparison_table_columns)
+                )
+                if "是否異常" in comparison_table:
+                    comparison_table["是否異常"] = comparison_table["是否異常"].map({True: "是", False: "否"})
+                with st.expander("檢視完整比較資料", expanded=False):
+                    render_table(comparison_table, label="測站比較資料表")
+                st.download_button(
+                    "下載測站比較資料 (.csv)",
+                    data=export_comparison_csv(comparison),
+                    file_name="taiwan_aqi_station_comparison.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
+        st.markdown(
+            f'<div class="section-note">比較結果不是官方行程或健康建議。推薦會排除落後最新時點超過 2 小時的測站，並優先比較下一小時點預測；缺少預測時才使用目前 AQI。{escape(data_source)} 的限制仍適用。</div>',
+            unsafe_allow_html=True,
+        )
     with prediction_tab:
         st.markdown(
             '<div class="section-note">根據目前及過去資料估計同一測站下一小時 AQI；模型不會使用預測時點之後的資料。</div>',
