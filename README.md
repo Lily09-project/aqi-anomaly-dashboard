@@ -1,94 +1,394 @@
-# 台灣 AQI 預測與空氣污染異常偵測 Dashboard
+# 台灣 AQI 監測、下一小時預測與異常事件判讀 Dashboard
 
-本專案是一個可在本地端完整重現的資料科學 side project，主題為「台灣 AQI 預測與空氣污染異常偵測 Dashboard」。它不是只展示模型數字，而是把 AQI、PM2.5、同測站歷史基準、下一小時預測與異常訊號整理成可追溯的人工檢視順序。專案涵蓋 Open Data / API fallback、時間序列資料清理、特徵工程、下一小時 AQI 預測、污染異常偵測、模型評估、繁體中文 Streamlit Dashboard、pytest 自動測試與 Windows 一鍵執行。
+一個可在本機完整重現的端到端資料產品專案：從空氣品質資料取得、清理、時間序列特徵工程、模型訓練與評估，到繁體中文 Streamlit Dashboard、台灣地圖選站、預測可信度、異常事件整理與自動化測試。
 
-## 專案目標
+本專案不把重點停留在「模型分數」或單一趨勢圖，而是把模型輸出轉成可以被人檢查、比較與追溯的監測工作流程。使用者可以先從地圖或篩選器選擇區域，再依照測站自身歷史脈絡、近期變化、下一小時預測、預測區間與異常證據，決定哪些測站值得優先檢視。
 
-- 建立可放上 GitHub 與履歷的完整本地端 AI/ML side project。
-- 使用時間序列特徵預測同測站下一小時 AQI。
-- 使用 pseudo-label 與 Isolation Forest 偵測可能污染異常事件。
-- 提供面試可展示的繁體中文 Dashboard。
-- 在沒有 API key、沒有網路或 API 失敗時，仍可使用 sample data 跑完整 Demo。
-- 將模型結果轉換為「先看哪一個測站、依據是什麼」的透明判讀，而不是只給一個不明來源的風險分數。
+> 重要說明：Sample Data 是模擬資料，只用於本地 Demo、測試與開發，不代表環境部官方即時監測資料。模型結果也不是官方警報、醫療建議、污染來源判定或行程建議。
 
-## 專案差異化：測站脈絡化判讀
+## 專案摘要
 
-不同地區的正常污染水準不同，單用全台平均或固定門檻容易掩蓋「對某個測站而言不尋常」的變化。因此 Dashboard 在總覽中加入 **測站脈絡風險判讀**：
+| 項目 | 說明 |
+| --- | --- |
+| 專案類型 | End-to-end data science / ML product side project |
+| 使用情境 | 台灣多測站 AQI 監測、下一小時趨勢判讀與異常事件初篩 |
+| 前端 | Streamlit、Plotly、繁體中文 Dashboard |
+| 預測模型 | Moving Average、Linear Regression、Random Forest |
+| 異常模型 | Z-score baseline、Isolation Forest |
+| 預測任務 | 使用當下與過去資料預測同測站下一小時 AQI |
+| 評估設計 | Rolling-origin backtest、時間序列切分、80% / 95% 經驗預測區間 |
+| 可重現性 | run_all.py、src/smoke_test.py、pytest、Windows 一鍵啟動檔 |
+| 公開原則 | GitHub 只保留程式、設定範例、測試與文件；生成物由流程重新建立 |
 
-- 每個測站只以自己近 14 天、相同小時且早於目前時點的 AQI 中位數作為基準。
-- 同時顯示目前 AQI、相對本站基準、近 6 小時變化、同時點的下一小時模型預測，以及規則 / Z-score / Isolation Forest 的異常證據。
-- 以透明的優先排序協助人工決定先檢視哪一站；排序不是官方 AQI 警報、因果解釋、醫療建議或健康風險指數。
-- 台灣測站地圖可直接點選站點，讓地理篩選同步更新趨勢、預測、異常與品質頁面。地圖只顯示目前資料中有可對照座標的測站，不宣稱覆蓋未收錄的地區。
+## 這個專案的核心價值
 
-這個設計刻意避免以生成式文字包裝模型結論。每一項判讀都能回查到明確資料欄位與計算規則，適合在面試中討論產品取捨、資料限制與可驗證性。
+### 從模型展示提升為判讀工作流
 
-### 專案差異化：多測站決策比較
+一般 AQI Demo 往往只有一張趨勢圖與一個預測數字。本專案增加測站脈絡化判讀層：
 
-`地區比較`讓使用者一次選擇 2 至 3 個測站，並排查看目前 AQI、下一小時預測、80% 區間、本站同時段基準、PM2.5、觀測時間與異常證據。系統只在資料時差不超過 2 小時的測站中，以最低下一小時預測 AQI 提示「目前較佳選擇」；缺少預測時才回退到目前 AQI。這是可追溯的比較輔助，不是官方行程、醫療或健康建議。
+- 以同測站近 14 天、相同小時且早於目前時間的觀測建立歷史基準。
+- 同時觀察目前 AQI、近 6 小時變化、PM2.5、下一小時預測與異常訊號。
+- 將異常證據拆成規則式標籤、Z-score 與 Isolation Forest，而不是輸出無法解釋的單一風險分數。
+- 以可點選的台灣測站地圖同步更新測站篩選、趨勢、預測、異常與資料品質資訊。
 
-### 專案差異化：預測可信度與 AQI 跨級監測
+這個排序是人工檢視的優先順序，不是官方警報。每個判讀結論都應能回到資料欄位與計算規則。
 
-單一點預測容易讓使用者誤以為模型很確定，因此預測頁同時呈現 80% / 95% 經驗預測區間。區間寬度由 final test 之前的 rolling-origin out-of-fold 絕對殘差校準；每一個校準預測都只使用更早資料訓練，final test target 只用來報告 empirical coverage，不參與校準。
+### 同時處理預測準確度與預測不確定性
 
-Dashboard 會標示預測區間是否跨過下一個 AQI 分級門檻，並明確區分 80% 區間跨級與只有 95% 區間跨級。這是透明的人工關注提示，不宣稱超標機率、官方警報或健康風險。
+預測頁除了 Actual vs Predicted，也會呈現 80% / 95% 經驗預測區間、區間寬度、final-test coverage，以及區間是否跨過下一個 AQI 分級門檻。
 
-## 使用資料來源
+預測區間使用 final test 之前的 rolling-origin out-of-fold 絕對殘差校準；final test 只用於最後報告，不反過來調整區間。這能清楚區分「模型平均預測得準不準」與「這一次預測有多不確定」。
 
-專案支援兩種資料來源：
+### 多測站比較具備資料新鮮度門檻
 
-- API Data：可在 `config.yaml` 或 `.env` 設定 `AQI_API_URL`。
-- Sample Data：若 API 未設定、API 失敗或欄位格式不一致，系統會自動使用本地模擬資料。
+地區比較可選擇 2 至 3 個測站，並排比較目前 AQI、下一小時預測、80% 預測區間、本站基準、PM2.5、觀測時間與異常證據。系統會排除相對最新測站落後超過 2 小時的資料，再產生可追溯的比較結果。
 
-Sample data 是模擬資料，只用於本地 Demo、測試與面試展示，不代表真實官方監測資料。預設會產生最近 30 天、8 個中文測站、每小時一筆資料，並模擬日夜週期、週末差異、測站差異、少量缺失值與污染異常事件。若要固定測試日期，可使用 `python src/generate_sample_data.py --start-date 2026-06-01 --days 30`。
+## Dashboard 功能
 
-### 使用者資訊與資料責任
+| 頁面 | 主要內容 |
+| --- | --- |
+| 總覽 | AQI / PM2.5 趨勢、台灣測站地圖、測站脈絡風險排序、活動提示 |
+| 地區比較 | 2 至 3 個測站並排比較、資料時差檢查、預測區間與 CSV 匯出 |
+| 預測 | Actual vs Predicted、預測誤差、模型比較、rolling backtest、跨級提示 |
+| 異常偵測 | 異常事件摘要、時間軸、高風險事件表、各測站異常數與觸發證據 |
+| 資料品質 | 資料可靠性、缺失欄位、資料樣本、測站覆蓋、延遲與觀測間隔 |
+| 模型指標 | 三種預測模型比較、分測站可靠性與 pseudo-label 限制 |
 
-Dashboard 會把資料來源與最新資料時點放在首屏。使用 Sample Data 時，介面會明確標示「模擬資料時點」與「不是官方即時資訊」，避免將本地 Demo 誤認為即時監測服務。
+共用功能包含：
 
-- AQI 活動建議依[環境部 AQI 分級與活動建議](https://airtw.moenv.gov.tw/CHT/Information/Standard/AirQualityIndicatorNew.aspx)整理，分別呈現一般民眾與敏感族群資訊。
-- 重要健康、行程或防護決策仍應查閱環境部官方即時資訊；本專案不提供醫療診斷、官方警報或污染來源判定。
-- 使用者可下載目前篩選資料 CSV 與純文字監測摘要。CSV 採 UTF-8 BOM，能直接以中文版 Excel 開啟。
-- 匯出只包含公開觀測欄位，不包含訓練 target、lag、rolling window 或其他模型內部特徵。
-- Dashboard 與 sample pipeline 可完全在本機執行；Streamlit 使用統計已停用。只有 API mode 會連線至使用者設定的資料端點。
+- 首屏顯示專案名稱、資料來源、Sample Data / API Data、最新資料時點與預測週期。
+- 縣市、測站與日期區間篩選。
+- 深色主題切換；所有色票集中於 src/theme.py，並以對比度檢查保護可讀性。
+- KPI：最新 AQI、AQI 等級、平均 AQI、最新 PM2.5、異常觀測、資料筆數、測站數與資料狀態。
+- 可下載目前篩選後的公開 CSV 與繁體中文純文字摘要。
+- 匯出資料不含 target、lag、rolling window 或其他模型內部特徵。
 
 ## 系統架構
 
-```text
-資料取得 / sample fallback
-  -> preprocess 欄位標準化、缺失值處理與中文顯示欄位
-  -> features 依測站建立 lag / rolling / target
-  -> train_predictor 下一小時 AQI 預測
-  -> forecast_confidence rolling-origin conformal 區間與 AQI 跨級監測
-  -> train_anomaly_model 污染異常偵測
-  -> evaluate metrics 與 figures
-  -> risk_brief 測站脈絡化優先排序與證據摘要
-  -> station_comparison 多測站一致時點比較與保守推薦
-  -> app.py 繁體中文 Streamlit Dashboard / 地圖選站
-```
+~~~text
+API Data / Sample Data fallback
+        │
+        ▼
+fetch_aqi_data.py       URL 驗證、大小限制、JSON / CSV、欄位 alias
+generate_sample_data.py 最近 30 天模擬資料或固定日期測試資料
+        │
+        ▼
+preprocess.py            欄位標準化、numeric 轉換、時間解析、缺失值處理
+        │
+        ▼
+features.py              每測站 lag、rolling、差分與 next-hour target
+        ├───────────────┐
+        ▼               ▼
+train_predictor.py   train_anomaly_model.py
+預測、回測、區間     pseudo-label、Z-score、
+與可靠性分析         Isolation Forest、事件合併
+        │               │
+        └───────┬───────┘
+                ▼
+evaluate.py / model_reliability.py / data_health.py
+metrics、figures、資料健康度、分站可靠性
+                │
+                ▼
+app.py + src/dashboard/
+Streamlit UI、地圖、篩選、下載與六個功能頁
+~~~
+
+### 主要模組
+
+| 模組 | 責任 |
+| --- | --- |
+| run_all.py | 串起資料、特徵、模型、評估與 smoke test |
+| src/fetch_aqi_data.py | API 取得、URL 驗證、回應大小限制與欄位轉換 |
+| src/generate_sample_data.py | 產生可重現的多測站模擬資料 |
+| src/preprocess.py | 外部欄位轉成 canonical schema |
+| src/features.py | 建立不讀取未來值的時間序列特徵與 target |
+| src/train_predictor.py | 回測選模、最終訓練、預測與預測區間 |
+| src/train_anomaly_model.py | 異常模型、pseudo-label 評估與事件輸出 |
+| src/risk_brief.py | 測站歷史脈絡、透明風險排序與異常證據 |
+| src/station_comparison.py | 多測站比較、資料新鮮度門檻與公開匯出 |
+| src/dashboard/ | Dashboard context、資料服務、頁面、元件與樣式 |
+| src/theme.py | 主題色票、圖表顏色與對比度驗證 |
+| tests/ | 資料、模型、UI、輸出、效能、安全與整體流程測試 |
+
+## 快速開始
+
+### 需求
+
+- Python 3.10 以上；CI 使用 Python 3.12。
+- Windows、macOS 或 Linux。
+- Dashboard 需要 Streamlit；依賴由 requirements.txt 管理。
+- API mode 需要可連線到指定資料端點；沒有 API 時可使用 sample mode。
+
+### 安裝依賴
+
+Windows PowerShell：
+
+~~~powershell
+python -m venv .venv
+.\\.venv\\Scripts\\Activate.ps1
+python -m pip install -r requirements.txt
+~~~
+
+Windows CMD：
+
+~~~bat
+python -m venv .venv
+.venv\\Scripts\\activate
+python -m pip install -r requirements.txt
+~~~
+
+macOS / Linux：
+
+~~~bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+~~~
+
+### 執行完整 Sample Pipeline
+
+~~~bash
+python run_all.py --mode sample
+~~~
+
+流程會依序建立資料夾、產生 Sample Data、前處理、建立特徵、訓練兩類模型、輸出 metrics / figures，最後執行 smoke test。
+
+### 啟動 Dashboard
+
+~~~bash
+streamlit run app.py
+~~~
+
+通常開啟 http://localhost:8501。若尚未建立資料或模型，先執行 python run_all.py --mode sample。
+
+### Windows 一鍵啟動
+
+在專案根目錄雙擊 [run_project.bat](run_project.bat)，或執行：
+
+~~~bat
+run_project.bat
+~~~
+
+啟動檔會找 Python、建立或修復 .venv、安裝依賴、執行 sample pipeline、smoke test、pytest，自動尋找可用 port，並在檢查通過後啟動 Streamlit。
+
+只驗證、不啟動網站：
+
+~~~bat
+run_project.bat --validate
+~~~
+
+run_project_bat內容.txt 是啟動檔文字備份，內容與 run_project.bat 保持一致。
+
+## 資料來源與資料契約
+
+### Sample Data
+
+src/generate_sample_data.py 預設產生從今天往前推算的最近 30 天、每小時一筆、8 個測站資料，模擬日夜與通勤週期、週末差異、測站差異、少量缺失值與污染波動。
+
+欄位包含：
+
+~~~text
+datetime, site_name, county, aqi, pm25, pm10, o3,
+co, wind_speed, wind_directions
+~~~
+
+預設日期會隨執行日更新，避免 Demo 看起來像使用未來資料。若測試需要固定日期：
+
+~~~bash
+python src/generate_sample_data.py --start-date 2026-06-01 --days 30
+~~~
+
+Sample Data 只代表可重現的測試情境，不可用來推論真實空氣品質或官方警示。
+
+### API Data
+
+API URL 可以放在 config.yaml 的 api.url，或放入未提交的 .env：
+
+~~~dotenv
+AQI_API_URL=https://your-aqi-endpoint.example/api/data
+~~~
+
+API parser 支援 JSON records / result / data 結構與 CSV，並把來源欄位轉成 canonical schema。必要欄位為 datetime、site_name、county、aqi、pm25、pm10、o3、co、wind_speed 與 wind_directions。
+
+API 讀取具備：
+
+- 非 localhost 的 HTTP 端點拒絕，正式端點必須使用 HTTPS。
+- timeout 上下限。
+- 10 MB 回應大小上限。
+- 欄位不足、格式錯誤或連線失敗時自動 fallback 到 Sample Data。
+
+## 模型方法
+
+### 下一小時 AQI 預測
+
+任務是 next-hour forecasting / nowcasting：使用同測站目前與過去可取得的資訊，預測該測站下一小時 AQI。
+
+Target 定義：
+
+~~~python
+target_next_hour_aqi = groupby(site_name)["aqi"].shift(-1)
+~~~
+
+特徵包含：
+
+- 時間：hour、day_of_week、month、is_weekend。
+- 當下觀測：aqi、pm25、pm10、o3、co、wind_speed。
+- 滯後：lag_1_aqi、lag_3_aqi、pm25_lag_1。
+- 滾動：rolling_3h_aqi、rolling_6h_aqi、rolling_12h_aqi、pm25_rolling_3h。
+- 變化：aqi_diff、pm25_diff。
+- 測站脈絡：只使用目前時間以前的 station_hour_baseline_aqi。
+
+候選模型：
+
+1. Moving Average：可解釋 baseline。
+2. Linear Regression：低複雜度線性模型。
+3. Random Forest Regressor：處理非線性與特徵交互作用。
+
+模型先以 pre-test rolling-origin backtest 比較平均 RMSE；學習模型必須優於 Moving Average 才能勝出。選定後才用 train + validation 重新訓練，最後在 final test 報告 MAE、RMSE 與 R2。
+
+### 預測可信度
+
+forecast_confidence.json 會保存 80% / 95% 經驗預測區間的校準資訊：
+
+1. 在 final test 之前建立 rolling-origin out-of-fold prediction。
+2. 收集模型絕對殘差作為校準資料。
+3. 以有限樣本 conformal quantile 建立區間寬度。
+4. 在 final test 計算 empirical coverage 與平均區間寬度。
+5. 比較 AQI 門檻 50、100、150、200、300，產生跨級關注提示。
+
+這些區間是歷史誤差下的 empirical coverage，不是對未來污染分布的保證機率。
+
+### 異常偵測
+
+目前的 pseudo-label 規則為：
+
+~~~text
+AQI > 100
+或 PM2.5 > 35
+或 AQI > 測站 rolling mean + 2.5 × rolling std
+~~~
+
+模型與 baseline：
+
+- Z-score baseline。
+- Isolation Forest。
+
+輸出包含 precision、recall、F1、anomaly rate 與 pseudo-label positive rate。這些指標代表模型對規則標籤的重現程度，不等同於真實污染事件準確率。
+
+異常觀測會依測站與時間間隔合併成 aqi_anomaly_events.csv，提供事件起迄、持續時間、峰值 AQI / PM2.5、最大異常分數與觸發證據。
+
+## 資料洩漏防護
+
+- target 只使用同測站下一筆、且時間間隔為 1 小時的 AQI。
+- target_aqi 與 target_next_hour_aqi 不會進入 feature columns。
+- lag 與 rolling 全部依 site_name 分組，測站之間不會互相污染。
+- rolling 先 shift(1) 再計算，避免把當前或未來 target 混入窗口。
+- 缺失值只在同測站內 forward fill，不使用會讀到未來值的 backward fill。
+- 測站歷史基準以時間順序逐筆建立，只讀取該測站當下以前的資料。
+- train、validation、final test 依 timestamp 邊界切分，不使用 random split。
+- 不同測站在相同 timestamp 會留在同一切分側，避免時點污染。
+- final test 不參與選模、預測區間校準或門檻調整。
+- Dashboard 與文件明確揭露使用當下 AQI 預測下一小時 AQI 是 nowcasting。
+
+## 輸出檔案
+
+執行 python run_all.py --mode sample 後，會在本機產生：
+
+~~~text
+data/
+├── sample/sample_aqi.csv
+└── processed/
+    ├── aqi_cleaned.csv
+    ├── aqi_features.csv
+    ├── aqi_predictions.csv
+    ├── aqi_anomaly_results.csv
+    └── aqi_anomaly_events.csv
+
+models/
+├── aqi_predictor.joblib
+└── anomaly_detector.joblib
+
+reports/
+├── figures/
+│   ├── aqi_trend.png
+│   ├── prediction_vs_actual.png
+│   └── anomaly_cases.png
+└── metrics/
+    ├── predictor_metrics.json
+    ├── anomaly_metrics.json
+    ├── backtest_metrics.json
+    ├── forecast_confidence.json
+    ├── data_health.json
+    └── evaluation_summary.json
+~~~
+
+這些生成物由 .gitignore 排除。公開 repo 只保留程式碼、設定、測試、文件與 .gitkeep，clone 後可重新建立資料與模型。
+
+## 測試與品質驗證
+
+常用指令：
+
+~~~bash
+python -m pip install -r requirements.txt
+python run_all.py --mode sample
+python src/smoke_test.py
+pytest -q
+~~~
+
+測試涵蓋：
+
+- Sample Data 日期、欄位、筆數與固定日期參數。
+- Preprocess alias、numeric、datetime 與缺失值處理。
+- Features lag、rolling、差分、target 與測站邊界。
+- 模型訓練、joblib 載入、預測長度、時間切分與回測選模。
+- MAE、RMSE、R2、anomaly precision / recall / F1、JSON 與圖檔。
+- 預測區間校準、coverage、區間寬度與 final test 隔離。
+- Dashboard import、缺資料、缺模型、頁面 renderer 與主題載入。
+- UI 對比度、深色卡片、焦點、停用、觸控尺寸、響應式樣式與表格。
+- 地圖選站、測站比較、公開欄位匯出、事件合併與資料品質。
+- API URL、回應大小、模型路徑與敏感設定安全檢查。
+- run_all.py 與 run_project.bat --validate 的完整流程。
+
+效能基準：
+
+~~~bash
+python src/benchmark_dashboard.py
+~~~
+
+效能數值只適合在同一台機器、同一組輸出資料前後比較，不應直接當成跨環境 SLA。
+
+## 公開與安全性
+
+- .env、Streamlit secrets、API key、token 與密碼不得提交到 Git。
+- data/raw、data/sample、data/processed、models 與 reports 的生成物預設不追蹤。
+- API Data 只接受 HTTPS；只有 localhost 開發端點可以使用 HTTP。
+- API 請求有 timeout 與 10 MB 回應上限。
+- Joblib 只從專案 models/ 載入 .joblib；不要載入來源不明的模型檔。
+- GitHub Actions 的 Quality Gate 會重建 sample pipeline 並執行 pytest。
+- GitHub Actions 的 Security Audit 會執行 pip-audit，並阻擋生成資料、模型與報表被追蹤。
+
+本機依賴檢查：
+
+~~~bash
+python -m pip install pip-audit
+python -m pip_audit --local
+~~~
 
 ## Repo 結構
 
-```text
+~~~text
 aqi-anomaly-dashboard/
 ├── README.md
-├── requirements.txt
-├── .gitignore
-├── .env.example
-├── config.yaml
+├── app.py
 ├── run_all.py
 ├── run_project.bat
-├── run_project_bat內容.txt
-├── app.py
-├── data/
-│   ├── raw/
-│   ├── processed/
-│   └── sample/
-├── models/
-├── reports/
-│   ├── figures/
-│   └── metrics/
-├── notebooks/
-│   └── 01_eda.ipynb
+├── config.yaml
+├── requirements.txt
+├── .env.example
+├── data/                          # Generated local data, ignored by Git
+├── models/                        # Generated local models, ignored by Git
+├── reports/                       # Generated local reports, ignored by Git
+├── notebooks/01_eda.ipynb
 ├── src/
 │   ├── fetch_aqi_data.py
 │   ├── generate_sample_data.py
@@ -96,375 +396,72 @@ aqi-anomaly-dashboard/
 │   ├── features.py
 │   ├── train_predictor.py
 │   ├── train_anomaly_model.py
-│   ├── evaluate.py
-│   ├── app_helpers.py
-│   ├── consumer_brief.py
+│   ├── forecast_confidence.py
+│   ├── model_reliability.py
 │   ├── risk_brief.py
 │   ├── station_comparison.py
+│   ├── anomaly_events.py
+│   ├── data_health.py
+│   ├── evaluate.py
 │   ├── smoke_test.py
 │   ├── theme.py
-│   └── utils.py
+│   └── dashboard/
 └── tests/
-    ├── test_sample_data.py
-    ├── test_preprocess.py
-    ├── test_features.py
-    ├── test_model_training.py
-    ├── test_evaluate.py
-    ├── test_app_import.py
-    ├── test_station_comparison.py
-    └── test_run_all.py
-```
+~~~
 
-## 安裝方式
+## 設定與可調整策略
 
-```bash
-python -m venv .venv
+主要設定集中在 config.yaml：
 
-# Windows
-.venv\Scripts\activate
+- api.url、timeout 與資料路徑。
+- train.feature_columns、validation / test ratio 與 backtest folds。
+- forecast_confidence.levels 與 AQI 門檻。
+- anomaly contamination、AQI / PM2.5 pseudo-label 門檻與事件間隔。
+- risk policy 的 lookback、近期窗口、基準門檻與排序權重。
 
-# macOS / Linux
-source .venv/bin/activate
-
-pip install -r requirements.txt
-```
-
-## Windows 一鍵執行
-
-如果你使用 Windows，可以直接雙擊：
-
-```text
-run_project.bat
-```
-
-這個檔案會自動完成：
-
-1. 檢查 Python
-2. 建立 `.venv`
-3. 安裝 `requirements.txt`
-4. 執行 sample mode
-5. 執行 smoke test
-6. 執行 pytest
-7. 啟動 Streamlit Dashboard
-
-`run_project.bat` 內容維持 ASCII-only，避免 Windows CMD 中文編碼誤判；若偵測到舊的 `.venv` 無法執行 pip，會自動重建虛擬環境。
-
-如果不能雙擊執行，也可以在專案根目錄用 PowerShell 或 CMD 執行：
-
-```bat
-run_project.bat
-```
-
-若 Windows 阻擋執行，請在檔案上按右鍵選擇「解除封鎖」，或改用終端機手動執行下方指令。
-
-`run_project_bat內容.txt` 與 `run_project.bat` 內容完全相同，方便下載後重新命名或複製。
-
-## 一鍵執行指令
-
-```bash
-python run_all.py --mode sample
-```
-
-API 模式：
-
-```bash
-python run_all.py --mode api
-```
-
-若 API 失敗，流程會自動 fallback 到 sample data。
-
-## Streamlit 執行方式
-
-```bash
-streamlit run app.py
-```
-
-若尚未產生資料或模型，請先執行：
-
-```bash
-python run_all.py --mode sample
-```
-
-## Dashboard 功能
-
-Dashboard 為繁體中文網站，包含：
-
-- 專案介紹、資料來源狀態與最新資料時點
-- 側邊欄深色主題切換
-- 縣市、測站與日期區間篩選
-- KPI cards：最新 AQI、AQI 等級、平均 AQI、最新 PM2.5、異常事件數、資料筆數、測站數
-- 依環境部 AQI 分級整理的一般民眾與敏感族群活動建議
-- 目前篩選資料 CSV 與純文字監測摘要下載
-- 可點選的台灣測站地圖：標記大小代表目前 AQI，形狀與顏色共同標示關注程度，點選後同步套用測站篩選
-- 測站脈絡風險排序：比較本站近 14 天同時段基準、近 6 小時變化、下一小時預測與異常證據
-- 地區比較：並排比較 2 至 3 個測站，標示觀測時差、80% 預測區間、本站基準與異常脈絡，並可匯出不含模型內部欄位的 CSV
-- AQI 趨勢圖
-- PM2.5 趨勢圖
-- 實際下一小時 AQI vs 預測下一小時 AQI
-- 80% / 95% 經驗預測區間、final-test coverage 與 AQI 跨級關注表
-- 預測誤差圖
-- 異常污染時間軸
-- 高風險異常事件表格
-- 各測站異常事件數
-- 資料品質表格
-- 預測模型與異常偵測模型指標
-- 專案限制與 pseudo-label 說明
-
-Dashboard 顯示使用 `county_display` 與 `site_name_display`，保留原始 `county`、`site_name` 供資料追蹤，但圖表、hover、sidebar 與表格均以中文顯示欄位為主。
-
-## 模型方法
-
-### 下一小時 AQI 預測
-
-此任務是 next-hour forecasting / nowcasting：使用目前與過去資料預測同一測站下一小時 AQI。
-
-Target：
-
-```python
-target_next_hour_aqi = groupby(site_name)["aqi"].shift(-1)
-```
-
-模型：
-
-- Moving Average baseline
-- Linear Regression
-- Random Forest Regressor
-
-評估指標：
-
-- MAE
-- RMSE
-- R2
-- baseline MAE / RMSE / R2
-
-### 預測可信度
-
-- 使用 rolling-origin out-of-fold 絕對殘差校準 model-agnostic conformal interval。
-- 輸出 80% / 95% 區間下界與上界，AQI 下界裁切為 0。
-- 在 final test 報告 empirical coverage 與平均區間寬度，但不以 final test 調整 quantile。
-- 跨級監測只說明區間是否跨過 50、100、150、200、300 門檻，不轉換為未經校準的機率。
-
-### 污染異常偵測
-
-異常偵測使用 pseudo-label，規則如下：
-
-- `AQI > 100`
-- 或 `PM2.5 > 35`
-- 或 AQI 高於該測站 rolling mean + `2.5 * rolling std`
-
-模型：
-
-- Z-score baseline
-- Isolation Forest
-
-評估指標：
-
-- precision
-- recall
-- f1
-- anomaly_rate
-- pseudo_label_positive_rate
-
-注意：異常偵測指標是對 pseudo-label 的評估，不是真實人工標註污染事件。
-
-## 避免資料洩漏的做法
-
-- `station_hour_baseline_aqi` 以單次時間順序掃描建立，只使用該列時間戳之前的資料；同一時間戳的其他測站不會先進入歷史。
-- 基準依序使用同測站同小時中位數、同測站中位數、全域歷史中位數，三者都不讀取未來值。
-
-- target 使用 `groupby(site_name)["aqi"].shift(-1)`，只預測同測站下一小時 AQI。
-- feature columns 不包含 `target_aqi` 或 `target_next_hour_aqi`。
-- lag / rolling features 都依 `site_name` 分組計算。
-- rolling features 先 `shift(1)` 再 rolling，只使用過去資料。
-- 缺失值只在同測站內使用 `ffill()`，不使用會讀到未來值的 `bfill()` 或全期間中位數。
-- target 只有在同測站下一筆資料剛好相隔 1 小時時才保留。
-- `county_display` 與 `site_name_display` 只作為顯示欄位，不放進模型 feature columns。
-- train/test 使用完整 timestamp 邊界切分，同一時刻的不同測站不會分散在兩側，也不使用 random split。
-- 使用當下 AQI 預測下一小時 AQI 是 nowcasting 設定，Dashboard 與 README 均明確說明。
-- 預測區間只用 final test 之前的 rolling-origin 殘差校準；final test target 只計算 coverage。
-
-## 評估輸出
-
-流程完成後會產生：
-
-```text
-models/
-├── aqi_predictor.joblib
-└── anomaly_detector.joblib
-
-data/processed/
-├── aqi_cleaned.csv
-├── aqi_features.csv
-├── aqi_predictions.csv
-├── aqi_anomaly_results.csv
-└── aqi_anomaly_events.csv
-
-reports/metrics/
-├── predictor_metrics.json
-├── anomaly_metrics.json
-├── backtest_metrics.json
-├── forecast_confidence.json
-├── data_health.json
-└── evaluation_summary.json
-
-reports/figures/
-├── aqi_trend.png
-├── prediction_vs_actual.png
-└── anomaly_cases.png
-```
-
-## 測試與驗證
-
-```bash
-pip install -r requirements.txt
-python run_all.py --mode sample
-python src/smoke_test.py
-pytest -q
-streamlit run app.py
-```
-
-測試涵蓋：
-
-- sample data 產生與欄位完整性
-- API 欄位 alias mapping
-- `ND`、`NA`、`-`、`x` 等異常字串轉 numeric
-- preprocess 缺失值處理
-- 因果式補值不讀取未來觀測
-- lag / rolling features 不跨測站污染
-- train/test 不共享相同 timestamp
-- `target_next_hour_aqi` 正確建立
-- 測站脈絡判讀只使用該站目前時點以前的觀測，未來資料與其他測站都不會進入基準
-- anomaly detector 只用前段時間資料訓練，並以後段時間 pseudo-label 評估
-- predictor / anomaly detector 可訓練、儲存、載入與預測
-- metrics JSON 與 figures 產生
-- `app.py` 可安全 import
-- `run_project.bat` 與 `run_project_bat內容.txt` 內容一致
-- `run_all.py` sample mode 完整流程
-- 深色主題欄位完整性與文字對比檢查
-- Plotly 圖表主題化函式使用目前主題的背景、文字與格線色
-
-## 深色主題與可讀性
-
-Dashboard 預設使用深色主題，使用者可以在側邊欄「選擇深色主題」切換不同視覺風格。所有主題集中於 `src/theme.py` 的 `THEME_OPTIONS`，不要在 `app.py` 或其他檔案分散硬寫顏色。
-
-目前提供的深色主題：
-
-- 午夜藍：`midnight_blue`
-- 深海綠：`deep_teal`
-- 炭黑橘：`charcoal_orange`
-- 深藍金：
-avy_gold`
-- 石板紫：`slate_purple`
-
-每個主題都包含 `background`、`surface`、`card`、`sidebar`、`primary`、`secondary`、`accent`、`danger`、`success`、`warning`、`text`、`muted_text`、`border`、`table_header`、`chart_grid`。Dashboard 的 Sidebar、KPI cards、section notes、Plotly 圖表、hover tooltip、表格與提示訊息都會依目前主題同步套用。
-
-專案提供 `validate_theme_contrast()` 檢查文字與背景對比，避免文字看不清楚。最低要求包含：
-
-- `text` vs `background` >= 4.5
-- `text` vs `card` >= 4.5
-- `muted_text` vs `background` >= 3.0
-- `muted_text` vs `card` >= 3.0
-- `danger` vs `background` >= 3.0
-- `accent` vs `background` >= 3.0
-
-檢查也涵蓋 `surface`、`sidebar` 與卡片背景，確保表格、篩選元件、hover tooltip 和收合式資料摘要在每個主題都能清楚閱讀。
-
-異常點使用 `danger`，警告使用 `warning`，正常狀態使用 `success`。若要新增主題，必須通過 `validate_theme_contrast()` 與 pytest。
-
-## 常見錯誤排除
-
-- 找不到資料檔：執行 `python run_all.py --mode sample`。
-- 找不到模型檔：執行 `python run_all.py --mode sample` 重新訓練。
-- API 失敗：確認 `config.yaml` 或 `.env` 的 API URL；沒有 API 時直接使用 sample mode。
-- 欄位名稱不一致：在 `src/fetch_aqi_data.py` 與 `src/preprocess.py` 補 alias mapping。
-- 套件未安裝：執行 `pip install -r requirements.txt`。
-- Streamlit 無法啟動：確認已啟用 `.venv`，或直接雙擊 `run_project.bat`。
+若新增主題，請在 src/theme.py 加入完整色票，通過 validate_theme_contrast() 與 pytest，並避免在 app.py 或頁面檔案散落顏色常數。
 
 ## 專案限制
 
-- Sample data 是模擬資料，不代表真實官方監測紀錄。
-- 異常偵測 metrics 使用 pseudo-label，不能視為真實事件準確率。
-- 本專案是本地端技術展示，不是正式環境監測系統。
-- API schema 可能因來源不同而變動，需要維護 alias mapping。
-- 模型以傳統機器學習與 baseline 為主，不使用 GPU 或大型深度學習模型。
-- 預測區間是 sample / 歷史誤差下的 empirical coverage，不是對未來資料的保證機率；資料分布改變時需要重新校準。
-- 測站脈絡排序是透明的人工檢視輔助，不應取代環境部正式 AQI 資訊、污染源調查或健康建議。
-- 地區比較會排除比最新選取測站落後超過 2 小時的資料；「目前較佳選擇」只比較預測或目前 AQI，不納入交通時間、個人暴露、天氣與官方警示，因此不是行程或健康建議。
-- 地圖座標內建涵蓋 sample data 測站，其他 API 測站會使用可用的縣市中心點；正式部署應改用官方測站經緯度資料。
+- Sample Data 是模擬資料，不能取代官方監測資料。
+- API schema 可能變動，需持續維護 alias mapping 與資料品質規則。
+- 異常偵測以 pseudo-label 為基準，沒有真實人工事件標註時，precision / recall / F1 只能解讀為規則一致性。
+- 預測區間是歷史誤差下的 empirical coverage；資料分布改變時需要重新校準。
+- 模型未納入完整氣象場、交通、排放源、地形與衛星觀測，因此不能做污染因果解釋。
+- 測站脈絡排序是人工檢視輔助，不是官方警報或健康風險分數。
+- 地區比較不代表個人暴露量、交通時間或健康適宜性。
+- 地圖座標對 Sample Data 有內建對照；正式部署應改用官方測站經緯度資料。
 
-## 評估設計與可靠性
+## 未來改進方向
 
-預測流程採三段式時間序列切分：早期資料用於訓練、中段資料併入 pre-test rolling-origin 回測，最後一段資料只用於最終報告。Moving Average、Linear Regression 與 Random Forest 依多個滾動時間窗的平均 RMSE 選擇；學習模型必須嚴格優於 Moving Average 才會勝出，再以 train + validation 重新訓練並在 final test 產生 `MAE`、`RMSE`、`R2`。final test 不參與選模或區間校準。
+1. 串接穩定的環境部或 data.gov.tw 開放資料，建立資料版本與更新時間。
+2. 以官方測站經緯度、測站狀態與維護資訊取代 Demo 座標。
+3. 加入可信氣象來源，評估風速、風向、降雨與邊界層條件。
+4. 依測站、季節與時段校準異常門檻，並導入人工事件標註。
+5. 加入資料漂移、預測漂移、coverage 漂移與模型重訓監控。
+6. 以排程工作與容器化部署支援每日更新。
+7. 加入模型版本、資料版本與評估報告 lineage，讓每次結果可回溯。
 
-此外，`backtest_metrics.json` 會使用 rolling-origin backtest：每一個時間窗皆只用先前資料訓練、用後續資料評估。Dashboard 的「預測」與「模型指標」分頁會顯示其平均表現，讓 Demo 不只呈現單一切分的分數。
+## 履歷使用版本
 
-`predictor_metrics.json` 另含 `reliability`：總體、分測站、分實際 AQI 區間的 final-test 指標、相對 Moving Average 的 MAE/RMSE 改善，以及最弱測站。每個分組都保留樣本數。`forecast_confidence.json` 另含每個測站的 80%/95% empirical coverage、有效樣本數與平均區間寬度；小樣本結果只用於診斷，不宣稱可泛化。
-`forecast_confidence.json` 使用相同的時間順序產生所選模型的 out-of-fold 殘差，再以有限樣本 conformal quantile 建立 80% / 95% 區間。它同時保存校準期間、final-test 期間、校準筆數、coverage 與平均寬度，讓面試時可直接說明「模型有多準」和「模型有多確定」是兩個不同問題。
+### 中文履歷 bullet
 
-異常觀測會輸出為 `aqi_anomaly_events.csv`。同一測站、在設定允許間隔內連續發生的異常會合併成一個事件，保留起迄時間、持續小時數、峰值 AQI / PM2.5、最大異常分數與觸發證據；不同測站永遠不會合併。這讓使用者能從「點狀異常」切換為可調查的事件單位。
+- 建立台灣 AQI 端到端資料產品，整合 API / Sample Data fallback、資料清理、測站級時間序列特徵、下一小時 AQI 預測、異常事件偵測、模型評估與繁體中文 Streamlit Dashboard。
+- 設計測站脈絡化判讀與多測站比較流程，以歷史基準、近期變化、資料新鮮度、預測區間與異常證據產生可追溯的人工檢視優先順序，並以台灣地圖串接選站互動。
+- 實作 leakage-aware rolling-origin 評估與 80% / 95% 經驗預測區間，揭露分測站可靠性、AQI 區間表現、coverage、區間寬度與 pseudo-label 限制。
+- 建立可重現的 pipeline、smoke test、pytest、依賴安全稽核與 Windows 一鍵啟動流程，並將生成資料與模型排除在公開 GitHub repo 外。
 
-`data_health.json` 會檢查資料筆數、缺失率、重複的測站時間戳、延遲測站與最大觀測間隔。Dashboard 的資料品質頁會以 metric cards 呈現這些資訊，不會暴露 raw JSON。
+### English resume bullets
 
-風險排序門檻與權重集中在 `config.yaml` 的 `risk_policy`，包括 AQI、PM2.5、相對基準偏離、預測上升與異常訊號。它是透明的人工檢視優先序，不是官方警報或健康風險結論。
+- Built an end-to-end Taiwan AQI monitoring product with API/sample-data fallback, preprocessing, station-aware time-series features, next-hour forecasting, anomaly detection, evaluation reports, and a Traditional Chinese Streamlit dashboard.
+- Designed an evidence-first station triage layer using station-specific historical baselines, recent movement, data freshness, forecast intervals, and explicit anomaly signals instead of opaque alert scores.
+- Implemented leakage-aware rolling-origin model selection and 80% / 95% empirical forecast intervals, with station-level reliability, AQI-band metrics, coverage, interval width, and sample-size reporting.
+- Delivered reproducible local execution through run_all.py, smoke tests, pytest, dependency auditing, GitHub Actions quality gates, and a Windows one-click launcher while keeping generated artifacts out of the public repository.
 
-新增輸出：
+## 一分鐘面試介紹稿
 
-```text
-data/processed/aqi_anomaly_events.csv
-reports/metrics/backtest_metrics.json
-reports/metrics/data_health.json
-```
+這是一個台灣 AQI 監測與下一小時預測 Dashboard。我把整個流程拆成資料取得、前處理、測站級時間序列特徵、預測模型、異常偵測、評估與前端判讀。預測任務是使用目前與過去資料預測同測站下一小時 AQI，因此我用同測站 shift(-1) 建立 target，所有 lag / rolling 特徵都依測站分組並先 shift，train、validation 與 final test 依時間切分，避免把未來資訊帶進模型。專案的差異化不只是模型，而是判讀流程：總覽會用每個測站自己的歷史基準、近期變化、下一小時預測與異常證據排序人工檢視優先級，並可直接從台灣地圖選站；地區比較則會先檢查資料時差，再並排呈現 2 至 3 個測站的目前 AQI、預測、預測區間與異常脈絡。為了避免只展示單一漂亮分數，我用 rolling-origin 回測選模，只有學習模型優於 Moving Average 才會勝出，並用 final test 之前的殘差校準 80% / 95% 預測區間，同時揭露分測站可靠性與區間 coverage。異常偵測則明確標示是 pseudo-label 評估，不把規則一致性說成真實事件準確率。最後，整個專案可以透過 run_all.py、pytest、smoke test 與 Windows 一鍵啟動重現，生成資料與模型不提交到 GitHub，讓程式碼、測試與資料責任都能被檢查。
 
-GitHub Actions 的 `Quality Gate` 會在 `main` 的 push / pull request 上重新產生 sample pipeline 並執行 pytest；公開 repo 不提交原始資料、處理後資料、模型或報告產物。
+## 使用範圍
 
-## 未來改進
-
-- 串接穩定的 data.gov.tw 或環境部 AQI 開放資料。
-- 以官方測站座標資料取代目前內建的 Demo 座標對照表。
-- 整合 Open-Meteo 歷史天氣資料。
-- 依測站、季節與時段校準異常門檻。
-- 加入模型漂移監控與排程重訓。
-- 串接官方測站座標、風場與衛星觀測資料，建立可追溯的事件調查流程。
-
-## 履歷描述
-
-簡短版：
-
-- 建立台灣 AQI 下一小時預測與污染異常偵測 Dashboard，整合資料清理、時間序列特徵工程、模型評估、Streamlit 視覺化、pytest 測試與 Windows 一鍵執行。
-- 設計測站脈絡化的污染檢視與多站比較流程，以本站同時段基準、短期變化、預測區間、資料新鮮度與異常證據提供可解釋的人工決策輔助，並以可點選台灣地圖串接篩選工作流。
-
-詳細版：
-
-- Built an end-to-end local AQI forecasting and anomaly detection project with API/sample-data fallback, preprocessing, leakage-aware station-level time-series features, model training, evaluation, and a Traditional Chinese Streamlit dashboard.
-- Implemented next-hour AQI nowcasting with Moving Average, Linear Regression, and Random Forest, plus pseudo-label anomaly detection with Z-score and Isolation Forest.
-- Added a station-context decision layer that ranks inspection priority from station-specific historical baselines, recent movement, forecast and explicit anomaly evidence instead of opaque alert copy.
-- Built a 2-3 station comparison workflow with freshness gating, forecast fallback, calibrated intervals, evidence-rich cards and a privacy-conscious CSV export.
-- Calibrated 80% / 95% model-agnostic forecast intervals from leakage-safe rolling-origin residuals and translated interval threshold crossings into transparent AQI review cues.
-- Selected learned predictors only when pre-test rolling-origin RMSE beat Moving Average, then reported station-level and AQI-band reliability with explicit sample sizes.
-- Added reproducible local execution through `run_all.py`, `src/smoke_test.py`, pytest coverage, and Windows `run_project.bat`.
-
-## 面試 1 分鐘介紹稿
-
-這個專案是一個台灣 AQI 預測與污染異常偵測 Dashboard。我先把資料流程拆成 API 或 sample data fallback、前處理、時間序列特徵工程、下一小時 AQI 預測、異常偵測、模型評估與 Streamlit 前端。模型任務是 next-hour nowcasting，也就是使用當下與過去資料預測同測站下一小時 AQI。為了避免資料洩漏，我用 `site_name` 分組計算 lag 與 rolling features，target 則用同測站 `shift(-1)`，train/test 採時間序列切分。和一般模型展示不同的是，我在總覽增加一個測站脈絡判讀層：以該站近 14 天同時段基準、近 6 小時變化、下一小時預測和三類異常訊號，透明地排序人工應先檢視的站點，並在地圖上直接選站。我也加入 2 至 3 站的地區比較，把資料時差、目前 AQI、下一小時預測、80% 區間和本站基準放在同一決策畫面，並排除落後超過 2 小時的測站。這個排序與比較不宣稱是官方警報，而是讓每個結論都有資料證據可回查。預測頁也不是只給點估計，而是用 final test 之前的 rolling-origin 殘差校準 80% / 95% 區間，顯示 coverage、區間寬度與是否跨過下一個 AQI 門檻。模型選擇不是看 final test，也不是只看單一 validation：學習模型必須在 pre-test rolling-origin 回測優於 Moving Average；Dashboard 會再揭露各測站、各 AQI 區間與預測區間覆蓋率，連最弱測站和樣本數都能直接說明。即使沒有 API，也能透過 sample mode 和 `run_project.bat` 在本地端完整重現 Demo。
-
-## Dashboard 效能基準
-
-Dashboard 以檔案絕對路徑、修改時間與檔案大小作為快取版本，並只渲染目前選取的頁面。可用下列指令量測冷載入、暖快取與篩選範圍建構時間；數值只供同一台機器前後比較，不設跨機器固定門檻。
-
-```bash
-python src/benchmark_dashboard.py
-```
-## Security
-
-- `.env` 與 Streamlit secrets 不納入 Git；請只提交 `.env.example`，不要把 API key、token 或密碼寫入設定檔。
-- `data/raw`、`data/sample`、`data/processed`、`models` 與 `reports` 的實際產物只在本機生成，Git 僅保留 `.gitkeep`；避免 API 資料、模型二進位檔或報表被誤推到 GitHub。
-- API Data 僅接受 HTTPS；本機開發可使用 `localhost`、`127.0.0.1` 或 `::1` 的 HTTP，並限制連線逾時與回應大小。
-- 模型載入僅允許 `models/` 下的 `.joblib` 產物；不要載入來源不明的模型檔。Joblib 仍屬於可執行序列化格式，模型應由本專案流程重新產生。
-- GitHub Actions 會在 push 與 pull request 執行 `pip-audit`；本次修復將 GitPython 與 Pillow 提升到沒有已知漏洞的版本範圍。
-
-本地安全檢查：
-
-```bash
-python -m pip install pip-audit
-python -m pip_audit --local
-```
+目前專案主要作為個人 side project、作品集、面試展示與本地測試使用。若要正式部署或對外提供健康、行程或環境決策服務，應先補足官方資料授權、資料品質 SLA、模型監控、人工標註、風險揭露與適用的法規審查。
