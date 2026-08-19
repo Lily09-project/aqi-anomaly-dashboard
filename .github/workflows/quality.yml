@@ -2,7 +2,6 @@ name: Quality Gate
 
 on:
   push:
-    branches: [main]
   pull_request:
     branches: [main]
 
@@ -20,6 +19,8 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: pip install -r requirements.txt
+      - name: Validate public release contents
+        run: python scripts/validate_public_release.py
       - name: Run reproducible sample pipeline
         run: python run_all.py --mode sample
       - name: Run tests

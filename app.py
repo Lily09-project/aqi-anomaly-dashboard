@@ -51,7 +51,9 @@ from src.dashboard.pages import (
 from src.consumer_brief import (
     aqi_guidance,
     build_consumer_summary,
+    build_reliability_report,
     export_csv_bytes,
+    export_reliability_report_bytes,
     format_observation_status,
 )
 from src.app_helpers import (
@@ -262,6 +264,30 @@ def main() -> None:
         source_code,
         selection_label,
     )
+    reliability_risk_brief = build_station_risk_brief(
+        filtered_features,
+        reference_features=features,
+        predictions=filtered_predictions,
+        anomalies=filtered_anomalies,
+    )
+    reliability_report = build_reliability_report(
+        features=filtered_features,
+        predictions=filtered_predictions,
+        anomalies=filtered_anomalies,
+        risk_brief=reliability_risk_brief,
+        predictor_metrics=dashboard_metrics.predictor,
+        anomaly_metrics=dashboard_metrics.anomaly,
+        confidence_metrics=dashboard_metrics.confidence,
+        data_health=dashboard_metrics.data_health,
+        data_source=data_source,
+        selection_label=selection_label,
+        filter_metadata={
+            "county": selected_county,
+            "station": selected_site_display,
+            "start_date": str(start_date) if start_date is not None else None,
+            "end_date": str(end_date) if end_date is not None else None,
+        },
+    )
     latest_filtered_time = (
         filtered_features["datetime"].max()
         if not filtered_features.empty and "datetime" in filtered_features
@@ -290,7 +316,15 @@ def main() -> None:
                 use_container_width=True,
                 disabled=filtered_features.empty,
             )
-            st.caption("匯出內容只包含目前篩選後的公開觀測欄位，不含模型內部特徵。")
+            st.download_button(
+                "下載可靠性摘要 (.json)",
+                data=export_reliability_report_bytes(reliability_report),
+                file_name=f"taiwan_aqi_reliability_{download_date}.json",
+                mime="application/json",
+                use_container_width=True,
+                disabled=filtered_features.empty,
+            )
+            st.caption("可靠性摘要整合資料品質、測站優先級、模型 metrics、預測區間與異常偵測限制；不含模型內部特徵。")
     kpis = compute_kpis(filtered_features, filtered_anomalies)
     category, _category_color = aqi_category(float(kpis["latest_aqi"]))
     predictor_metrics = dashboard_metrics.predictor
