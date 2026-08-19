@@ -93,6 +93,8 @@ def test_app_imports_without_crashing_and_theme_exists():
     assert "空氣品質活動建議" in ui_source
     assert "下載目前篩選資料" in ui_source
     assert "下載監測摘要" in ui_source
+    assert "下載可靠性摘要" in ui_source
+    assert "export_reliability_report_bytes" in ui_source
     assert "最新資料時點" in ui_source
     assert "根據目前及過去資料估計同一測站下一小時 AQI" in ui_source
     assert '"地區比較"' in ui_source

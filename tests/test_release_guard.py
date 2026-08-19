@@ -1,0 +1,47 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from src.release_guard import REQUIRED_PUBLIC_PATHS, validate_public_release
+
+
+def _write_public_fixture(root: Path, tracked_files: list[str]) -> None:
+    for relative_path in REQUIRED_PUBLIC_PATHS:
+        path = root / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("placeholder\n", encoding="utf-8")
+    (root / "README.md").write_text(
+        '<img src="docs/screenshots/overview.png">\n', encoding="utf-8"
+    )
+    asset = root / "docs/screenshots/overview.png"
+    asset.parent.mkdir(parents=True, exist_ok=True)
+    asset.write_bytes(b"png")
+    tracked_files.append("docs/screenshots/overview.png")
+
+
+def test_public_release_guard_accepts_required_files_and_tracked_assets(tmp_path: Path) -> None:
+    tracked_files = list(REQUIRED_PUBLIC_PATHS)
+    _write_public_fixture(tmp_path, tracked_files)
+
+    result = validate_public_release(tmp_path, tracked_files)
+
+    assert result["passed"] is True
+    assert result["missing_public_paths"] == []
+    assert result["missing_readme_assets"] == []
+    assert result["untracked_readme_assets"] == []
+
+
+def test_public_release_guard_blocks_generated_files_and_credentials(tmp_path: Path) -> None:
+    tracked_files = list(REQUIRED_PUBLIC_PATHS)
+    _write_public_fixture(tmp_path, tracked_files)
+    tracked_files += ["data/processed/features.csv", "notes.txt"]
+    (tmp_path / "data/processed").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "data/processed/features.csv").write_text("generated", encoding="utf-8")
+    fake_key = "A" + "1234567890123456789"
+    (tmp_path / "notes.txt").write_text("api_key = '" + fake_key + "'", encoding="utf-8")
+
+    result = validate_public_release(tmp_path, tracked_files)
+
+    assert result["passed"] is False
+    assert "data/processed/features.csv" in result["generated_artifacts"]
+    assert "notes.txt" in result["credential_hits"]
