@@ -4,6 +4,8 @@ import hashlib
 import json
 from pathlib import Path
 
+import pytest
+
 from src.run_manifest import build_run_manifest, sha256_file, write_run_manifest
 
 
@@ -64,3 +66,9 @@ def test_write_run_manifest_is_valid_json_and_marks_missing_outputs(tmp_path: Pa
     assert payload["run"]["is_simulated_data"] is False
     assert any(item["exists"] is False for item in payload["artifacts"])
     assert payload["project"]["git_revision"]
+
+
+def test_write_run_manifest_rejects_output_outside_project(tmp_path: Path) -> None:
+    outside_path = tmp_path.parent / "outside-manifest.json"
+    with pytest.raises(ValueError, match="inside the project root"):
+        write_run_manifest(tmp_path, config=_config(), run_mode="sample", output_path=outside_path)

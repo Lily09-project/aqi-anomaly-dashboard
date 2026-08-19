@@ -4,6 +4,7 @@ import argparse
 import ipaddress
 import json
 import os
+import socket
 from datetime import datetime
 from io import StringIO
 from pathlib import Path
@@ -46,20 +47,34 @@ def _validate_api_url(url: str) -> str:
         raise ValueError("API URL must not include embedded credentials")
     if parsed.fragment:
         raise ValueError("API URL must not include a URL fragment")
+    try:
+        parsed.port
+    except ValueError as exc:
+        raise ValueError("API URL has an invalid port") from exc
 
     normalized_host = hostname.rstrip(".").lower()
     try:
         address = ipaddress.ip_address(hostname)
     except ValueError:
-        address = None
+        try:
+            address = ipaddress.ip_address(socket.inet_aton(hostname))
+        except (OSError, ValueError):
+            address = None
 
     if address is not None:
         is_loopback = address.is_loopback
-        if not address.is_global and not is_loopback:
-            raise ValueError("API host must be public or local loopback")
-        if parsed.scheme == "http" and not is_loopback:
-            raise ValueError("Non-local API URLs must use HTTPS")
-    elif parsed.scheme == "http" and normalized_host not in LOCAL_HOSTS:
+        if is_loopback:
+            if parsed.scheme != "http" or normalized_host not in LOCAL_HOSTS:
+                raise ValueError("Only canonical loopback HTTP endpoints are allowed")
+        else:
+            if not address.is_global:
+                raise ValueError("API host must be public or local loopback")
+            if parsed.scheme == "http":
+                raise ValueError("Non-local API URLs must use HTTPS")
+    elif normalized_host in LOCAL_HOSTS:
+        if parsed.scheme != "http":
+            raise ValueError("Only canonical loopback HTTP endpoints are allowed")
+    elif parsed.scheme == "http":
         raise ValueError("Non-local API URLs must use HTTPS")
     return url
 
@@ -115,10 +130,13 @@ def fetch_aqi_data(output_path: str | Path | None = None) -> Path | None:
     config = load_config()
     try:
         from dotenv import load_dotenv  # type: ignore
-
-        load_dotenv()
-    except Exception:
-        pass
+    except ImportError:
+        load_dotenv = None
+    if load_dotenv is not None:
+        try:
+            load_dotenv()
+        except (OSError, UnicodeError):
+            pass
 
     url = str(config["api"].get("url") or os.getenv("AQI_API_URL") or "").strip()
     if not url:

@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
+from src.utils import write_json
+
 
 MANIFEST_VERSION = "1.0"
 MANIFEST_RELATIVE_PATH = Path("reports/metrics/run_manifest.json")
@@ -278,7 +280,11 @@ def write_run_manifest(
     target = Path(output_path) if output_path is not None else root / MANIFEST_RELATIVE_PATH
     if not target.is_absolute():
         target = root / target
+    target = target.resolve()
+    try:
+        target.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("Manifest output must stay inside the project root") from exc
     manifest = build_run_manifest(root, config=config, run_mode=run_mode)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_json(target, manifest)
     return target

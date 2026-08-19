@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import pandas as pd
 import pytest
 
 import src.fetch_aqi_data as fetch_module
+from src.dashboard.components import comparison_cards_html, filter_context_html
 from src.fetch_aqi_data import _read_limited_response, _validate_api_url
 from src.utils import load_config, load_model, project_path, resolve_path
 
@@ -36,6 +38,10 @@ def test_api_url_requires_https_except_for_loopback() -> None:
         _validate_api_url("http://192.168.1.10/aqi")
     with pytest.raises(ValueError):
         _validate_api_url("https://169.254.169.254/latest")
+    with pytest.raises(ValueError):
+        _validate_api_url("https://2130706433/aqi")
+    with pytest.raises(ValueError):
+        _validate_api_url("https://example.com:invalid/aqi")
 
 
 def test_api_fetch_disables_redirects(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -97,3 +103,39 @@ def test_configured_paths_cannot_escape_project_root() -> None:
         load_config("../outside-config.yaml")
     with pytest.raises(ValueError):
         resolve_path({"data": {"output": "../outside.csv"}}, "data.output")
+
+
+def test_dashboard_html_escapes_untrusted_display_values() -> None:
+    payload = '<script>alert("xss")</script>" onmouseover="alert(1)'
+    context_html = filter_context_html(payload, payload, payload, 1, payload)
+    comparison_html = comparison_cards_html(
+        pd.DataFrame(
+            [
+                {
+                    "site_name_display": payload,
+                    "county_display": payload,
+                    "freshness_state": payload,
+                    "current_aqi": 42,
+                    "aqi_category": payload,
+                    "predicted_next_hour_aqi": 43,
+                    "lower_80_aqi": 40,
+                    "upper_80_aqi": 46,
+                    "baseline_aqi": 41,
+                    "aqi_vs_baseline": 2,
+                    "pm25": 12,
+                    "observed_at": "2026-08-19 12:00:00",
+                    "is_anomaly": False,
+                }
+            ]
+        )
+    )
+    for rendered in (context_html, comparison_html):
+        assert "<script" not in rendered.lower()
+        assert 'onmouseover="' not in rendered.lower()
+        assert "&lt;script&gt;" in rendered
+
+
+def test_api_url_rejects_noncanonical_loopback_forms() -> None:
+    for url in ("http://2130706433/aqi", "https://127.0.0.1/aqi", "http://127.1/aqi"):
+        with pytest.raises(ValueError):
+            _validate_api_url(url)
