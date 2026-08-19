@@ -5,13 +5,14 @@ from datetime import date, timedelta
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.generate_sample_data import generate_sample_aqi
+from src.generate_sample_data import MAX_SAMPLE_DAYS, generate_sample_aqi
 from src.utils import load_config, resolve_path
 
 
@@ -43,3 +44,9 @@ def test_sample_data_defaults_to_recent_30_days():
     expected_start = date.today() - timedelta(days=29)
     assert dates.min().date() == expected_start
     assert dates.max().date() == date.today()
+
+
+@pytest.mark.parametrize("days", [0, -1, MAX_SAMPLE_DAYS + 1])
+def test_sample_data_rejects_invalid_day_ranges(days: int) -> None:
+    with pytest.raises(ValueError, match="days must be between"):
+        generate_sample_aqi(days=days)

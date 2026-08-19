@@ -328,7 +328,7 @@ python src/generate_sample_data.py --start-date 2026-06-01 --days 30
 
 | 參數 | 預設 | 說明 |
 | --- | --- | --- |
-| --days | 30 | 產生幾天的每小時資料 |
+| --days | 30 | 產生幾天的每小時資料；限制為 1-366 天 |
 | --start-date | 執行日前推 | 固定資料開始日期，例如 2026-06-01 |
 
 Sample Data 只能代表可重現的測試情境，不可用來推論真實空氣品質或官方警示。
@@ -351,11 +351,13 @@ o3, co, wind_speed, wind_directions
 API 讀取安全措施：
 
 - 非 localhost 的 HTTP endpoint 會拒絕，正式 endpoint 必須使用 HTTPS。
-- Request timeout 有上下限。
-- Response size 上限為 10 MB。
+- 直接指向 private、link-local、reserved 或 unspecified IP 的 endpoint 會拒絕，降低 SSRF 風險。
+- URL 不接受 embedded credentials 或 fragment；HTTP redirect 會被明確拒絕，避免跳轉到未驗證位置。
+- Request timeout 有上下限，Response size 上限為 10 MB。
 - 支援欄位 alias mapping。
 - 欄位不足、格式錯誤或連線失敗時 fallback 到 Sample Data。
 - API key、token 與密碼不寫入前端程式碼或 repository。
+- 這些檢查是靜態 URL 邊界；正式公開部署仍應搭配固定 allowlist、egress policy 或受控 proxy。
 
 ## Modeling
 
@@ -557,9 +559,9 @@ run_project.bat --validate
 目前本地最終驗證結果：
 
 ~~~text
-pytest -q                         103 passed
+pytest -q                         110 passed
 public release gate               Passed
-run_project.bat --validate        pipeline + smoke test + 103 passed; exit 0
+run_project.bat --validate        pipeline + smoke test + 110 passed; exit 0
 pip check                         No broken requirements found
 compileall                        Passed
 pip-audit                         No known vulnerabilities found
@@ -577,12 +579,17 @@ python src/benchmark_dashboard.py
 ## Security and Privacy
 
 - .env、Streamlit secrets、API key、token 與密碼不得提交 Git。
+- Public release guard 會阻擋 `.env`、`.env.*`、Streamlit secrets 與常見 secrets 檔案，即使它們被強制加入 Git。
 - data/raw、data/sample、data/processed、models 與 reports 的生成物預設不追蹤。
-- API Data 只接受 HTTPS；只有 localhost 開發端點可以使用 HTTP。
+- API Data 只接受 HTTPS；只有 localhost / loopback 開發端點可以使用 HTTP。
+- API URL 會拒絕 private、link-local、reserved、unspecified IP、embedded credentials、fragment 與 redirect。
 - API request 具備 timeout 與 10 MB response size limit。
+- 設定檔中的輸出路徑必須留在 project root 內，避免 `../` 路徑逃逸。
+- 核心 CSV、JSON 與 joblib artifact 使用同目錄暫存檔與 atomic replace，避免程序中斷留下半份輸出。
 - Joblib 只從專案 models/ 載入 .joblib，不要載入來源不明的模型檔。
 - GitHub Actions Quality Gate 會重建 Sample Pipeline 並執行 pytest。
-- GitHub Actions Security Audit 會執行 pip-audit，並阻擋生成資料、模型與報表被追蹤。
+- GitHub Actions Security Audit 會執行 pip-audit、public release guard，並阻擋生成資料、模型與報表被追蹤。
+- GitHub Actions job 具備 timeout 與同分支 concurrency，避免重複工作無限佔用 runner。
 - Dashboard 匯出只包含公開資料欄位，不包含 target、lag、rolling 或模型內部欄位。
 - 本地驗證使用專案隔離環境，不把使用者 API credentials 寫入程式碼。
 

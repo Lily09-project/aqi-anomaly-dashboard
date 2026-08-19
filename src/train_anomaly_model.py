@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from src.anomaly_events import build_anomaly_events
-from src.utils import ensure_parent, load_config, resolve_path, save_model, write_json
+from src.utils import load_config, resolve_path, save_model, write_csv, write_json
 
 
 @dataclass
@@ -116,10 +116,10 @@ def train_anomaly_model() -> dict[str, object]:
         "anomaly_score",
         "is_anomaly",
     ]
-    ensure_parent(resolve_path(config, "data.anomaly_file"))
-    df[cols].to_csv(resolve_path(config, "data.anomaly_file"), index=False, encoding="utf-8")
-    ensure_parent(resolve_path(config, "data.events_file"))
-    events.to_csv(resolve_path(config, "data.events_file"), index=False, encoding="utf-8")
+
+    write_csv(df[cols], resolve_path(config, "data.anomaly_file"), index=False, encoding="utf-8")
+
+    write_csv(events, resolve_path(config, "data.events_file"), index=False, encoding="utf-8")
     save_model(resolve_path(config, "models.anomaly_detector"), model)
     write_json(resolve_path(config, "reports.metrics_dir") / "anomaly_metrics.json", metrics)
     return metrics

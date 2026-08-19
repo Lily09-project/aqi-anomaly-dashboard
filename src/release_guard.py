@@ -35,6 +35,15 @@ CREDENTIAL_PATTERNS = (
 )
 
 
+SENSITIVE_EXACT_PATHS = {
+    ".streamlit/secrets.toml",
+    "secrets.json",
+    "secrets.toml",
+    "config/secrets.json",
+    "config/secrets.yaml",
+}
+
+
 def _tracked_files(repo_root: Path) -> list[str]:
     result = subprocess.run(
         ["git", "-C", str(repo_root), "ls-files"],
@@ -48,6 +57,16 @@ def _tracked_files(repo_root: Path) -> list[str]:
 
 def _matches_any(path: str, patterns: Iterable[str]) -> bool:
     return any(fnmatch.fnmatch(path, pattern) for pattern in patterns)
+
+
+def _is_sensitive_path(path: str) -> bool:
+    normalized = path.replace("\\", "/").strip("/").lower()
+    basename = normalized.rsplit("/", 1)[-1]
+    if basename == ".env":
+        return True
+    if basename.startswith(".env.") and basename != ".env.example":
+        return True
+    return normalized in SENSITIVE_EXACT_PATHS or basename in {"secrets.json", "secrets.toml"}
 
 
 def _read_text(path: Path) -> str:
@@ -77,9 +96,10 @@ def validate_public_release(repo_root: str | Path, tracked_files: Iterable[str] 
     generated_artifacts = [
         path for path in tracked if _matches_any(path, GENERATED_TRACKING_PATTERNS)
     ]
+    sensitive_paths = [path for path in tracked if _is_sensitive_path(path)]
     credential_hits: list[str] = []
     for relative_path in tracked:
-        if relative_path.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.ipynb')):
+        if relative_path.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".ipynb")):
             continue
         content = _read_text(root / relative_path)
         for pattern in CREDENTIAL_PATTERNS:
@@ -87,11 +107,21 @@ def validate_public_release(repo_root: str | Path, tracked_files: Iterable[str] 
                 credential_hits.append(relative_path)
                 break
     return {
-        "passed": not any((missing_public_paths, missing_readme_assets, untracked_readme_assets, generated_artifacts, credential_hits)),
+        "passed": not any(
+            (
+                missing_public_paths,
+                missing_readme_assets,
+                untracked_readme_assets,
+                generated_artifacts,
+                sensitive_paths,
+                credential_hits,
+            )
+        ),
         "tracked_files": len(tracked),
         "missing_public_paths": missing_public_paths,
         "missing_readme_assets": missing_readme_assets,
         "untracked_readme_assets": untracked_readme_assets,
         "generated_artifacts": generated_artifacts,
+        "sensitive_paths": sensitive_paths,
         "credential_hits": credential_hits,
     }

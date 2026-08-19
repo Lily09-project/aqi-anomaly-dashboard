@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import os
 from datetime import datetime
@@ -11,7 +12,7 @@ from urllib.parse import urlparse
 
 import pandas as pd
 
-from src.utils import ensure_parent, load_config, project_path
+from src.utils import load_config, project_path, write_csv
 
 
 ALIASES = {
@@ -34,10 +35,31 @@ LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
 
 def _validate_api_url(url: str) -> str:
-    parsed = urlparse(url)
-    if parsed.scheme not in {"https", "http"} or not parsed.hostname:
+    try:
+        parsed = urlparse(url)
+        hostname = parsed.hostname
+    except ValueError as exc:
+        raise ValueError("API URL is malformed") from exc
+    if parsed.scheme not in {"https", "http"} or not hostname:
         raise ValueError("API URL must use HTTPS and include a hostname")
-    if parsed.scheme == "http" and parsed.hostname.lower() not in LOCAL_HOSTS:
+    if parsed.username or parsed.password:
+        raise ValueError("API URL must not include embedded credentials")
+    if parsed.fragment:
+        raise ValueError("API URL must not include a URL fragment")
+
+    normalized_host = hostname.rstrip(".").lower()
+    try:
+        address = ipaddress.ip_address(hostname)
+    except ValueError:
+        address = None
+
+    if address is not None:
+        is_loopback = address.is_loopback
+        if not address.is_global and not is_loopback:
+            raise ValueError("API host must be public or local loopback")
+        if parsed.scheme == "http" and not is_loopback:
+            raise ValueError("Non-local API URLs must use HTTPS")
+    elif parsed.scheme == "http" and normalized_host not in LOCAL_HOSTS:
         raise ValueError("Non-local API URLs must use HTTPS")
     return url
 
@@ -113,7 +135,10 @@ def fetch_aqi_data(output_path: str | Path | None = None) -> Path | None:
         _validate_api_url(url)
         configured_timeout = float(config["api"].get("timeout_seconds", 20))
         timeout = (5, min(max(configured_timeout, 1), MAX_API_TIMEOUT_SECONDS))
-        response = requests.get(url, timeout=timeout, stream=True)
+        response = requests.get(url, timeout=timeout, stream=True, allow_redirects=False)
+        if 300 <= response.status_code < 400:
+            response.close()
+            raise ValueError("API redirects are not allowed")
         response.raise_for_status()
         try:
             content = _read_limited_response(response)
@@ -137,8 +162,8 @@ def fetch_aqi_data(output_path: str | Path | None = None) -> Path | None:
     if output_path is None:
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_path = project_path(config["data"]["raw_dir"], f"aqi_raw_{stamp}.csv")
-    out = ensure_parent(output_path)
-    df.to_csv(out, index=False, encoding="utf-8")
+    out = Path(output_path)
+    write_csv(df, out, index=False, encoding="utf-8")
     print(f"API 資料已儲存：{out}")
     return out
 
