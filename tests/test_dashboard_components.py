@@ -45,3 +45,18 @@ def test_app_reexports_component_contracts() -> None:
 
     assert app.comparison_cards_html is components.comparison_cards_html
     assert app.apply_plotly_theme is components.apply_plotly_theme
+
+
+def test_component_filter_context_escapes_scope_values() -> None:
+    html = components.filter_context_html(
+        "臺北<script>",
+        "站 A",
+        "2026/08/01 - 2026/08/07",
+        1234,
+        "Sample Data",
+    )
+
+    assert "臺北&lt;script&gt;" in html
+    assert "1,234 筆資料" in html
+    assert 'aria-label="目前篩選範圍"' in html
+    assert "<script>" not in html

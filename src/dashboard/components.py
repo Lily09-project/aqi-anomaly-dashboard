@@ -222,6 +222,32 @@ def section_header(kicker: str, title: str, context: str = "") -> None:
     )
 
 
+def filter_context_html(
+    county: str,
+    site: str,
+    date_label: str,
+    rows: int,
+    data_source: str,
+) -> str:
+    """Return a compact, accessible summary of the active dashboard scope."""
+    chips = [
+        ("地區", county),
+        ("測站", site),
+        ("時間", date_label),
+        ("來源", data_source),
+    ]
+    chip_html = "".join(
+        f'<span class="filter-chip"><span>{escape(label)}</span><strong>{escape(str(value))}</strong></span>'
+        for label, value in chips
+    )
+    return (
+        '<section class="filter-context" aria-label="目前篩選範圍">'
+        '<div class="filter-context-heading"><span class="filter-context-kicker">目前工作範圍</span>'
+        f'<strong>{int(rows):,} 筆資料</strong></div>'
+        f'<div class="filter-chip-list">{chip_html}</div>'
+        "</section>"
+    )
+
 def render_table(
     df: pd.DataFrame,
     empty_message: str = "目前沒有可顯示的資料。",

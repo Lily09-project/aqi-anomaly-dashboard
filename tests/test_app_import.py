@@ -95,6 +95,13 @@ def test_app_imports_without_crashing_and_theme_exists():
     assert "下載監測摘要" in ui_source
     assert "下載可靠性摘要" in ui_source
     assert "export_reliability_report_bytes" in ui_source
+    assert "重新整理資料" in ui_source
+    assert "重設篩選" in ui_source
+    assert "on_click=_reset_filter_state" in ui_source
+    assert "stored_custom_range" in ui_source
+    assert "目前工作範圍" in ui_source
+    assert "下載執行證據" in ui_source
+    assert "審查證據與可重現性" in ui_source
     assert "最新資料時點" in ui_source
     assert "根據目前及過去資料估計同一測站下一小時 AQI" in ui_source
     assert '"地區比較"' in ui_source

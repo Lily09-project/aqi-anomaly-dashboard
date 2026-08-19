@@ -115,6 +115,21 @@
 - limitations：Sample Data、next-hour forecasting、決策支援與異常標註限制。
 
 匯出報告只保留公開、可解讀欄位，不包含 target_aqi、lag、rolling window 或其他模型內部特徵，適合作為面試展示、後續分析或系統串接的穩定輸出契約。
+
+### Filter workflow and reviewer evidence
+
+Dashboard 的篩選流程以「目前工作範圍」為核心，避免使用者看圖時忘記圖表所代表的資料集合：
+
+1. 先選擇縣市與測站；地圖點選也會同步更新測站篩選。
+2. 時間範圍可選「全部資料」、「最近 3 天」、「最近 7 天」或「自訂日期」；相對範圍會依資料實際可用日期自動夾限。
+3. 主畫面會顯示地區、測站、日期、資料來源與資料筆數摘要，讓每張圖表都有明確範圍。
+4. 「重設篩選」會透過 Streamlit callback 清除選擇狀態；「重新整理資料」會清除版本化 artifact cache 後重新載入，適合 API 資料更新或重新產生 Sample Data 後使用。
+5. 若某範圍沒有資料，頁面會保留導覽與可理解的 empty state，不會以例外中斷整個 Dashboard。
+
+在「模型指標」頁的「審查證據與可重現性」區塊，reviewer 可以查看 Git revision、工作樹狀態、資料模式、next-hour target、feature contract、時間切分策略、設定與依賴雜湊，以及 artifact SHA-256 完整度。完整 manifest 仍可下載，但主畫面只顯示扁平化摘要，不把 raw JSON 直接丟給使用者。這使 UI 同時服務兩種角色：
+
+- 使用者關心目前哪個地區、哪個時間範圍值得判讀。
+- 審查者關心這個數字能否追溯到正確版本、資料契約與完整輸出。
 ### Public release quality gate
 
 推送 GitHub 前可執行：
@@ -499,6 +514,13 @@ Manifest 會在 smoke test 前生成，因此 pipeline 會把它當成正式輸�
 
 run_manifest.json 是工程可追溯性與除錯工具，不是資料 provenance 的完整替代品。若要正式部署，仍應補上官方資料集版本、取得時間、資料授權、模型 registry、artifact retention 與監控系統。
 
+Dashboard 會讀取同一份本機 manifest 並以審查摘要呈現；因此 reviewer 不需要手動打開 JSON 才能先確認版本與 contract。若畫面顯示「未建立或需重建」，代表目前資料可能是舊輸出、manifest 不存在，或 artifact 沒有完整雜湊，應重新執行：
+
+~~~bash
+python run_all.py --mode sample
+python src/smoke_test.py
+~~~
+
 ## Testing and Quality Gates
 
 ### Local test commands
@@ -524,20 +546,20 @@ run_project.bat --validate
 - 模型訓練、joblib 載入、預測長度、時間切分與回測選模。
 - MAE、RMSE、R2、anomaly precision / recall / F1、JSON 與圖檔。
 - 預測區間校準、coverage、區間寬度與 final test 隔離。
-- Dashboard import、缺資料、缺模型、頁面 renderer 與主題載入。
+- Dashboard import、缺資料、缺模型、頁面 renderer、篩選工作流與主題載入。
 - UI 對比度、深色卡片、focus、disabled、觸控尺寸與響應式樣式。
 - 地圖選站、測站比較、公開欄位匯出、事件合併與資料品質。
 - API URL、回應大小、模型路徑與敏感設定安全檢查。
 - 可靠性 JSON 報告 schema、空資料 fallback 與公開欄位邊界。
 - run_all.py 與 run_project.bat --validate 的完整流程。
-- run manifest 的 schema、輸出雜湊、資料 contract 與缺失 artifact 偵測。
+- run manifest 的 schema、輸出雜湊、資料 contract、審查摘要與缺失 artifact 偵測。
 
 目前本地最終驗證結果：
 
 ~~~text
-pytest -q                         97 passed in 37.33s
+pytest -q                         103 passed
 public release gate               Passed
-run_project.bat --validate        pipeline + smoke test + 97 passed; exit 0
+run_project.bat --validate        pipeline + smoke test + 103 passed; exit 0
 pip check                         No broken requirements found
 compileall                        Passed
 pip-audit                         No known vulnerabilities found

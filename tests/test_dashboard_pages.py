@@ -12,6 +12,7 @@ from src.dashboard.context import (
     PageContext,
 )
 from src.dashboard.pages import PAGE_RENDERERS
+from src.dashboard.pages.metrics import manifest_evidence_table
 
 
 EXPECTED_PAGES = {"總覽", "地區比較", "預測", "異常偵測", "資料品質", "模型指標"}
@@ -111,4 +112,30 @@ def test_metrics_page_builds_reliability_tables_without_raw_json() -> None:
     assert coverage_table.loc[0, "rows_95"] == 12
     assert "baseline_improvement" in source
     assert "worst_station" in source
+    assert "審查證據與可重現性" in source
+    assert "feature_contract_valid" in source
     assert "st.json" not in source
+
+
+def test_manifest_evidence_is_flattened_for_reviewers() -> None:
+    manifest = {
+        "generated_at_utc": "2026-08-19T00:00:00Z",
+        "project": {"git_revision": "abc123", "git_dirty": False},
+        "run": {
+            "data_source": "Sample Data",
+            "config": {"sha256": "config-hash"},
+            "requirements": {"sha256": "requirements-hash"},
+        },
+        "data_contract": {
+            "target": "target_next_hour_aqi",
+            "feature_contract_valid": True,
+            "split_strategy": "chronological train / validation / final_test",
+        },
+        "artifacts": [{"exists": True, "sha256": "artifact-hash"}],
+    }
+
+    table = manifest_evidence_table(manifest)
+
+    assert table.loc[table["項目"] == "Feature contract", "內容"].item() == "通過"
+    assert table.loc[table["項目"] == "Artifact SHA-256", "內容"].item() == "1/1 已記錄"
+    assert not any(isinstance(value, dict) for value in table.to_numpy().ravel())
