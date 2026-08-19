@@ -7,7 +7,7 @@ import pandas as pd
 
 from src.app_helpers import add_display_columns
 from src.fetch_aqi_data import ALIASES
-from src.utils import ensure_parent, latest_csv, load_config, project_path, resolve_path
+from src.utils import latest_csv, load_config, project_path, resolve_path, write_csv
 
 
 NUMERIC_COLUMNS = ["aqi", "pm25", "pm10", "o3", "co", "wind_speed", "wind_directions"]
@@ -65,8 +65,8 @@ def preprocess(mode: str = "sample", input_path: str | Path | None = None) -> pd
     is_sample = mode == "sample" or src.resolve() == sample_path
     df["data_source"] = "Sample Data" if is_sample else "API Data"
     df = add_display_columns(df)
-    out = ensure_parent(resolve_path(config, "data.cleaned_file"))
-    df.to_csv(out, index=False, encoding="utf-8")
+    out = resolve_path(config, "data.cleaned_file")
+    write_csv(df, out, index=False, encoding="utf-8")
     return df
 
 

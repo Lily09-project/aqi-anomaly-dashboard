@@ -6,7 +6,7 @@ from statistics import median
 
 import pandas as pd
 
-from src.utils import ensure_parent, load_config, resolve_path
+from src.utils import load_config, resolve_path, write_csv
 
 
 def historical_station_hour_baseline(frame: pd.DataFrame) -> pd.Series:
@@ -89,8 +89,8 @@ def build_features() -> pd.DataFrame:
     feature_cols = config["train"]["feature_columns"]
     df = df.dropna(subset=[*feature_cols, "target_next_hour_aqi", "target_aqi"]).reset_index(drop=True)
 
-    out = ensure_parent(resolve_path(config, "data.features_file"))
-    df.to_csv(out, index=False, encoding="utf-8")
+    out = resolve_path(config, "data.features_file")
+    write_csv(df, out, index=False, encoding="utf-8")
     return df
 
 

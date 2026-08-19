@@ -29,14 +29,18 @@ def test_public_release_guard_accepts_required_files_and_tracked_assets(tmp_path
     assert result["missing_public_paths"] == []
     assert result["missing_readme_assets"] == []
     assert result["untracked_readme_assets"] == []
+    assert result["sensitive_paths"] == []
 
 
 def test_public_release_guard_blocks_generated_files_and_credentials(tmp_path: Path) -> None:
     tracked_files = list(REQUIRED_PUBLIC_PATHS)
     _write_public_fixture(tmp_path, tracked_files)
-    tracked_files += ["data/processed/features.csv", "notes.txt"]
+    tracked_files += ["data/processed/features.csv", "notes.txt", ".env", ".streamlit/secrets.toml"]
     (tmp_path / "data/processed").mkdir(parents=True, exist_ok=True)
     (tmp_path / "data/processed/features.csv").write_text("generated", encoding="utf-8")
+    (tmp_path / ".env").write_text("AQI_API_URL=https://example.com\n", encoding="utf-8")
+    (tmp_path / ".streamlit").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".streamlit/secrets.toml").write_text("token = 'redacted'\n", encoding="utf-8")
     fake_key = "A" + "1234567890123456789"
     (tmp_path / "notes.txt").write_text("api_key = '" + fake_key + "'", encoding="utf-8")
 
@@ -45,3 +49,5 @@ def test_public_release_guard_blocks_generated_files_and_credentials(tmp_path: P
     assert result["passed"] is False
     assert "data/processed/features.csv" in result["generated_artifacts"]
     assert "notes.txt" in result["credential_hits"]
+    assert ".env" in result["sensitive_paths"]
+    assert ".streamlit/secrets.toml" in result["sensitive_paths"]

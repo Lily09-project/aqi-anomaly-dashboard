@@ -14,7 +14,7 @@ from src.forecast_confidence import (
     calibrate_interval_widths,
     classify_threshold_watch,
 )
-from src.utils import ensure_parent, load_config, resolve_path, save_model, write_json
+from src.utils import load_config, resolve_path, save_model, write_csv, write_json
 
 
 @dataclass
@@ -327,8 +327,8 @@ def train_predictor() -> dict[str, object]:
         "limitation_note": "This is a next-hour AQI nowcasting demo. Models are selected by pre-test rolling-origin RMSE and reported once on a later final test split.",
     }
 
-    ensure_parent(resolve_path(config, "data.predictions_file"))
-    test_out.to_csv(resolve_path(config, "data.predictions_file"), index=False, encoding="utf-8")
+
+    write_csv(test_out, resolve_path(config, "data.predictions_file"), index=False, encoding="utf-8")
     save_model(resolve_path(config, "models.predictor"), serializable_models[preferred_model])
     write_json(resolve_path(config, "reports.metrics_dir") / "predictor_metrics.json", metrics)
     write_json(resolve_path(config, "reports.metrics_dir") / "backtest_metrics.json", backtest)

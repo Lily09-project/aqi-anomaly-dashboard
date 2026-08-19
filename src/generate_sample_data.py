@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from src.utils import ensure_parent, load_config, resolve_path
+from src.utils import load_config, resolve_path, write_csv
 
 
 SITES = [
@@ -22,6 +22,9 @@ SITES = [
 ]
 
 
+MIN_SAMPLE_DAYS = 1
+MAX_SAMPLE_DAYS = 366
+
 def _default_start_date(days: int) -> datetime:
     return datetime.combine(date.today() - timedelta(days=days - 1), time.min)
 
@@ -32,6 +35,8 @@ def generate_sample_aqi(
     start_date: str | date | datetime | None = None,
 ) -> pd.DataFrame:
     config = load_config()
+    if days < MIN_SAMPLE_DAYS or days > MAX_SAMPLE_DAYS:
+        raise ValueError(f"days must be between {MIN_SAMPLE_DAYS} and {MAX_SAMPLE_DAYS}")
     rng = np.random.default_rng(config["random_state"])
     if start_date is None:
         start_at = _default_start_date(days)
@@ -85,8 +90,8 @@ def generate_sample_aqi(
         df.loc[missing_mask[:, idx], col] = np.nan
     if output_path is None:
         output_path = resolve_path(config, "data.sample_file")
-    out = ensure_parent(output_path)
-    df.to_csv(out, index=False, encoding="utf-8")
+    out = Path(output_path)
+    write_csv(df, out, index=False, encoding="utf-8")
     return df
 
 
