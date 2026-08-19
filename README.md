@@ -232,7 +232,8 @@ Pipeline 會依序：
 4. 建立 station-aware time-series features。
 5. 訓練預測模型與異常模型。
 6. 輸出 metrics、figures、forecast confidence 與 data health。
-7. 執行 smoke test。
+7. 產生包含版本、設定雜湊、資料 contract、metrics 與 artifact hash 的 run manifest。
+8. 執行 smoke test。
 
 ### Start the Dashboard
 
@@ -477,10 +478,26 @@ reports/
     ├── backtest_metrics.json
     ├── forecast_confidence.json
     ├── data_health.json
-    └── evaluation_summary.json
+    ├── evaluation_summary.json
+    └── run_manifest.json
 ~~~
 
 這些生成物預設由 .gitignore 排除。公開 repository 只保留程式碼、設定、測試、文件與 .gitkeep；clone 後透過 pipeline 重新建立資料與模型。
+
+### Run Manifest and Provenance
+
+每次 run_all.py 完成評估後，會在本機產生 reports/metrics/run_manifest.json。這份檔案是一次 pipeline run 的可追溯摘要，不保存 raw data 或模型內容，而是保存可驗證的 metadata：
+
+- run_id、UTC 產生時間、Git revision、working tree 是否 dirty、Python 與平台資訊。
+- config.yaml 與 requirements.txt 的 SHA-256，讓設定與依賴版本可以被比對。
+- Sample Data / API Data 模式、sample data 是否為模擬資料，以及 random state。
+- next-hour target、feature columns、禁止進入模型的 target 欄位、分組鍵與 leakage controls。
+- dataset rows、station count、日期範圍、data health、predictor / anomaly / backtest / forecast confidence 的 compact metrics。
+- 每個主要輸出的存在性、檔案大小與 SHA-256，包括資料、模型、JSON metrics 與 PNG figures。
+
+Manifest 會在 smoke test 前生成，因此 pipeline 會把它當成正式輸出的一部分驗證。它仍然由 .gitignore 排除，避免把本地生成資料、模型、報表或環境資訊提交到公開 repository；要重建證據時，只要在相同 commit 上重新執行 sample pipeline 即可。GitHub Actions 也會透過相同 pipeline 驗證 manifest contract。
+
+run_manifest.json 是工程可追溯性與除錯工具，不是資料 provenance 的完整替代品。若要正式部署，仍應補上官方資料集版本、取得時間、資料授權、模型 registry、artifact retention 與監控系統。
 
 ## Testing and Quality Gates
 
@@ -513,13 +530,14 @@ run_project.bat --validate
 - API URL、回應大小、模型路徑與敏感設定安全檢查。
 - 可靠性 JSON 報告 schema、空資料 fallback 與公開欄位邊界。
 - run_all.py 與 run_project.bat --validate 的完整流程。
+- run manifest 的 schema、輸出雜湊、資料 contract 與缺失 artifact 偵測。
 
 目前本地最終驗證結果：
 
 ~~~text
-pytest -q                         95 passed in 78.42s
+pytest -q                         97 passed in 37.33s
 public release gate               Passed
-run_project.bat --validate        pipeline + smoke test + 95 passed; exit 0
+run_project.bat --validate        pipeline + smoke test + 97 passed; exit 0
 pip check                         No broken requirements found
 compileall                        Passed
 pip-audit                         No known vulnerabilities found
@@ -591,6 +609,7 @@ aqi-anomaly-dashboard/
 │   ├── data_health.py
 │   ├── evaluate.py
 │   ├── smoke_test.py
+│   ├── run_manifest.py
 │   ├── theme.py
 │   └── dashboard/
 └── tests/
@@ -628,7 +647,7 @@ aqi-anomaly-dashboard/
 4. 依測站、季節與時段校準異常門檻，並導入人工事件標註。
 5. 加入資料漂移、預測漂移、coverage 漂移與模型重訓監控。
 6. 以排程工作與容器化部署支援每日更新。
-7. 加入模型版本、資料版本與評估報告 lineage，讓每次結果可回溯。
+7. 將目前的 run manifest 擴充為 dataset / model registry，保存官方資料版本、模型 artifact metadata 與長期評估歷史。
 
 ## Resume-ready Description
 
@@ -639,6 +658,7 @@ aqi-anomaly-dashboard/
 - 建立目前篩選範圍的可靠性 JSON 匯出契約，將資料品質、測站優先級、模型 metrics、預測 coverage 與異常偵測限制整理成可重用的公開報告。
 - 實作 leakage-aware rolling-origin 評估與 80% / 95% empirical forecast intervals，揭露分測站可靠性、AQI 分級表現、coverage、區間寬度與 pseudo-label 限制。
 - 建立可重現 pipeline、smoke test、pytest、依賴安全稽核與 Windows 一鍵啟動流程，並將生成資料與模型排除在公開 GitHub repository 外。
+- 建立 machine-readable run manifest，記錄 Git revision、設定與依賴雜湊、leakage contract、metrics 摘要與輸出 artifact hash，讓每次 pipeline run 可被追溯與驗證。
 
 ### English resume bullets
 
@@ -653,7 +673,7 @@ aqi-anomaly-dashboard/
 
 專案的差異化不只是模型，而是判讀流程：總覽會用每個測站自己的歷史基準、近期變化、下一小時預測與異常證據排序人工檢視優先級，並可直接從台灣地圖選站；地區比較則會先檢查資料時差，再並排呈現 2 至 3 個測站的目前 AQI、預測、預測區間與異常脈絡；下載區則可輸出同一範圍的可靠性 JSON，讓展示結果不只停留在畫面。
 
-為了避免只展示單一漂亮分數，我用 rolling-origin backtest 選模，只有學習模型優於 Moving Average 才會勝出，並用 final test 之前的殘差校準 80% / 95% 預測區間，同時揭露分測站可靠性與區間 coverage。異常偵測則明確標示是 pseudo-label 評估，不把規則一致性說成真實事件準確率。最後，整個專案可以透過 run_all.py、pytest、smoke test 與 Windows 一鍵啟動重現，生成資料與模型不提交到 GitHub，讓程式碼、測試與資料責任都能被檢查。
+為了避免只展示單一漂亮分數，我用 rolling-origin backtest 選模，只有學習模型優於 Moving Average 才會勝出，並用 final test 之前的殘差校準 80% / 95% 預測區間，同時揭露分測站可靠性與區間 coverage。異常偵測則明確標示是 pseudo-label 評估，不把規則一致性說成真實事件準確率。最後，整個專案可以透過 run_all.py、pytest、smoke test 與 Windows 一鍵啟動重現；每次執行還會產生 run manifest，記錄 commit、設定雜湊、資料 contract、metrics 與輸出檔 hash。生成資料與模型不提交到 GitHub，讓程式碼、測試與資料責任都能被檢查。
 
 ## Scope
 

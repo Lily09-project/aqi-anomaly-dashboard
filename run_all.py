@@ -15,6 +15,7 @@ from src.features import build_features
 from src.fetch_aqi_data import fetch_aqi_data
 from src.generate_sample_data import generate_sample_aqi
 from src.preprocess import preprocess
+from src.run_manifest import write_run_manifest
 from src.smoke_test import run_smoke_test
 from src.train_anomaly_model import train_anomaly_model
 from src.train_predictor import train_predictor
@@ -63,6 +64,7 @@ def _output_summary() -> list[Path]:
         resolve_path(config, "reports.confidence_file"),
         resolve_path(config, "reports.metrics_dir") / "data_health.json",
         resolve_path(config, "reports.metrics_dir") / "evaluation_summary.json",
+        resolve_path(config, "reports.metrics_dir") / "run_manifest.json",
         resolve_path(config, "reports.figures_dir") / "aqi_trend.png",
         resolve_path(config, "reports.figures_dir") / "prediction_vs_actual.png",
         resolve_path(config, "reports.figures_dir") / "anomaly_cases.png",
@@ -96,6 +98,11 @@ def run(mode: str = "sample") -> list[Path]:
     _step("Train predictor model", train_predictor)
     _step("Train anomaly model", train_anomaly_model)
     _step("Evaluate outputs", evaluate)
+    config = load_config()
+    _step(
+        "Write reproducibility manifest",
+        lambda: write_run_manifest(ROOT, config=config, run_mode=mode),
+    )
     _step("Run smoke checks", run_smoke_test)
     print("Pipeline finished successfully.")
     return _output_summary()

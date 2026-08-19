@@ -73,7 +73,12 @@ def run_smoke_test() -> None:
         if key == "reports.metrics_dir":
             summary = resolve_path(config, key) / "evaluation_summary.json"
             assert summary.exists() and summary.stat().st_size > 0, f"Missing summary: {summary}"
-            for report_name in ["backtest_metrics.json", "data_health.json", "forecast_confidence.json"]:
+            for report_name in [
+                "backtest_metrics.json",
+                "data_health.json",
+                "forecast_confidence.json",
+                "run_manifest.json",
+            ]:
                 report = resolve_path(config, key) / report_name
                 assert report.exists() and report.stat().st_size > 0, f"Missing report: {report}"
         else:
@@ -113,6 +118,13 @@ def run_smoke_test() -> None:
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     assert "data_health" in summary and "backtest_metrics" in summary, "Evaluation summary missing reliability reports"
     assert summary.get("forecast_confidence", {}).get("method") == "rolling_origin_conformal", "Evaluation summary missing forecast confidence"
+    manifest_path = resolve_path(config, "reports.metrics_dir") / "run_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest.get("manifest_version") == "1.0", "Run manifest has an unsupported version"
+    assert manifest.get("data_contract", {}).get("target") == "target_next_hour_aqi", "Run manifest target contract is missing"
+    assert manifest.get("data_contract", {}).get("feature_contract_valid") is True, "Run manifest feature contract failed"
+    assert manifest.get("run", {}).get("data_source") in {"Sample Data", "API Data"}, "Run manifest data source is missing"
+    assert all(item.get("exists") for item in manifest.get("artifacts", [])), "Run manifest contains missing artifacts"
     load_model(resolve_path(config, "models.predictor"))
     load_model(resolve_path(config, "models.anomaly_detector"))
 
