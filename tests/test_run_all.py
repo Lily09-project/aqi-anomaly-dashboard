@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -37,8 +38,15 @@ def test_run_all_sample_creates_required_outputs():
         resolve_path(config, "reports.confidence_file"),
         resolve_path(config, "reports.metrics_dir") / "data_health.json",
         resolve_path(config, "reports.metrics_dir") / "evaluation_summary.json",
+        resolve_path(config, "reports.metrics_dir") / "run_manifest.json",
     ]
     assert resolve_path(config, "reports.confidence_file") in outputs
     for path in required:
         assert path.exists()
         assert path.stat().st_size > 0
+
+    manifest_path = resolve_path(config, "reports.metrics_dir") / "run_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["run"]["data_source"] == "Sample Data"
+    assert manifest["data_contract"]["target"] == "target_next_hour_aqi"
+    assert all(artifact["exists"] for artifact in manifest["artifacts"])
