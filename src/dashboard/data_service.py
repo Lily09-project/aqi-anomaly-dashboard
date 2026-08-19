@@ -94,6 +94,7 @@ def load_dashboard_artifacts(config: dict[str, Any]) -> tuple[DashboardData, Das
         confidence=read_json_versioned(resolve_path(config, "reports.confidence_file")),
         data_health=read_json_versioned(metrics_dir / "data_health.json"),
         evaluation=read_json_versioned(metrics_dir / "evaluation_summary.json"),
+        manifest=read_json_versioned(metrics_dir / "run_manifest.json"),
     )
     return data, metrics
 

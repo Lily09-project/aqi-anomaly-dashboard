@@ -1,3 +1,5 @@
+import json
+
 import pandas as pd
 
 from src.dashboard.components import (
@@ -37,6 +39,39 @@ def station_coverage_table(confidence_metrics: dict[str, object]) -> pd.DataFram
             row[f"mean_width_{level}"] = values.get("mean_width", 0.0)
         rows.append(row)
     return pd.DataFrame(rows)
+
+
+def _mapping(value: object) -> dict[str, object]:
+    return value if isinstance(value, dict) else {}
+
+
+def manifest_evidence_table(manifest: dict[str, object]) -> pd.DataFrame:
+    """Flatten the run manifest into a reviewer-readable evidence table."""
+    project = _mapping(manifest.get("project"))
+    run = _mapping(manifest.get("run"))
+    contract = _mapping(manifest.get("data_contract"))
+    config = _mapping(run.get("config"))
+    requirements = _mapping(run.get("requirements"))
+    artifacts = manifest.get("artifacts", [])
+    artifact_records = [item for item in artifacts if isinstance(item, dict)] if isinstance(artifacts, list) else []
+    complete_artifacts = sum(
+        bool(item.get("exists")) and bool(item.get("sha256")) for item in artifact_records
+    )
+
+    rows = [
+        {"項目": "執行時間 (UTC)", "內容": str(manifest.get("generated_at_utc", "N/A"))},
+        {"項目": "Git revision", "內容": str(project.get("git_revision", "N/A"))},
+        {"項目": "工作樹狀態", "內容": "乾淨" if project.get("git_dirty") is False else "需檢查"},
+        {"項目": "資料模式", "內容": str(run.get("data_source", "N/A"))},
+        {"項目": "預測目標", "內容": str(contract.get("target", "N/A"))},
+        {"項目": "Feature contract", "內容": "通過" if contract.get("feature_contract_valid") else "需檢查"},
+        {"項目": "時間切分", "內容": str(contract.get("split_strategy", "N/A"))},
+        {"項目": "Artifact SHA-256", "內容": f"{complete_artifacts}/{len(artifact_records)} 已記錄"},
+        {"項目": "設定檔雜湊", "內容": str(config.get("sha256", "N/A"))},
+        {"項目": "依賴檔雜湊", "內容": str(requirements.get("sha256", "N/A"))},
+    ]
+    return pd.DataFrame(rows)
+
 
 def render(context: PageContext) -> None:
     predictor_metrics = context.metrics.predictor
@@ -135,6 +170,38 @@ def render(context: PageContext) -> None:
             {"項目": "結束時間", "內容": str(evaluation_summary.get("datetime_range", {}).get("end", "N/A"))},
         ]
         render_table(pd.DataFrame(summary_rows))
+
+    st.subheader("審查證據與可重現性")
+    manifest = context.metrics.manifest
+    if not manifest:
+        st.info("目前找不到 run manifest；請重新執行 sample pipeline 以建立可追溯執行證據。")
+    else:
+        project = _mapping(manifest.get("project"))
+        run = _mapping(manifest.get("run"))
+        artifacts = manifest.get("artifacts", [])
+        artifact_records = [item for item in artifacts if isinstance(item, dict)] if isinstance(artifacts, list) else []
+        complete_artifacts = sum(
+            bool(item.get("exists")) and bool(item.get("sha256")) for item in artifact_records
+        )
+        revision = str(project.get("git_revision", "N/A"))
+        st.caption("此區塊將一次 pipeline 的版本、資料 contract 與輸出雜湊轉成可供審查的摘要，不顯示 raw JSON。")
+        evidence_columns = st.columns(3)
+        evidence_columns[0].metric("Git revision", revision[:12] if revision else "N/A")
+        evidence_columns[1].metric("輸出完整度", f"{complete_artifacts}/{len(artifact_records)}")
+        evidence_columns[2].metric("資料模式", str(run.get("data_source", "N/A")))
+        render_table(manifest_evidence_table(manifest), label="執行證據摘要")
+        limitations = manifest.get("limitations", [])
+        if isinstance(limitations, list) and limitations:
+            st.caption("限制：" + "；".join(str(item) for item in limitations))
+        run_id = str(manifest.get("run_id", "run"))
+        st.download_button(
+            "下載完整 run manifest (.json)",
+            data=json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8"),
+            file_name=f"taiwan_aqi_run_manifest_{run_id}.json",
+            mime="application/json",
+            use_container_width=True,
+            key="metrics_manifest_download",
+        )
 
     st.markdown(
         '<div class="section-note">限制：Sample Data 是模擬資料；API 欄位格式可能變動；異常偵測目前沒有人工標註 ground truth。未來可接入排程 API、真實事件標註與更嚴格的時間序列交叉驗證。</div>',

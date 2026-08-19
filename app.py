@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from html import escape
 from typing import Any
 
@@ -28,6 +29,7 @@ from src.dashboard.components import (
     _threshold_watch_cards_html,
     _threshold_watch_table,
     activity_guidance_panel,
+    filter_context_html,
     apply_plotly_theme,
     comparison_cards_html,
     metric_card,
@@ -37,7 +39,8 @@ from src.dashboard.components import (
 )
 from src.dashboard.maps import _build_station_map, _render_station_map, _station_map_data
 from src.dashboard.context import FilterState, PageContext
-from src.dashboard.data_service import build_filtered_data, load_dashboard_artifacts
+from src.dashboard.filters import DATE_RANGE_OPTIONS, format_date_range, resolve_date_range
+from src.dashboard.data_service import clear_artifact_cache, build_filtered_data, load_dashboard_artifacts
 from src.dashboard.navigation import VIEW_LABELS, render_active_view
 from src.dashboard.pages import (
     PAGE_RENDERERS,
@@ -105,6 +108,17 @@ def inject_theme(theme: dict[str, str] | None = None) -> None:
     inject_global_css(theme)
 
 
+def _reset_filter_state() -> None:
+    for filter_key in (
+        "county_filter",
+        "station_filter",
+        "date_preset",
+        "custom_date_range",
+        "pending_station_filter",
+    ):
+        st.session_state.pop(filter_key, None)
+
+
 def main() -> None:
     if st is None:
         print("需要安裝 Streamlit 才能啟動 Dashboard，請執行：pip install -r requirements.txt")
@@ -138,6 +152,9 @@ def main() -> None:
             index=list(THEME_OPTIONS.keys()).index(DEFAULT_THEME_NAME),
             format_func=lambda name: THEME_OPTIONS[name]["label"],
         )
+        if st.button("重新整理資料", key="refresh_data", use_container_width=True):
+            clear_artifact_cache()
+            st.rerun()
     theme = get_theme(selected_theme_name)
     theme_validation = validate_theme_contrast(theme)
     fallback_theme_used = False
@@ -195,7 +212,7 @@ def main() -> None:
         county_options = ["全部縣市"]
         if "county_display" in features.columns:
             county_options += sorted(features["county_display"].dropna().astype(str).unique().tolist())
-        selected_county = st.selectbox("縣市", county_options)
+        selected_county = st.selectbox("縣市", county_options, key="county_filter")
         county_filter = None if selected_county == "全部縣市" else selected_county
 
         site_base = features
@@ -212,17 +229,37 @@ def main() -> None:
             selected_site = str(match.iloc[0]["site_name"]) if not match.empty else selected_site_display
 
         if date_limits:
-            date_range = st.date_input(
-                "日期區間",
-                date_limits,
-                min_value=date_limits[0],
-                max_value=date_limits[1],
-            )
+            date_preset = st.selectbox("時間範圍", DATE_RANGE_OPTIONS, key="date_preset")
+            custom_date_range = None
+            if date_preset == "自訂日期":
+                stored_custom_range = resolve_date_range(
+                    date_limits,
+                    "自訂日期",
+                    st.session_state.get("custom_date_range"),
+                )
+                if stored_custom_range is not None:
+                    st.session_state["custom_date_range"] = stored_custom_range
+                custom_date_range = st.date_input(
+                    "自訂日期區間",
+                    value=stored_custom_range or date_limits,
+                    min_value=date_limits[0],
+                    max_value=date_limits[1],
+                    key="custom_date_range",
+                )
+            date_range = resolve_date_range(date_limits, date_preset, custom_date_range)
         else:
+            date_preset = "尚無日期"
             date_range = None
+        st.button(
+            "重設篩選",
+            key="reset_filters",
+            on_click=_reset_filter_state,
+            use_container_width=True,
+        )
 
     start_date = date_range[0] if isinstance(date_range, tuple) and len(date_range) == 2 else None
     end_date = date_range[1] if isinstance(date_range, tuple) and len(date_range) == 2 else None
+    active_date_label = format_date_range(date_range)
     filter_state = FilterState(
         county=county_filter,
         site_name=selected_site,
@@ -242,6 +279,20 @@ def main() -> None:
     comparison_predictions = filtered_data.comparison.predictions
     comparison_anomalies = filtered_data.comparison.anomalies
     quality = data_quality_summary(filtered_features)
+    manifest = dashboard_metrics.manifest
+    manifest_artifact_values = manifest.get("artifacts", []) if isinstance(manifest, dict) else []
+    manifest_artifacts = (
+        [item for item in manifest_artifact_values if isinstance(item, dict)]
+        if isinstance(manifest_artifact_values, list)
+        else []
+    )
+    manifest_project = manifest.get("project", {}) if isinstance(manifest, dict) else {}
+    manifest_project = manifest_project if isinstance(manifest_project, dict) else {}
+    manifest_complete = bool(manifest_artifacts) and all(
+        bool(item.get("exists")) and bool(item.get("sha256")) for item in manifest_artifacts
+    )
+    manifest_revision = str(manifest_project.get("git_revision", "未建立"))
+    manifest_status = "已驗證" if manifest_complete else "未建立或需重建"
     with st.sidebar:
         with st.expander("資料摘要", expanded=False):
             st.markdown(
@@ -251,6 +302,8 @@ def main() -> None:
                 <div><dt>測站數</dt><dd>{quality['site_count']:,}</dd></div>
                 <div><dt>日期範圍</dt><dd>{escape(str(quality['date_range']))}</dd></div>
                 <div><dt>資料來源</dt><dd>{escape(data_source)}</dd></div>
+                <div><dt>執行版本</dt><dd>{escape(manifest_revision)}</dd></div>
+                <div><dt>證據狀態</dt><dd>{escape(manifest_status)}</dd></div>
                 </dl>""",
                 unsafe_allow_html=True,
             )
@@ -325,6 +378,15 @@ def main() -> None:
                 disabled=filtered_features.empty,
             )
             st.caption("可靠性摘要整合資料品質、測站優先級、模型 metrics、預測區間與異常偵測限制；不含模型內部特徵。")
+            if manifest:
+                manifest_run_id = str(manifest.get("run_id", "run"))
+                st.download_button(
+                    "下載執行證據 (.json)",
+                    data=json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8"),
+                    file_name=f"taiwan_aqi_run_manifest_{manifest_run_id}.json",
+                    mime="application/json",
+                    use_container_width=True,
+                )
     kpis = compute_kpis(filtered_features, filtered_anomalies)
     category, _category_color = aqi_category(float(kpis["latest_aqi"]))
     predictor_metrics = dashboard_metrics.predictor
@@ -350,6 +412,16 @@ def main() -> None:
             <span>{escape(data_source)} · {len(filtered_features):,} 筆資料</span>
         </div>
         """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        filter_context_html(
+            selected_county,
+            selected_site_display,
+            active_date_label,
+            len(filtered_features),
+            data_source,
+        ),
         unsafe_allow_html=True,
     )
     signal_deck(kpis["latest_aqi"], category, latest_note, signal_items)

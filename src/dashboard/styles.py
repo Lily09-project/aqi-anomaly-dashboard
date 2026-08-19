@@ -729,6 +729,45 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             line-height: 1.55;
         }}
         .dashboard-intro strong {{ color: var(--text); }}
+        .filter-context {{
+            display: grid;
+            gap: 0.65rem;
+            margin: 0 0 1.15rem;
+            padding: 0.75rem 0.85rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--secondary);
+            border-radius: 8px;
+        }}
+        .filter-context-heading {{
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }}
+        .filter-context-heading strong {{ color: var(--text); font-size: 0.9rem; }}
+        .filter-context-kicker {{
+            color: var(--accent);
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }}
+        .filter-chip-list {{ display: flex; flex-wrap: wrap; gap: 0.45rem; }}
+        .filter-chip {{
+            display: inline-flex;
+            align-items: baseline;
+            gap: 0.35rem;
+            min-height: 32px;
+            padding: 0.28rem 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            background: var(--card);
+            color: var(--muted-text);
+            font-size: 0.76rem;
+        }}
+        .filter-chip strong {{ color: var(--text); font-weight: 800; overflow-wrap: anywhere; }}
         .signal-deck {{
             display: grid;
             grid-template-columns: minmax(230px, 1.25fr) repeat(3, minmax(150px, 1fr));
@@ -1094,6 +1133,8 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             .dashboard-table th, .dashboard-table td {{ padding: 0.58rem 0.55rem; }}
             .dashboard-footer {{ align-items: start; flex-direction: column; gap: 0.25rem; }}
             .dashboard-intro {{ align-items: start; flex-direction: column; gap: 0.25rem; }}
+            .filter-context {{ padding: 0.75rem; }}
+            .filter-chip {{ flex: 1 1 calc(50% - 0.45rem); min-width: 0; }}
             [data-testid="stButtonGroup"] [data-baseweb="button-group"] {{
                 grid-template-columns: repeat(3, minmax(0, 1fr));
                 gap: 0.25rem;

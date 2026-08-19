@@ -58,6 +58,7 @@ def test_dashboard_metrics_empty_has_all_named_reports() -> None:
     assert metrics.confidence == {}
     assert metrics.data_health == {}
     assert metrics.evaluation == {}
+    assert metrics.manifest == {}
 
 
 def test_page_context_validates_required_selected_columns() -> None:

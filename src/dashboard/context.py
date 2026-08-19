@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import pandas as pd
@@ -43,6 +43,7 @@ class DashboardMetrics:
     confidence: dict[str, Any]
     data_health: dict[str, Any]
     evaluation: dict[str, Any]
+    manifest: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def empty(cls) -> "DashboardMetrics":
@@ -53,6 +54,7 @@ class DashboardMetrics:
             confidence={},
             data_health={},
             evaluation={},
+            manifest={},
         )
 
 
