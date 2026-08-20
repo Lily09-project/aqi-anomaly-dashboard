@@ -170,15 +170,20 @@ def _artifact_records(root: Path, paths: Iterable[str | Path]) -> list[dict[str,
     return records
 
 
-def _compact_metrics(root: Path) -> dict[str, Any]:
-    metrics_root = root / "reports" / "metrics"
+def _compact_metrics(root: Path, config: Mapping[str, Any]) -> dict[str, Any]:
+    metrics_root = _project_path(root, _config_value(config, "reports.metrics_dir", "reports/metrics"))
     predictor = _read_json(metrics_root / "predictor_metrics.json")
     anomaly = _read_json(metrics_root / "anomaly_metrics.json")
     backtest = _read_json(metrics_root / "backtest_metrics.json")
     confidence = _read_json(metrics_root / "forecast_confidence.json")
     data_health = _read_json(metrics_root / "data_health.json")
-    monitoring = _read_json(metrics_root / "monitoring.json")
-    monitoring_history = _read_json(metrics_root / "monitoring_history.json")
+    monitoring_path = _project_path(
+        root,
+        _config_value(config, "reports.monitoring_file", _project_relative(metrics_root, "monitoring.json")),
+    )
+    monitoring = _read_json(monitoring_path)
+    history_path = _project_path(root, _config_value(config, "monitoring.history_file", _project_relative(metrics_root, "monitoring_history.json")))
+    monitoring_history = _read_json(history_path)
     history_entries = monitoring_history.get("entries", [])
     history_entries = history_entries if isinstance(history_entries, list) else []
     latest_history = history_entries[-1] if history_entries and isinstance(history_entries[-1], dict) else {}
@@ -213,6 +218,7 @@ def _compact_metrics(root: Path) -> dict[str, Any]:
         "data_health": data_health,
         "monitoring": {
             "status": monitoring.get("status"),
+            "policy": monitoring.get("policy", {}),
             "reference_window": monitoring.get("reference_window", {}),
             "current_window": monitoring.get("current_window", {}),
             "prediction_status": monitoring.get("prediction", {}).get("status")
@@ -232,6 +238,7 @@ def _compact_metrics(root: Path) -> dict[str, Any]:
             "latest_status": latest_history.get("status"),
             "latest_action": latest_history.get("action"),
             "latest_data_end": latest_history.get("data_end"),
+            "latest_policy_hash": latest_history.get("policy_hash"),
         },
     }
 
@@ -256,6 +263,7 @@ def _source_summary(metadata: Mapping[str, Any] | None) -> dict[str, Any]:
         "datetime_range": {"min": datetime_range.get("min"), "max": datetime_range.get("max")},
         "schema_columns": sorted(str(column) for column in source.get("schema_columns", []) if str(column)),
         "schema_sha256": source.get("schema_sha256"),
+        "data_file_sha256": source.get("data_file_sha256"),
         "fallback_reason": source.get("fallback_reason"),
         "error_type": source.get("error_type"),
         "http_status": source.get("http_status"),
@@ -276,14 +284,15 @@ def build_run_manifest(
     run_id = f"{timestamp.replace('-', '').replace(':', '')}-{revision}"
     feature_columns = list(_config_value(config, "train.feature_columns", []))
     forbidden_features_found = sorted(set(feature_columns).intersection(FORBIDDEN_FEATURES))
-    evaluation_summary = _read_json(root / "reports" / "metrics" / "evaluation_summary.json")
+    metrics_root = _project_path(root, _config_value(config, "reports.metrics_dir", "reports/metrics"))
+    evaluation_summary = _read_json(metrics_root / "evaluation_summary.json")
     source_metadata_path = _project_path(root, _config_value(config, "reports.source_metadata_file", "reports/metrics/source_metadata.json"))
     disk_source_metadata = _read_json(source_metadata_path)
     provenance = _source_summary(source_metadata if source_metadata is not None else disk_source_metadata)
     has_provenance = source_metadata is not None or bool(disk_source_metadata)
     mode_label = provenance["data_source"] if has_provenance else ("Sample Data" if run_mode == "sample" else "API Data")
     simulated_data = bool(provenance["is_simulated_data"]) if has_provenance else run_mode == "sample"
-    compact_metrics = _compact_metrics(root)
+    compact_metrics = _compact_metrics(root, config)
     artifact_values = _artifact_paths(config) if artifacts is None else list(artifacts)
 
     return {
@@ -306,6 +315,10 @@ def build_run_manifest(
             "random_state": _config_value(config, "random_state"),
             "config": {"path": "config.yaml", "sha256": sha256_file(Path(root) / "config.yaml")},
             "requirements": {"path": "requirements.txt", "sha256": sha256_file(Path(root) / "requirements.txt")},
+            "constraints": {
+                "path": "requirements-lock-py312.txt",
+                "sha256": sha256_file(Path(root) / "requirements-lock-py312.txt"),
+            },
         },
         "data_contract": {
             "forecast_horizon": "next_hour",

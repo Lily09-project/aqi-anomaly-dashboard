@@ -12,7 +12,7 @@ echo Project folder:
 echo %CD%
 echo.
 
-echo [1/7] Checking Python...
+echo [1/8] Checking Python...
 set "BASE_PY_EXE="
 set "BASE_PY_ARGS="
 
@@ -55,7 +55,7 @@ if not defined BASE_PY_EXE (
     exit /b 1
 )
 
-echo [2/7] Preparing virtual environment...
+echo [2/8] Preparing virtual environment...
 if exist ".venv\Scripts\python.exe" (
     ".venv\Scripts\python.exe" -m pip --version >nul 2>&1
     if errorlevel 1 (
@@ -79,11 +79,15 @@ if not exist "%AQI_TMP%" mkdir "%AQI_TMP%"
 set "TMP=%AQI_TMP%"
 set "TEMP=%AQI_TMP%"
 set "PIP_DISABLE_PIP_VERSION_CHECK=1"
+set "PYTHONUTF8=1"
 set "PYTEST_BASETEMP=.tmp\pytest_%RANDOM%%RANDOM%"
 set "PYTEST_ADDOPTS=--basetemp=%PYTEST_BASETEMP% -p no:cacheprovider"
 set "STREAMLIT_PORT="
+set "CONSTRAINT_ARGS="
+"%PY%" -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 12) else 1)" >nul 2>&1
+if not errorlevel 1 if exist "requirements-lock-py312.txt" set "CONSTRAINT_ARGS=-c requirements-lock-py312.txt"
 
-echo [3/7] Checking pip...
+echo [3/8] Checking pip...
 "%PY%" -m pip --version
 if errorlevel 1 (
     echo [ERROR] pip is not available in .venv.
@@ -91,15 +95,15 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [4/7] Installing dependencies...
-"%PY%" -m pip install --disable-pip-version-check -r requirements.txt
+echo [4/8] Installing dependencies...
+"%PY%" -m pip install --disable-pip-version-check -r requirements.txt %CONSTRAINT_ARGS%
 if errorlevel 1 (
     echo [ERROR] Failed to install dependencies from requirements.txt.
     pause
     exit /b 1
 )
 
-echo [5/7] Running sample pipeline...
+echo [5/8] Running sample pipeline...
 "%PY%" run_all.py --mode sample
 if errorlevel 1 (
     echo [ERROR] run_all.py failed.
@@ -107,7 +111,15 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [6/7] Running smoke test...
+echo [6/8] Checking public release contents...
+"%PY%" scripts\validate_public_release.py
+if errorlevel 1 (
+    echo [ERROR] Public release guard failed.
+    pause
+    exit /b 1
+)
+
+echo [7/8] Running smoke test...
 "%PY%" src\smoke_test.py
 if errorlevel 1 (
     echo [ERROR] smoke test failed.
@@ -115,7 +127,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [7/7] Running pytest...
+echo [8/8] Running pytest...
 "%PY%" -m pytest -q
 if errorlevel 1 (
     echo [ERROR] pytest failed.

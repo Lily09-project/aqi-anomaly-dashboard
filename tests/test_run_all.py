@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import sys
 from pathlib import Path
 
@@ -23,6 +24,9 @@ def test_run_all_sample_creates_required_outputs():
     assert (ROOT / "run_project.bat").read_text(encoding="utf-8") == (
         ROOT / "run_project_bat內容.txt"
     ).read_text(encoding="utf-8")
+    launcher_source = (ROOT / "run_project.bat").read_text(encoding="utf-8")
+    assert "scripts\\validate_public_release.py" in launcher_source
+    assert "CONSTRAINT_ARGS" in launcher_source
 
     outputs = run("sample")
     assert outputs
@@ -63,6 +67,13 @@ def test_run_all_sample_creates_required_outputs():
         "insufficient_data",
     }
     assert manifest["metrics"]["monitoring_history"]["entry_count"] >= 1
+    source_metadata = json.loads(
+        (resolve_path(config, "reports.metrics_dir") / "source_metadata.json").read_text(encoding="utf-8")
+    )
+    expected_source_hash = hashlib.sha256(
+        resolve_path(config, "data.sample_file").read_bytes()
+    ).hexdigest()
+    assert source_metadata["data_file_sha256"] == expected_source_hash
     monitoring_predictions = resolve_path(config, "data.monitoring_predictions_file")
     monitoring_frame = pd.read_csv(monitoring_predictions)
     assert set(monitoring_frame["prediction_stage"]) == {"rolling_origin_oof", "final_test"}

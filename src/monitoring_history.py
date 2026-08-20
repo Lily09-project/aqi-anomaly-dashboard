@@ -52,6 +52,18 @@ def _utc_timestamp(value: str | None = None) -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def _monitoring_policy(monitoring: Mapping[str, Any]) -> dict[str, Any]:
+    policy = monitoring.get("policy")
+    if isinstance(policy, Mapping):
+        return dict(policy)
+    return {
+        "monitoring_version": str(monitoring.get("monitoring_version", "unknown")),
+        "thresholds": dict(monitoring.get("thresholds", {}))
+        if isinstance(monitoring.get("thresholds"), Mapping)
+        else {},
+    }
+
+
 def build_monitoring_snapshot(
     monitoring: Mapping[str, Any],
     *,
@@ -70,6 +82,9 @@ def build_monitoring_snapshot(
     recommended = bool(retraining.get("recommended", False))
     reasons = retraining.get("reasons", [])
     reason_list = [str(reason) for reason in reasons] if isinstance(reasons, list) else []
+    policy = _monitoring_policy(monitoring)
+    policy_json = json.dumps(policy, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+    policy_hash = hashlib.sha256(policy_json.encode("utf-8")).hexdigest()[:16]
 
     identity = "|".join(
         (
@@ -77,6 +92,7 @@ def build_monitoring_snapshot(
             str(data_source),
             str(model_name),
             str(monitoring.get("monitoring_version", "unknown")),
+            policy_hash,
         )
     )
     snapshot_id = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:16]
@@ -87,6 +103,8 @@ def build_monitoring_snapshot(
         "data_end": str(data_end),
         "data_source": str(data_source),
         "model_name": str(model_name),
+        "monitoring_policy": policy,
+        "policy_hash": policy_hash,
         "status": status,
         "action": _monitoring_action(status, recommended),
         "reference_mae": _number(prediction.get("reference_mae")),

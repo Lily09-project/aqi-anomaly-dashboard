@@ -83,7 +83,9 @@ def _read_text(path: Path) -> str:
 
 def _readme_assets(repo_root: Path) -> list[str]:
     readme = _read_text(repo_root / "README.md")
-    assets = re.findall(r"(?:src|href)=\"([^\"]+)\"", readme)
+    html_assets = re.findall(r"(?:src|href)\s*=\s*[\"']([^\"']+)[\"']", readme)
+    markdown_assets = re.findall(r"!\[[^\]]*\]\(([^)\s]+)", readme)
+    assets = [*html_assets, *markdown_assets]
     return [asset.replace("\\", "/") for asset in assets if asset.startswith("docs/")]
 
 
@@ -105,7 +107,7 @@ def validate_public_release(repo_root: str | Path, tracked_files: Iterable[str] 
     sensitive_paths = [path for path in tracked if _is_sensitive_path(path)]
     credential_hits: list[str] = []
     for relative_path in tracked:
-        if relative_path.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".ipynb")):
+        if relative_path.lower().endswith((".png", ".jpg", ".jpeg", ".gif")):
             continue
         content = _read_text(root / relative_path)
         for pattern in CREDENTIAL_PATTERNS:

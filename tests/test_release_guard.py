@@ -64,3 +64,21 @@ def test_public_release_guard_requires_public_files_to_be_tracked(tmp_path: Path
     assert result["passed"] is False
     assert result["missing_public_paths"] == []
     assert result["untracked_public_paths"] == ["docs/deployment.md"]
+
+
+def test_public_release_guard_scans_notebooks_and_markdown_assets(tmp_path: Path) -> None:
+    tracked_files = list(REQUIRED_PUBLIC_PATHS)
+    _write_public_fixture(tmp_path, tracked_files)
+    notebook = tmp_path / "notebooks" / "eda.ipynb"
+    notebook.parent.mkdir(parents=True, exist_ok=True)
+    notebook.write_text('{"cells": [{"source": ["api_key = \'A1234567890123456789\'"]}]}', encoding="utf-8")
+    tracked_files.append("notebooks/eda.ipynb")
+    readme = tmp_path / "README.md"
+    readme.write_text("![preview](docs/screenshots/overview.png)\n", encoding="utf-8")
+
+    result = validate_public_release(tmp_path, tracked_files)
+
+    assert result["passed"] is False
+    assert result["credential_hits"] == ["notebooks/eda.ipynb"]
+    assert result["missing_readme_assets"] == []
+    assert result["untracked_readme_assets"] == []

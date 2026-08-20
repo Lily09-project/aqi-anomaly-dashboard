@@ -46,7 +46,7 @@ Sample Data 的日期由 sample generator 以目前日期往前產生，仍然�
 - 資料集：<https://data.moenv.gov.tw/dataset/detail/aqx_p_432>
 - API endpoint：`https://data.moenv.gov.tw/api/v2/AQX_P_432`
 
-本專案不在 Dashboard render 階段直接呼叫上游 API；API 取得、schema 驗證、fallback 與 provenance metadata 都由 pipeline 處理，前端只讀取已驗證的本地 artifacts。
+本專案不在 Dashboard render 階段直接呼叫上游 API；API 取得、schema 驗證、fallback 與 provenance metadata 都由 pipeline 處理，前端只讀取已驗證的本地 artifacts。成功的 API metadata 會保存輸入資料檔 SHA-256；若 metadata 與目前輸入檔不一致，pipeline 會 fail closed，不把舊 API 狀態套到新檔案。
 
 ## 監控報表
 
@@ -54,4 +54,4 @@ Sample Data 的日期由 sample generator 以目前日期往前產生，仍然�
 
 `reports/metrics/monitoring.json` 比較兩個不重疊的時間窗口：預設為最近 7 天（current window）與其之前 14 天（reference window）。報表會整理 AQI／PM2.5 分布偏移、預測 MAE 變化與 80%／95% 預測區間 coverage。`warning` 或 `critical` 只代表需要人工檢查的診斷訊號，不會自動替換模型或發送官方警報；資料不足時會明確標記 `insufficient_data`。單次短資料流程若沒有足夠 OOF rows，會保留 final-test 結果並明確降級，不會製造假的 reference window。
 
-`reports/metrics/monitoring_history.json` 保存跨次 pipeline 的扁平決策快照，不保存 raw rows。`snapshot_id` 由資料截止時間、資料來源、模型與 monitoring contract 產生；相同批次重跑會更新原紀錄。歷史依 `recorded_at_utc` 排序，預設只保留最近 90 筆，並以 atomic write 更新。建議行動只有 `observe`、`investigate`、`review_retraining` 與 `collect_more_data` 四種；它們是人工審查輸入，不是自動部署命令。Dashboard 只呈現本地化摘要、MAE 趨勢與表格，不直接顯示 raw JSON。
+`reports/metrics/monitoring_history.json` 保存跨次 pipeline 的扁平決策快照，不保存 raw rows。`snapshot_id` 由資料截止時間、資料來源、模型、monitoring version 與 canonical policy hash 產生；相同批次、相同 policy 的重跑會更新原紀錄，若 window 或 threshold 改變則保留為新的可追溯紀錄。歷史依 `recorded_at_utc` 排序，預設只保留最近 90 筆，並以 atomic write 更新。建議行動只有 `observe`、`investigate`、`review_retraining` 與 `collect_more_data` 四種；它們是人工審查輸入，不是自動部署命令。Dashboard 只呈現本地化摘要、MAE 趨勢與表格，不直接顯示 raw JSON。
