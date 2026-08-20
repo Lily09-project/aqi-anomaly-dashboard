@@ -43,6 +43,7 @@ def test_run_all_sample_creates_required_outputs():
         resolve_path(config, "reports.monitoring_file")
         if "monitoring_file" in config.get("reports", {})
         else resolve_path(config, "reports.metrics_dir") / "monitoring.json",
+        resolve_path(config, "monitoring.history_file"),
         resolve_path(config, "reports.metrics_dir") / "evaluation_summary.json",
         resolve_path(config, "reports.metrics_dir") / "run_manifest.json",
     ]
@@ -61,6 +62,7 @@ def test_run_all_sample_creates_required_outputs():
         "critical",
         "insufficient_data",
     }
+    assert manifest["metrics"]["monitoring_history"]["entry_count"] >= 1
     monitoring_predictions = resolve_path(config, "data.monitoring_predictions_file")
     monitoring_frame = pd.read_csv(monitoring_predictions)
     assert set(monitoring_frame["prediction_stage"]) == {"rolling_origin_oof", "final_test"}

@@ -72,6 +72,7 @@
 - `aqi_monitoring_predictions.csv` 由 rolling-origin OOF 與 final-test scored rows 組成；每筆都有 training cutoff，可追查是否在預測當下以前訓練。
 - `monitoring.json` 比較最近 7 天與之前 14 天，檢查 AQI／PM2.5 分布、MAE 變化和 interval coverage。
 - `warning`／`critical` 是診斷訊號，不會自動重訓；是否重訓仍需要人工確認資料品質、來源變更與事件背景。
+- 「監控歷史與重訓決策」會保留跨次 pipeline 的 MAE 趨勢與建議行動；同批資料重跑會去重，預設保留最近 90 筆。
 
 ### 4:30–5:00：工程品質與收尾
 
@@ -98,6 +99,10 @@ target 使用 `groupby("site_name")["aqi"].shift(-1)`；lag、rolling、差分�
 ### 為什麼要做 monitoring？
 
 模型在離線 test 很好，不代表資料分布和線上誤差永遠不變。用不重疊的 reference／current windows 同時看 feature drift、prediction error 與 interval coverage，可以先提供可解讀的診斷訊號，再由人決定是否重訓。
+
+### 為什麼不直接自動重訓？
+
+漂移可能來自感測器異常、API schema 變更、季節事件或真實環境變化，單一門檻不足以證明舊模型失效。專案把每次狀態、原因與建議行動保存成可稽核歷史，再由人確認資料品質、模型候選與 final-test 邊界；這比看到 warning 就覆蓋正式模型更符合模型治理。
 
 ## 面試前準備
 

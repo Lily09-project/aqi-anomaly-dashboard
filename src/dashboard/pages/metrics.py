@@ -68,6 +68,44 @@ def monitoring_signal_table(monitoring: dict[str, object]) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def monitoring_history_table(history: dict[str, object]) -> pd.DataFrame:
+    status_labels = {
+        "stable": "穩定",
+        "warning": "需留意",
+        "critical": "嚴重偏移",
+        "insufficient_data": "資料不足",
+    }
+    action_labels = {
+        "observe": "持續觀察",
+        "investigate": "調查偏移原因",
+        "review_retraining": "審查並評估重訓",
+        "collect_more_data": "累積更多資料",
+    }
+    entries = history.get("entries", [])
+    if not isinstance(entries, list):
+        return pd.DataFrame()
+    rows: list[dict[str, object]] = []
+    for item in entries:
+        if not isinstance(item, dict):
+            continue
+        rows.append(
+            {
+                "recorded_at_utc": str(item.get("recorded_at_utc", "N/A")),
+                "data_end": str(item.get("data_end", "N/A")),
+                "data_source": str(item.get("data_source", "N/A")),
+                "model_name": str(item.get("model_name", "N/A")),
+                "status": status_labels.get(str(item.get("status", "")), "資料不足"),
+                "action": action_labels.get(str(item.get("action", "")), "待確認"),
+                "reference_mae": item.get("reference_mae"),
+                "current_mae": item.get("current_mae"),
+                "mae_change_pct": item.get("mae_change_pct"),
+                "coverage_80": item.get("coverage_80"),
+                "coverage_95": item.get("coverage_95"),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def manifest_evidence_table(manifest: dict[str, object]) -> pd.DataFrame:
     """Flatten the run manifest into a reviewer-readable evidence table."""
     project = _mapping(manifest.get("project"))
@@ -103,6 +141,7 @@ def render(context: PageContext) -> None:
     confidence_metrics = context.metrics.confidence
     evaluation_summary = context.metrics.evaluation
     monitoring = context.metrics.monitoring
+    monitoring_history = context.metrics.monitoring_history
     st.markdown(
         '<div class="section-note">此頁整理預測與異常偵測指標。異常偵測 precision、recall、F1 是對 pseudo-label 評估，不代表真實污染事件準確率。</div>',
         unsafe_allow_html=True,
@@ -141,6 +180,56 @@ def render(context: PageContext) -> None:
     if isinstance(reasons, list) and reasons:
         st.warning("重新訓練依據：" + "；".join(str(reason) for reason in reasons))
     st.caption("監控比較最近 7 天與前 14 天；這是診斷訊號，不會自動替換模型。")
+    st.subheader("監控歷史與重訓決策")
+    history_table = monitoring_history_table(monitoring_history)
+    if history_table.empty:
+        st.info("尚無監控歷史；完成一次完整 pipeline 後會建立可稽核的決策紀錄。")
+    else:
+        latest = history_table.iloc[-1]
+        history_columns = st.columns(3)
+        history_columns[0].metric("監控批次", f"{len(history_table):,}")
+        history_columns[1].metric("最新狀態", latest["status"])
+        history_columns[2].metric("建議行動", latest["action"])
+        if len(history_table) >= 2:
+            trend = history_table[["recorded_at_utc", "reference_mae", "current_mae"]].copy()
+            trend["recorded_at_utc"] = pd.to_datetime(trend["recorded_at_utc"], errors="coerce", utc=True)
+            trend = trend.dropna(subset=["recorded_at_utc"]).set_index("recorded_at_utc")
+            if not trend.empty:
+                st.line_chart(
+                    trend.rename(columns={"reference_mae": "基準 MAE", "current_mae": "近期 MAE"}),
+                    color=[context.theme["secondary"], context.theme["accent"]],
+                    use_container_width=True,
+                )
+        recent_history = history_table.iloc[::-1].head(10)[
+            [
+                "data_end",
+                "data_source",
+                "model_name",
+                "status",
+                "action",
+                "current_mae",
+                "mae_change_pct",
+            ]
+        ]
+        render_table(
+            recent_history.rename(
+                columns={
+                    "data_end": "資料截止時間",
+                    "data_source": "資料來源",
+                    "model_name": "模型",
+                    "status": "狀態",
+                    "action": "建議行動",
+                    "current_mae": "近期 MAE",
+                    "mae_change_pct": "MAE 變化 (%)",
+                }
+            ),
+            label="歷史監控與決策紀錄",
+        )
+        max_history_entries = int(context.config.get("monitoring", {}).get("max_history_entries", 90))
+        st.caption(
+            f"顯示最近 10 筆；同一資料截止時間與模型的重跑會更新原紀錄，不重複灌入。"
+            f"完整歷史最多保留最近 {max_history_entries} 筆。"
+        )
     st.subheader("AQI 預測模型")
     predictor_table = _model_metrics_table(predictor_metrics)
     if predictor_table.empty:

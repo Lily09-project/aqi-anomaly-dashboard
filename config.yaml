@@ -30,6 +30,8 @@ reports:
 monitoring:
   reference_days: 14
   current_days: 7
+  history_file: reports/metrics/monitoring_history.json
+  max_history_entries: 90
   thresholds:
     mean_shift_warning: 0.5
     mean_shift_critical: 1.0

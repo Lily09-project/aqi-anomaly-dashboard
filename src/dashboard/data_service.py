@@ -104,6 +104,7 @@ def load_dashboard_artifacts(config: dict[str, Any]) -> tuple[DashboardData, Das
             if "monitoring_file" in config.get("reports", {})
             else metrics_dir / "monitoring.json"
         ),
+        monitoring_history=read_json_versioned(resolve_path(config, "monitoring.history_file")),
         manifest=read_json_versioned(metrics_dir / "run_manifest.json"),
         source_metadata=read_json_versioned(source_metadata_path),
     )

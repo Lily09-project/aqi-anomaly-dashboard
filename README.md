@@ -196,6 +196,7 @@ Streamlit UI、地圖、篩選、下載與六個功能頁
 | src/forecast_confidence.py | 以歷史殘差建立 empirical forecast intervals |
 | src/model_reliability.py | 分測站、分 AQI level 的可靠性與樣本量分析 |
 | src/monitoring.py | 以不重疊時間窗口檢查資料分布、預測誤差與 interval coverage |
+| src/monitoring_history.py | 將每次監控結果轉成可稽核決策快照，負責去重、保留上限與原子寫入 |
 | data/processed/aqi_monitoring_predictions.csv | rolling-origin OOF 與 final-test 的監控專用預測紀錄，不取代 final-test predictions |
 | src/risk_brief.py | 測站歷史基準、近期變化、異常證據與排序 |
 | src/station_comparison.py | 多測站比較、資料時差門檻與公開匯出 |
@@ -252,8 +253,9 @@ Pipeline 會依序：
 4. 建立 station-aware time-series features。
 5. 訓練預測模型與異常模型。
 6. 輸出 metrics、figures、forecast confidence、data health 與可追溯的 monitoring scored predictions。
-7. 產生包含版本、設定雜湊、資料 contract、metrics、monitoring 摘要與 artifact hash 的 run manifest。
-8. 執行 smoke test。
+7. 更新監控歷史與建議行動；同一資料截止時間和模型的重跑會更新原紀錄，不重複累積。
+8. 產生包含版本、設定雜湊、資料 contract、metrics、monitoring 摘要與 artifact hash 的 run manifest。
+9. 執行 smoke test。
 
 ### Start the Dashboard
 
@@ -485,6 +487,7 @@ data/
     ├── aqi_cleaned.csv
     ├── aqi_features.csv
     ├── aqi_predictions.csv
+    ├── aqi_monitoring_predictions.csv
     ├── aqi_anomaly_results.csv
     └── aqi_anomaly_events.csv
 
@@ -503,6 +506,8 @@ reports/
     ├── backtest_metrics.json
     ├── forecast_confidence.json
     ├── data_health.json
+    ├── monitoring.json
+    ├── monitoring_history.json
     ├── evaluation_summary.json
     └── run_manifest.json
 ~~~
@@ -518,11 +523,23 @@ reports/
 - Sample Data / API Data 模式、sample data 是否為模擬資料，以及 random state。
 - next-hour target、feature columns、禁止進入模型的 target 欄位、分組鍵與 leakage controls。
 - dataset rows、station count、日期範圍、data health、predictor / anomaly / backtest / forecast confidence 的 compact metrics。
+- 最新監控狀態、建議行動、歷史筆數與資料截止時間；不包含 raw monitoring rows。
 - 每個主要輸出的存在性、檔案大小與 SHA-256，包括資料、模型、JSON metrics 與 PNG figures。
 
 Manifest 會在 smoke test 前生成，因此 pipeline 會把它當成正式輸出的一部分驗證。它仍然由 .gitignore 排除，避免把本地生成資料、模型、報表或環境資訊提交到公開 repository；要重建證據時，只要在相同 commit 上重新執行 sample pipeline 即可。GitHub Actions 也會透過相同 pipeline 驗證 manifest contract。
 
 run_manifest.json 是工程可追溯性與除錯工具，不是資料 provenance 的完整替代品。若要正式部署，仍應補上官方資料集版本、取得時間、資料授權、模型 registry、artifact retention 與監控系統。
+
+### Monitoring History and Retraining Decisions
+
+`reports/metrics/monitoring_history.json` 是本機生成的監控決策紀錄。每次評估會保存資料截止時間、資料來源、模型、reference/current MAE、80%／95% coverage、AQI／PM2.5 偏移、整體狀態、原因與建議行動：
+
+- `observe`：訊號穩定，持續觀察。
+- `investigate`：出現 warning，先調查資料品質、來源或事件背景。
+- `review_retraining`：critical 或符合重訓建議條件，進入人工審查。
+- `collect_more_data`：資料不足，先累積完整 reference/current windows。
+
+這是 decision support，不是自動重訓器。系統不會因單次 warning 自動替換模型。同一個資料截止時間、資料來源和模型形成固定 `snapshot_id`，重跑時更新原紀錄；預設最多保留最近 90 筆，避免本機檔案無限成長。寫入沿用 atomic JSON helper，損壞或舊格式歷史不會讓 pipeline 崩潰，而會建立新的有效契約。
 
 Dashboard 會讀取同一份本機 manifest 並以審查摘要呈現；因此 reviewer 不需要手動打開 JSON 才能先確認版本與 contract。若畫面顯示「未建立或需重建」，代表目前資料可能是舊輸出、manifest 不存在，或 artifact 沒有完整雜湊，應重新執行：
 
@@ -563,13 +580,14 @@ run_project.bat --validate
 - 可靠性 JSON 報告 schema、空資料 fallback 與公開欄位邊界。
 - run_all.py 與 run_project.bat --validate 的完整流程。
 - run manifest 的 schema、輸出雜湊、資料 contract、審查摘要與缺失 artifact 偵測。
+- 監控歷史的決策規則、同批次去重、時間排序、保留上限、損壞檔案復原與 Dashboard 表格契約。
 
 目前本地最終驗證結果：
 
 ~~~text
-pytest -q                         136 passed
+pytest -q                         143 passed
 public release gate               Passed
-run_project.bat --validate        pipeline + smoke test + 136 passed; exit 0
+run_project.bat --validate        pipeline + smoke test + 143 passed; exit 0
 pip check                         No broken requirements found
 compileall                        Passed
 pip-audit                         No known vulnerabilities found
@@ -662,7 +680,7 @@ aqi-anomaly-dashboard/
 - api.url、timeout 與資料路徑。
 - train.feature_columns、validation / test ratio 與 backtest folds。
 - forecast_confidence.levels 與 AQI 門檻。
-- monitoring.reference_days、current_days 與 drift thresholds。
+- monitoring.reference_days、current_days、drift thresholds、history_file 與 max_history_entries。
 - anomaly.contamination、AQI / PM2.5 pseudo-label 門檻與事件間隔。
 - risk_policy 的 lookback、近期窗口、基準門檻與排序權重。
 
@@ -686,7 +704,7 @@ aqi-anomaly-dashboard/
 2. 將 station registry 與官方測站狀態、維護資訊及座標版本同步。
 3. 加入可信氣象來源，評估風速、風向、降雨與邊界層條件。
 4. 依測站、季節與時段校準異常門檻，並導入人工事件標註。
-5. 將目前的 drift report 接到長期歷史儲存、告警通知與人工重訓審核流程。
+5. 將本機監控歷史接到正式資料庫、告警通知、model registry 與具權限的人工重訓審核流程。
 6. 以排程工作與容器化部署支援每日更新。
 7. 將目前的 run manifest 擴充為 dataset / model registry，保存官方資料版本、模型 artifact metadata 與長期評估歷史。
 
@@ -700,6 +718,7 @@ aqi-anomaly-dashboard/
 - 實作 leakage-aware rolling-origin 評估與 80% / 95% empirical forecast intervals，揭露分測站可靠性、AQI 分級表現、coverage、區間寬度與 pseudo-label 限制。
 - 建立可重現 pipeline、smoke test、pytest、依賴安全稽核與 Windows 一鍵啟動流程，並將生成資料與模型排除在公開 GitHub repository 外。
 - 建立 machine-readable run manifest，記錄 Git revision、設定與依賴雜湊、leakage contract、metrics 摘要與輸出 artifact hash，讓每次 pipeline run 可被追溯與驗證。
+- 建立持久化模型監控決策紀錄，以固定 snapshot identity 去重、保留近期歷史，並將漂移、coverage 與人工重訓建議呈現在 Dashboard。
 
 ### English resume bullets
 
@@ -707,6 +726,7 @@ aqi-anomaly-dashboard/
 - Designed an evidence-first station triage workflow using station-specific historical baselines, recent movement, data freshness, forecast intervals, and explicit anomaly signals instead of opaque alert scores.
 - Implemented leakage-aware rolling-origin model selection and 80% / 95% empirical forecast intervals, with station-level reliability, AQI-band metrics, coverage, interval width, and sample-size reporting.
 - Delivered reproducible local execution through run_all.py, smoke tests, pytest, dependency auditing, GitHub Actions quality gates, and a Windows one-click launcher while keeping generated artifacts out of the public repository.
+- Added auditable model-monitoring history with deterministic run deduplication, bounded retention, drift and coverage trends, and human-reviewed retraining recommendations.
 
 ## One-minute Interview Script
 
@@ -714,7 +734,7 @@ aqi-anomaly-dashboard/
 
 專案的差異化不只是模型，而是判讀流程：總覽會用每個測站自己的歷史基準、近期變化、下一小時預測與異常證據排序人工檢視優先級，並可直接從台灣地圖選站；地區比較則會先檢查資料時差，再並排呈現 2 至 3 個測站的目前 AQI、預測、預測區間與異常脈絡；下載區則可輸出同一範圍的可靠性 JSON，讓展示結果不只停留在畫面。
 
-為了避免只展示單一漂亮分數，我用 rolling-origin backtest 選模，只有學習模型優於 Moving Average 才會勝出，並用 final test 之前的殘差校準 80% / 95% 預測區間，同時揭露分測站可靠性與區間 coverage。異常偵測則明確標示是 pseudo-label 評估，不把規則一致性說成真實事件準確率。最後，整個專案可以透過 run_all.py、pytest、smoke test 與 Windows 一鍵啟動重現；每次執行還會產生 run manifest，記錄 commit、設定雜湊、資料 contract、metrics 與輸出檔 hash。生成資料與模型不提交到 GitHub，讓程式碼、測試與資料責任都能被檢查。
+為了避免只展示單一漂亮分數，我用 rolling-origin backtest 選模，只有學習模型優於 Moving Average 才會勝出，並用 final test 之前的殘差校準 80% / 95% 預測區間，同時揭露分測站可靠性與區間 coverage。異常偵測則明確標示是 pseudo-label 評估，不把規則一致性說成真實事件準確率。每次評估還會把漂移、近期 MAE、coverage 和建議行動寫成去重且有保留上限的監控歷史；Dashboard 可查看趨勢，但不會因單次警告自動換模型。最後，整個專案可以透過 run_all.py、pytest、smoke test 與 Windows 一鍵啟動重現；run manifest 會記錄 commit、設定雜湊、資料 contract、metrics 與輸出檔 hash。生成資料與模型不提交到 GitHub，讓程式碼、測試與資料責任都能被檢查。
 
 ## Scope
 

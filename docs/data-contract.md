@@ -53,3 +53,5 @@ Sample Data 的日期由 sample generator 以目前日期往前產生，仍然�
 `data/processed/aqi_monitoring_predictions.csv` 保存兩種已評分資料：`rolling_origin_oof` 是每個 walk-forward fold 的 out-of-fold 預測，`final_test` 是最後測試窗口。每筆資料都保存 `training_cutoff`，且必須早於預測時間；這個檔案不取代只代表 final test 的 `aqi_predictions.csv`。
 
 `reports/metrics/monitoring.json` 比較兩個不重疊的時間窗口：預設為最近 7 天（current window）與其之前 14 天（reference window）。報表會整理 AQI／PM2.5 分布偏移、預測 MAE 變化與 80%／95% 預測區間 coverage。`warning` 或 `critical` 只代表需要人工檢查的診斷訊號，不會自動替換模型或發送官方警報；資料不足時會明確標記 `insufficient_data`。單次短資料流程若沒有足夠 OOF rows，會保留 final-test 結果並明確降級，不會製造假的 reference window。
+
+`reports/metrics/monitoring_history.json` 保存跨次 pipeline 的扁平決策快照，不保存 raw rows。`snapshot_id` 由資料截止時間、資料來源、模型與 monitoring contract 產生；相同批次重跑會更新原紀錄。歷史依 `recorded_at_utc` 排序，預設只保留最近 90 筆，並以 atomic write 更新。建議行動只有 `observe`、`investigate`、`review_retraining` 與 `collect_more_data` 四種；它們是人工審查輸入，不是自動部署命令。Dashboard 只呈現本地化摘要、MAE 趨勢與表格，不直接顯示 raw JSON。

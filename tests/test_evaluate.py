@@ -53,6 +53,17 @@ def test_evaluation_writes_metrics_and_figures():
     assert (metrics_dir / "backtest_metrics.json").exists()
     assert (metrics_dir / "data_health.json").exists()
     assert (metrics_dir / "monitoring.json").exists()
+    history_path = resolve_path(config, "monitoring.history_file")
+    history = json.loads(history_path.read_text(encoding="utf-8"))
+    assert history["history_version"] == "1.0"
+    assert history["entry_count"] >= 1
+    assert history["entries"][-1]["data_source"] == "Sample Data"
+    assert summary["monitoring_history"]["latest_action"] in {
+        "observe",
+        "investigate",
+        "review_retraining",
+        "collect_more_data",
+    }
     assert resolve_path(config, "data.events_file").exists()
     assert summary["rows"]["anomaly_events"] >= 0
     assert summary["forecast_confidence"]["method"] == "rolling_origin_conformal"
