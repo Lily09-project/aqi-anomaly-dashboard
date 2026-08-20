@@ -561,9 +561,9 @@ run_project.bat --validate
 目前本地最終驗證結果：
 
 ~~~text
-pytest -q                         128 passed
+pytest -q                         130 passed
 public release gate               Passed
-run_project.bat --validate        pipeline + smoke test + 128 passed; exit 0
+run_project.bat --validate        pipeline + smoke test + 130 passed; exit 0
 pip check                         No broken requirements found
 compileall                        Passed
 pip-audit                         No known vulnerabilities found
