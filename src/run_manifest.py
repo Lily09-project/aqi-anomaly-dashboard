@@ -35,6 +35,7 @@ LEAKAGE_CONTROLS = (
     "Rolling windows are shifted before aggregation so the current target is not included.",
     "Train, validation, and final test use chronological boundaries instead of random splitting.",
     "Final test rows are excluded from model selection and forecast interval calibration.",
+    "Monitoring predictions use rolling-origin out-of-fold rows plus a separately marked final-test window.",
 )
 
 
@@ -127,6 +128,11 @@ def _artifact_paths(config: Mapping[str, Any]) -> list[str | Path]:
         _config_value(config, "data.cleaned_file", "data/processed/aqi_cleaned.csv"),
         _config_value(config, "data.features_file", "data/processed/aqi_features.csv"),
         _config_value(config, "data.predictions_file", "data/processed/aqi_predictions.csv"),
+        _config_value(
+            config,
+            "data.monitoring_predictions_file",
+            "data/processed/aqi_monitoring_predictions.csv",
+        ),
         _config_value(config, "data.anomaly_file", "data/processed/aqi_anomaly_results.csv"),
         _config_value(config, "data.events_file", "data/processed/aqi_anomaly_events.csv"),
         _config_value(config, "reports.source_metadata_file", "reports/metrics/source_metadata.json"),

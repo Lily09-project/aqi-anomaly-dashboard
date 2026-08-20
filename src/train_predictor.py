@@ -114,6 +114,84 @@ def _model_metrics(y_true: np.ndarray, predictions: dict[str, np.ndarray]) -> di
     return {name: _metrics(y_true, predicted) for name, predicted in predictions.items()}
 
 
+def build_monitoring_predictions(
+    oof_rows: list[dict[str, object]],
+    final_test: pd.DataFrame,
+    *,
+    preferred_model: str,
+    interval_widths: dict[str, float],
+) -> pd.DataFrame:
+    """Build an auditable scored-prediction frame for drift monitoring.
+
+    OOF rows are scored by models fitted strictly before their prediction timestamp;
+    final-test rows use the final model fitted before the final test window.
+    """
+    preferred_column = f"pred_{preferred_model}"
+    frames: list[pd.DataFrame] = []
+
+    if oof_rows:
+        oof_frame = pd.DataFrame(oof_rows)
+        if preferred_column not in oof_frame:
+            raise ValueError(f"Missing preferred-model predictions: {preferred_column}")
+        if "target_next_hour_aqi" not in oof_frame:
+            raise ValueError("OOF monitoring rows must include target_next_hour_aqi")
+        oof_frame = oof_frame.rename(columns={"target_next_hour_aqi": "actual_next_hour_aqi"})
+        oof_frame["predicted_next_hour_aqi"] = oof_frame[preferred_column]
+        oof_frame["prediction_stage"] = "rolling_origin_oof"
+        frames.append(oof_frame)
+
+    final_frame = final_test.copy()
+    if preferred_column not in final_frame and "predicted_next_hour_aqi" not in final_frame:
+        raise ValueError(f"Missing preferred-model predictions: {preferred_column}")
+    if "predicted_next_hour_aqi" not in final_frame:
+        final_frame["predicted_next_hour_aqi"] = final_frame[preferred_column]
+    if "actual_next_hour_aqi" not in final_frame:
+        raise ValueError("Final-test monitoring rows must include actual_next_hour_aqi")
+    final_frame["prediction_stage"] = "final_test"
+    frames.append(final_frame)
+
+    combined = pd.concat(frames, ignore_index=True, sort=False)
+    required = {
+        "datetime",
+        "site_name",
+        "training_cutoff",
+        "actual_next_hour_aqi",
+        "predicted_next_hour_aqi",
+        "prediction_stage",
+    }
+    missing = sorted(required - set(combined.columns))
+    if missing:
+        raise ValueError("Monitoring predictions missing columns: " + ", ".join(missing))
+
+    combined["datetime"] = pd.to_datetime(combined["datetime"], errors="coerce")
+    combined["training_cutoff"] = pd.to_datetime(combined["training_cutoff"], errors="coerce")
+    if combined[["datetime", "training_cutoff"]].isna().any().any():
+        raise ValueError("Monitoring predictions contain invalid timestamps")
+    if not (combined["training_cutoff"] < combined["datetime"]).all():
+        raise ValueError("Monitoring training cutoff must precede each prediction timestamp")
+
+    combined = apply_prediction_intervals(combined, "predicted_next_hour_aqi", interval_widths)
+    columns = [
+        "datetime",
+        "site_name",
+        "training_cutoff",
+        "actual_next_hour_aqi",
+        "predicted_next_hour_aqi",
+        "prediction_stage",
+    ]
+    if "county" in combined:
+        columns.insert(2, "county")
+    columns.extend(
+        [
+            "lower_80_aqi",
+            "upper_80_aqi",
+            "lower_95_aqi",
+            "upper_95_aqi",
+        ]
+    )
+    return combined[columns].sort_values(["datetime", "site_name"]).reset_index(drop=True)
+
+
 def select_model_from_backtest(backtest: dict[str, object], available_models: list[str]) -> str:
     """Select from pre-test aggregate RMSE, requiring learned models to beat the baseline."""
     aggregate = backtest.get("aggregate", {})
@@ -132,6 +210,7 @@ def rolling_origin_backtest(
     folds: int,
     calibration_model: str | None = None,
     collect_calibration_candidates: bool = False,
+    collect_prediction_rows: bool = False,
 ) -> dict[str, object]:
     """Evaluate every candidate on successive future windows without look-ahead."""
     ordered = df.sort_values("datetime").reset_index(drop=True)
@@ -149,6 +228,7 @@ def rolling_origin_backtest(
     candidate_residuals: dict[str, list[float]] = {}
     calibration_starts: list[pd.Timestamp] = []
     calibration_ends: list[pd.Timestamp] = []
+    prediction_rows: list[dict[str, object]] = []
     for fold_index in range(fold_count):
         test_start_index = initial_train_count + fold_index * window
         test_end_index = len(timestamps) if fold_index == fold_count - 1 else min(
@@ -167,6 +247,19 @@ def rolling_origin_backtest(
         candidate_predictions = _predict_candidates(models, test, feature_cols)
         actual = test["target_next_hour_aqi"].to_numpy(dtype=float)
         metrics = _model_metrics(actual, candidate_predictions)
+        if collect_prediction_rows:
+            training_cutoff = pd.Timestamp(train["datetime"].max())
+            for row_index, (_, row) in enumerate(test.iterrows()):
+                record: dict[str, object] = {
+                    "datetime": row["datetime"],
+                    "site_name": row["site_name"],
+                    "county": row.get("county"),
+                    "target_next_hour_aqi": actual[row_index],
+                    "training_cutoff": training_cutoff,
+                }
+                for model_name, predicted in candidate_predictions.items():
+                    record[f"pred_{model_name}"] = predicted[row_index]
+                prediction_rows.append(record)
         if collect_calibration_candidates:
             for model_name, predicted in candidate_predictions.items():
                 candidate_residuals.setdefault(model_name, []).extend(np.abs(actual - predicted).tolist())
@@ -224,6 +317,8 @@ def rolling_origin_backtest(
                 "end": str(max(calibration_ends)) if calibration_ends else "",
             },
         }
+    if collect_prediction_rows:
+        result["monitoring_prediction_rows"] = prediction_rows
     return result
 
 
@@ -253,8 +348,10 @@ def train_predictor() -> dict[str, object]:
         int(config["random_state"]),
         int(config["train"].get("backtest_folds", 3)),
         collect_calibration_candidates=True,
+        collect_prediction_rows=True,
     )
     calibration_candidates = backtest.pop("calibration_candidates")
+    monitoring_prediction_rows = backtest.pop("monitoring_prediction_rows", [])
     candidate_models = [
         name
         for name in ("linear_regression", "random_forest")
@@ -278,6 +375,7 @@ def train_predictor() -> dict[str, object]:
             output_cols.insert(3, display_col)
     test_out = test_df[output_cols].copy()
     test_out["actual_next_hour_aqi"] = test_df[target_col].to_numpy(dtype=float)
+    test_out["training_cutoff"] = pd.Timestamp(train_validation_df["datetime"].max())
     for name, pred in predictions.items():
         test_out[f"pred_{name}"] = np.round(pred, 3)
     preferred_col = f"pred_{preferred_model}"
@@ -291,6 +389,12 @@ def train_predictor() -> dict[str, object]:
     interval_widths = calibrate_interval_widths(calibration["residuals"], confidence_levels)
     test_out = apply_prediction_intervals(test_out, "predicted_next_hour_aqi", interval_widths)
     test_out = classify_threshold_watch(test_out, confidence_thresholds)
+    monitoring_predictions = build_monitoring_predictions(
+        monitoring_prediction_rows,
+        test_out,
+        preferred_model=preferred_model,
+        interval_widths=interval_widths,
+    )
     confidence_metrics = build_confidence_metrics(
         test_out,
         widths=interval_widths,
@@ -329,6 +433,12 @@ def train_predictor() -> dict[str, object]:
 
 
     write_csv(test_out, resolve_path(config, "data.predictions_file"), index=False, encoding="utf-8")
+    write_csv(
+        monitoring_predictions,
+        resolve_path(config, "data.monitoring_predictions_file"),
+        index=False,
+        encoding="utf-8",
+    )
     save_model(resolve_path(config, "models.predictor"), serializable_models[preferred_model])
     write_json(resolve_path(config, "reports.metrics_dir") / "predictor_metrics.json", metrics)
     write_json(resolve_path(config, "reports.metrics_dir") / "backtest_metrics.json", backtest)

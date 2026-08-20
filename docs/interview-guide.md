@@ -69,6 +69,7 @@
 指出：
 
 - 分測站與分 AQI level 指標可暴露平均值掩蓋的弱點。
+- `aqi_monitoring_predictions.csv` 由 rolling-origin OOF 與 final-test scored rows 組成；每筆都有 training cutoff，可追查是否在預測當下以前訓練。
 - `monitoring.json` 比較最近 7 天與之前 14 天，檢查 AQI／PM2.5 分布、MAE 變化和 interval coverage。
 - `warning`／`critical` 是診斷訊號，不會自動重訓；是否重訓仍需要人工確認資料品質、來源變更與事件背景。
 

@@ -4,6 +4,8 @@ import json
 import sys
 from pathlib import Path
 
+import pandas as pd
+
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -30,6 +32,7 @@ def test_run_all_sample_creates_required_outputs():
         resolve_path(config, "data.cleaned_file"),
         resolve_path(config, "data.features_file"),
         resolve_path(config, "data.predictions_file"),
+        resolve_path(config, "data.monitoring_predictions_file"),
         resolve_path(config, "data.anomaly_file"),
         resolve_path(config, "data.events_file"),
         resolve_path(config, "models.predictor"),
@@ -58,4 +61,11 @@ def test_run_all_sample_creates_required_outputs():
         "critical",
         "insufficient_data",
     }
+    monitoring_predictions = resolve_path(config, "data.monitoring_predictions_file")
+    monitoring_frame = pd.read_csv(monitoring_predictions)
+    assert set(monitoring_frame["prediction_stage"]) == {"rolling_origin_oof", "final_test"}
+    assert (
+        pd.to_datetime(monitoring_frame["training_cutoff"])
+        < pd.to_datetime(monitoring_frame["datetime"])
+    ).all()
     assert all(artifact["exists"] for artifact in manifest["artifacts"])
