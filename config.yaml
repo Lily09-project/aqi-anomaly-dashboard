@@ -4,10 +4,13 @@ project:
 random_state: 42
 sample_mode: true
 api:
+  provider: moenv_aqx_p_432
   url: ""
   timeout_seconds: 20
+  limit: 1000
 data:
   raw_dir: data/raw
+  stale_after_hours: 3
   sample_file: data/sample/sample_aqi.csv
   cleaned_file: data/processed/aqi_cleaned.csv
   features_file: data/processed/aqi_features.csv
@@ -21,6 +24,7 @@ reports:
   metrics_dir: reports/metrics
   figures_dir: reports/figures
   confidence_file: reports/metrics/forecast_confidence.json
+  source_metadata_file: reports/metrics/source_metadata.json
 selected_sites:
   - 松山測站
   - 西屯測站

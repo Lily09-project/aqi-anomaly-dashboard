@@ -1,82 +1,30 @@
-from html import escape
-
 import pandas as pd
 
 from src.app_helpers import data_quality_summary
-from src.dashboard.components import (
-    DISPLAY_COLUMN_MAP,
-    _backtest_aggregate_table,
-    _confidence_summary_table,
-    _format_optional_number,
-    _model_metrics_table,
-    _plot_chart,
-    _rename_for_display,
-    _render_priority_queue,
-    _render_risk_brief,
-    _risk_brief_table,
-    _select_columns,
-    _threshold_watch_cards_html,
-    _threshold_watch_table,
-    apply_plotly_theme,
-    comparison_cards_html,
-    metric_card,
-    render_table,
-    section_header,
-)
+from src.dashboard.components import DISPLAY_COLUMN_MAP, _rename_for_display, _select_columns, metric_card, render_table
 from src.dashboard.context import PageContext
-from src.dashboard.maps import _render_station_map
-from src.risk_brief import build_station_risk_brief, describe_anomaly_evidence
-from src.station_comparison import build_station_comparison, choose_recommended_station, export_comparison_csv
-from src.theme import chart_color_sequence, hex_to_rgb
-
-try:
-    import plotly.express as px  # type: ignore
-except Exception:  # pragma: no cover
-    px = None
-
-try:
-    import plotly.graph_objects as go  # type: ignore
-except Exception:  # pragma: no cover
-    go = None
+from src.dashboard.provenance import source_status_panel
 
 try:
     import streamlit as st  # type: ignore
 except Exception:  # pragma: no cover
     st = None
 
+
 def render(context: PageContext) -> None:
-    source = context.data.source
     selected = context.data.selected
-    regional = context.data.regional
-    comparison_scope = context.data.comparison
-    features = source.features
     filtered_features = selected.features
-    filtered_predictions = selected.predictions
-    filtered_anomalies = selected.anomalies
-    filtered_events = selected.events
-    map_features = regional.features
-    map_predictions = regional.predictions
-    map_anomalies = regional.anomalies
-    comparison_features = comparison_scope.features
-    comparison_predictions = comparison_scope.predictions
-    comparison_anomalies = comparison_scope.anomalies
-    predictor_metrics = context.metrics.predictor
-    anomaly_metrics = context.metrics.anomaly
-    backtest_metrics = context.metrics.backtest
-    confidence_metrics = context.metrics.confidence
     data_health = context.metrics.data_health
-    evaluation_summary = context.metrics.evaluation
-    config = context.config
-    theme = context.theme
-    source_code = context.source_code
+    source_metadata = context.metrics.source_metadata
     data_source = context.data_source
-    selected_site = context.filters.site_name
-    selected_site_display = context.filters.site_display
     quality = data_quality_summary(filtered_features)
+
     st.markdown(
         '<div class="section-note">此頁整理資料完整性、缺失值與來源摘要，協助快速判斷目前資料是否適合分析。</div>',
         unsafe_allow_html=True,
     )
+    source_status_panel(source_metadata)
+
     q_cols_top = st.columns(3, gap="large")
     with q_cols_top[0]:
         metric_card("資料筆數", quality["rows"])
@@ -100,6 +48,15 @@ def render(context: PageContext) -> None:
     largest_gap = data_health.get("largest_gap_hours")
     health_cols[3].metric("最大間隔", "N/A" if largest_gap is None else f"{float(largest_gap):g} 小時")
     st.caption("可靠性檢查以完整特徵資料計算，包含站點時間戳重複、測站更新延遲與最大觀測間隔。")
+
+    freshness_cols = st.columns(4, gap="large")
+    freshness_cols[0].metric("來源狀態", data_health.get("source_status", "未知"))
+    freshness_cols[1].metric("資料提供者", data_health.get("provider", "未知"))
+    freshness_cols[2].metric("取得時間", str(data_health.get("fetched_at_utc") or "未知"))
+    observation_delay = data_health.get("observation_delay_hours")
+    freshness_cols[3].metric("觀測延遲", "N/A" if observation_delay is None else f"{float(observation_delay):g} 小時")
+    if data_health.get("fallback_reason"):
+        st.warning(f"Fallback 原因：{data_health['fallback_reason']}")
 
     st.subheader("各欄位缺失值")
     missing_table = filtered_features.isna().sum().reset_index()

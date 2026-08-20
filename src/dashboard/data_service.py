@@ -87,6 +87,11 @@ def load_dashboard_artifacts(config: dict[str, Any]) -> tuple[DashboardData, Das
         ),
     )
     metrics_dir = resolve_path(config, "reports.metrics_dir")
+    source_metadata_path = (
+        resolve_path(config, "reports.source_metadata_file")
+        if "source_metadata_file" in config.get("reports", {})
+        else metrics_dir / "source_metadata.json"
+    )
     metrics = DashboardMetrics(
         predictor=read_json_versioned(metrics_dir / "predictor_metrics.json"),
         anomaly=read_json_versioned(metrics_dir / "anomaly_metrics.json"),
@@ -95,6 +100,7 @@ def load_dashboard_artifacts(config: dict[str, Any]) -> tuple[DashboardData, Das
         data_health=read_json_versioned(metrics_dir / "data_health.json"),
         evaluation=read_json_versioned(metrics_dir / "evaluation_summary.json"),
         manifest=read_json_versioned(metrics_dir / "run_manifest.json"),
+        source_metadata=read_json_versioned(source_metadata_path),
     )
     return data, metrics
 

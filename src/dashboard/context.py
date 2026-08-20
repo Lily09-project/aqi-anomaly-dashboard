@@ -44,6 +44,7 @@ class DashboardMetrics:
     data_health: dict[str, Any]
     evaluation: dict[str, Any]
     manifest: dict[str, Any] = field(default_factory=dict)
+    source_metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def empty(cls) -> "DashboardMetrics":
@@ -55,6 +56,7 @@ class DashboardMetrics:
             data_health={},
             evaluation={},
             manifest={},
+            source_metadata={},
         )
 
 

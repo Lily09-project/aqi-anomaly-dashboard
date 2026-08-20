@@ -1,0 +1,89 @@
+version: 1
+source:
+  dataset_id: AQX_P_07
+  dataset_name: 空氣品質監測站基本資料
+  url: https://data.moenv.gov.tw/dataset/detail/AQX_P_07
+  coordinate_fields: [TWD97Lon, TWD97Lat]
+  coordinate_system: TWD97
+  last_verified: 2026-08-20
+  note: "Registry schema follows the official station metadata contract. Built-in Sample Data coordinates are approximate demo values and must not be presented as official survey coordinates."
+stations:
+  松山測站:
+    aliases: [松山, Songshan, Taipei]
+    county: 臺北市
+    latitude: 25.05
+    longitude: 121.548
+    coordinate_source: approximate_sample_coordinate
+    source_note: "Approximate coordinate for the local Sample Data demo; refresh from AQX_P_07 before operational use."
+  板橋測站:
+    aliases: [板橋, Banqiao, New Taipei]
+    county: 新北市
+    latitude: 25.012
+    longitude: 121.458
+    coordinate_source: approximate_sample_coordinate
+    source_note: "Approximate coordinate for the local Sample Data demo; refresh from AQX_P_07 before operational use."
+  桃園測站:
+    aliases: [桃園, Taoyuan]
+    county: 桃園市
+    latitude: 25.031
+    longitude: 121.302
+    coordinate_source: approximate_sample_coordinate
+    source_note: "Approximate coordinate for the local Sample Data demo; refresh from AQX_P_07 before operational use."
+  西屯測站:
+    aliases: [西屯, Xitun, Taichung]
+    county: 臺中市
+    latitude: 24.181
+    longitude: 120.646
+    coordinate_source: approximate_sample_coordinate
+    source_note: "Approximate coordinate for the local Sample Data demo; refresh from AQX_P_07 before operational use."
+  安南測站:
+    aliases: [安南, Annan, Tainan]
+    county: 臺南市
+    latitude: 23.048
+    longitude: 120.217
+    coordinate_source: approximate_sample_coordinate
+    source_note: "Approximate coordinate for the local Sample Data demo; refresh from AQX_P_07 before operational use."
+  前金測站:
+    aliases: [前金, Cianjin, Kaohsiung]
+    county: 高雄市
+    latitude: 22.627
+    longitude: 120.294
+    coordinate_source: approximate_sample_coordinate
+    source_note: "Approximate coordinate for the local Sample Data demo; refresh from AQX_P_07 before operational use."
+  宜蘭測站:
+    aliases: [宜蘭, Yilan]
+    county: 宜蘭縣
+    latitude: 24.757
+    longitude: 121.754
+    coordinate_source: approximate_sample_coordinate
+    source_note: "Approximate coordinate for the local Sample Data demo; refresh from AQX_P_07 before operational use."
+  花蓮測站:
+    aliases: [花蓮, Hualien]
+    county: 花蓮縣
+    latitude: 23.991
+    longitude: 121.611
+    coordinate_source: approximate_sample_coordinate
+    source_note: "Approximate coordinate for the local Sample Data demo; refresh from AQX_P_07 before operational use."
+counties:
+  臺北市: {aliases: [Taipei, Taipei City], latitude: 25.033, longitude: 121.565}
+  新北市: {aliases: [New Taipei, New Taipei City], latitude: 25.017, longitude: 121.462}
+  桃園市: {aliases: [Taoyuan, Taoyuan City], latitude: 24.993, longitude: 121.301}
+  臺中市: {aliases: [Taichung, Taichung City], latitude: 24.147, longitude: 120.673}
+  臺南市: {aliases: [Tainan, Tainan City], latitude: 22.999, longitude: 120.227}
+  高雄市: {aliases: [Kaohsiung, Kaohsiung City], latitude: 22.627, longitude: 120.301}
+  基隆市: {aliases: [Keelung], latitude: 25.128, longitude: 121.739}
+  新竹市: {aliases: [Hsinchu, Hsinchu City], latitude: 24.803, longitude: 120.969}
+  新竹縣: {aliases: [Hsinchu County], latitude: 24.839, longitude: 121.017}
+  苗栗縣: {aliases: [Miaoli], latitude: 24.56, longitude: 120.821}
+  彰化縣: {aliases: [Changhua], latitude: 24.076, longitude: 120.544}
+  南投縣: {aliases: [Nantou], latitude: 23.961, longitude: 120.972}
+  雲林縣: {aliases: [Yunlin], latitude: 23.71, longitude: 120.431}
+  嘉義市: {aliases: [Chiayi, Chiayi City], latitude: 23.48, longitude: 120.449}
+  嘉義縣: {aliases: [Chiayi County], latitude: 23.452, longitude: 120.255}
+  屏東縣: {aliases: [Pingtung], latitude: 22.551, longitude: 120.549}
+  宜蘭縣: {aliases: [Yilan County], latitude: 24.757, longitude: 121.754}
+  花蓮縣: {aliases: [Hualien, Hualien County], latitude: 23.991, longitude: 121.611}
+  臺東縣: {aliases: [Taitung, Taitung County], latitude: 22.755, longitude: 121.15}
+  澎湖縣: {aliases: [Penghu], latitude: 23.571, longitude: 119.579}
+  金門縣: {aliases: [Kinmen], latitude: 24.432, longitude: 118.317}
+  連江縣: {aliases: [Lienchiang], latitude: 26.16, longitude: 119.951}

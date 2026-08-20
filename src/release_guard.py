@@ -13,6 +13,10 @@ REQUIRED_PUBLIC_PATHS = (
     "README.md",
     "app.py",
     "config.yaml",
+    "config/stations.yaml",
+    "docs/data-contract.md",
+    "docs/deployment.md",
+    "docs/operations-checklist.md",
     "requirements.txt",
     "run_project.bat",
 )
@@ -87,6 +91,7 @@ def validate_public_release(repo_root: str | Path, tracked_files: Iterable[str] 
     root = Path(repo_root).resolve()
     tracked = sorted(set(tracked_files if tracked_files is not None else _tracked_files(root)))
     missing_public_paths = [path for path in REQUIRED_PUBLIC_PATHS if not (root / path).exists()]
+    untracked_public_paths = [path for path in REQUIRED_PUBLIC_PATHS if path not in tracked]
     missing_readme_assets = [
         asset for asset in _readme_assets(root) if not (root / asset).exists()
     ]
@@ -110,6 +115,7 @@ def validate_public_release(repo_root: str | Path, tracked_files: Iterable[str] 
         "passed": not any(
             (
                 missing_public_paths,
+                untracked_public_paths,
                 missing_readme_assets,
                 untracked_readme_assets,
                 generated_artifacts,
@@ -119,6 +125,7 @@ def validate_public_release(repo_root: str | Path, tracked_files: Iterable[str] 
         ),
         "tracked_files": len(tracked),
         "missing_public_paths": missing_public_paths,
+        "untracked_public_paths": untracked_public_paths,
         "missing_readme_assets": missing_readme_assets,
         "untracked_readme_assets": untracked_readme_assets,
         "generated_artifacts": generated_artifacts,

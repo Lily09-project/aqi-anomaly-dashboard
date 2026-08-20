@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import argparse
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from src.utils import load_config, resolve_path, write_csv
+from src.source_metadata import build_source_metadata, frame_summary, write_source_metadata
+from src.utils import load_config, project_path, resolve_path, write_csv
 
 
 SITES = [
@@ -25,14 +26,40 @@ SITES = [
 MIN_SAMPLE_DAYS = 1
 MAX_SAMPLE_DAYS = 366
 
+
 def _default_start_date(days: int) -> datetime:
     return datetime.combine(date.today() - timedelta(days=days - 1), time.min)
+
+
+def _metadata_target(config: dict, metadata_path: str | Path | None) -> Path:
+    if metadata_path is not None:
+        return Path(metadata_path)
+    reports = config.get("reports", {})
+    configured = reports.get("source_metadata_file", "reports/metrics/source_metadata.json")
+    return resolve_path(config, "reports.source_metadata_file") if "source_metadata_file" in reports else project_path(configured)
+
+
+def _write_sample_metadata(config: dict, frame: pd.DataFrame, metadata_path: str | Path | None = None) -> None:
+    summary = frame_summary(frame)
+    metadata = build_source_metadata(
+        provider="sample_generator",
+        mode="sample",
+        status="success",
+        row_count=summary["row_count"],
+        datetime_range=summary["datetime_range"],
+        schema_columns=summary["schema_columns"],
+        schema_hash=summary["schema_sha256"],
+        requested_at_utc=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        fetched_at_utc=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+    )
+    write_source_metadata(_metadata_target(config, metadata_path), metadata)
 
 
 def generate_sample_aqi(
     days: int = 30,
     output_path: str | Path | None = None,
     start_date: str | date | datetime | None = None,
+    metadata_path: str | Path | None = None,
 ) -> pd.DataFrame:
     config = load_config()
     if days < MIN_SAMPLE_DAYS or days > MAX_SAMPLE_DAYS:
@@ -83,25 +110,27 @@ def generate_sample_aqi(
                 }
             )
 
-    df = pd.DataFrame(rows)
+    frame = pd.DataFrame(rows)
     missing_columns = ["pm25", "pm10", "o3", "co", "wind_speed"]
-    missing_mask = rng.random((len(df), len(missing_columns))) < 0.006
+    missing_mask = rng.random((len(frame), len(missing_columns))) < 0.006
     for idx, col in enumerate(missing_columns):
-        df.loc[missing_mask[:, idx], col] = np.nan
+        frame.loc[missing_mask[:, idx], col] = np.nan
     if output_path is None:
         output_path = resolve_path(config, "data.sample_file")
     out = Path(output_path)
-    write_csv(df, out, index=False, encoding="utf-8")
-    return df
+    write_csv(frame, out, index=False, encoding="utf-8")
+    _write_sample_metadata(config, frame, metadata_path)
+    return frame
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--days", type=int, default=30)
     parser.add_argument("--start-date", default=None, help="Optional start date, for example 2026-06-01.")
+    parser.add_argument("--metadata", default=None)
     args = parser.parse_args()
-    df = generate_sample_aqi(days=args.days, start_date=args.start_date)
-    print(f"Generated {len(df):,} rows at data/sample/sample_aqi.csv")
+    frame = generate_sample_aqi(days=args.days, start_date=args.start_date, metadata_path=args.metadata)
+    print(f"Generated {len(frame):,} rows at data/sample/sample_aqi.csv")
 
 
 if __name__ == "__main__":

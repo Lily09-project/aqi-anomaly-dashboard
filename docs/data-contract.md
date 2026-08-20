@@ -1,0 +1,42 @@
+# 資料來源與 Provenance Contract
+
+本文件定義 Taiwan AQI Dashboard 如何區分 Sample Data、成功 API Data、API fallback、過期資料與未知來源。Dashboard 不會把「有本機 CSV」直接當成即時資料；所有來源判定都以 `reports/metrics/source_metadata.json` 為準。
+
+## 來源狀態
+
+| `status` | `data_source` | 使用情境 | UI 解讀 |
+| --- | --- | --- | --- |
+| `success` | `Sample Data` | 本地模擬資料產生成功 | 明確標示模擬資料，不代表官方觀測 |
+| `success` | `API Data` | API 回應通過 schema 驗證並寫入 raw CSV | 可顯示 API 來源與取得時間 |
+| `fallback` | `Sample Data` | API 未設定、失敗、超時、redirect、超大回應或 schema 不完整 | 以警示色顯示 fallback 原因，不冒充即時資料 |
+| `unknown` | `Unknown` | metadata 不存在、格式錯誤或舊版輸出未含來源契約 | 視為不可確認，不默認 fresh |
+
+`data_source` 與 `is_simulated_data` 是使用者可見的真實來源標籤。API request 失敗時，即使沿用 `data/raw` 舊檔，也不會自動標示為新鮮 API Data。
+
+## Metadata schema
+
+`source_metadata.json` 只保存可公開的 metadata：
+
+- `provider`：來源 adapter，例如 `moenv_aqx_p_432`。
+- `mode`、`status`、`data_source`、`is_simulated_data`：來源與 fallback truth。
+- `requested_at_utc`、`fetched_at_utc`：請求與成功解析時間。
+- `row_count`、`datetime_range`：資料量與觀測時間範圍。
+- `schema_columns`、`schema_sha256`：欄位契約，不保存資料列內容。
+- `source_url`：只保留 scheme、host、path；query、fragment、username、password 一律移除。
+- `fallback_reason`、`error_type`、`http_status`：可判讀的失敗摘要，不保存完整 exception message 或 response body。
+
+API key 只從 `AQI_API_KEY` 環境變數讀取，request 時以 query parameter 傳給上游，但永遠不寫入 metadata、manifest、log、Dashboard 或 Git。正式環境應使用 secret store；本地 Demo 可以維持空 key 並執行 Sample mode。
+
+## Freshness boundaries
+
+來源取得時間與資料觀測時間是兩個不同概念：
+
+1. `fetched_at_utc` 表示本機成功取得並解析來源的時間。
+2. `datetime_range.max` 表示資料內最新觀測時間。
+3. `data.stale_after_hours` 只用於判斷來源或觀測是否落後，不會修改原始時間。
+
+Sample Data 的日期由 sample generator 以目前日期往前產生，仍然必須在 UI 顯示 Sample Data（模擬資料）。
+
+## 官方資料欄位
+
+本 adapter 對環境部 AQX API 常見欄位做 canonical alias mapping：`SiteName`、`County`、`AQI`、`PM2.5`、`PM10`、`O3`、`CO`、`WIND_SPEED`、`WIND_DIREC` 與 `publishtime` 等欄位會標準化為 pipeline 使用的英文欄位。schema 不完整時不進入模型流程，而是記錄 fallback。

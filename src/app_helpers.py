@@ -6,6 +6,7 @@ from typing import Any
 
 import pandas as pd
 
+from src.station_registry import get_station_location as registry_get_station_location
 from src.theme import THEME
 from src.utils import load_config, resolve_path
 
@@ -64,45 +65,6 @@ SITE_DISPLAY_MAP = {
 }
 
 
-# Approximate station locations for the built-in sample sites. County centroids
-# provide a usable fallback for API sites that have not supplied coordinates.
-STATION_COORDINATES = {
-    "松山測站": (25.050, 121.548),
-    "板橋測站": (25.012, 121.458),
-    "桃園測站": (25.031, 121.302),
-    "西屯測站": (24.181, 120.646),
-    "安南測站": (23.048, 120.217),
-    "前金測站": (22.627, 120.294),
-    "宜蘭測站": (24.757, 121.754),
-    "花蓮測站": (23.991, 121.611),
-}
-
-COUNTY_CENTROIDS = {
-    "臺北市": (25.033, 121.565),
-    "新北市": (25.017, 121.462),
-    "桃園市": (24.993, 121.301),
-    "臺中市": (24.147, 120.673),
-    "臺南市": (22.999, 120.227),
-    "高雄市": (22.627, 120.301),
-    "基隆市": (25.128, 121.739),
-    "新竹市": (24.803, 120.969),
-    "新竹縣": (24.839, 121.017),
-    "苗栗縣": (24.560, 120.821),
-    "彰化縣": (24.076, 120.544),
-    "南投縣": (23.961, 120.972),
-    "雲林縣": (23.710, 120.431),
-    "嘉義市": (23.480, 120.449),
-    "嘉義縣": (23.452, 120.255),
-    "屏東縣": (22.551, 120.549),
-    "宜蘭縣": (24.757, 121.754),
-    "花蓮縣": (23.991, 121.611),
-    "臺東縣": (22.755, 121.150),
-    "澎湖縣": (23.571, 119.579),
-    "金門縣": (24.432, 118.317),
-    "連江縣": (26.160, 119.951),
-}
-
-
 AQI_LEVELS = [
     (50, "良好", THEME["secondary"]),
     (100, "普通", THEME["light_blue"]),
@@ -138,13 +100,19 @@ def to_chinese_site_name(value: Any) -> str:
     return SITE_DISPLAY_MAP.get(text, text)
 
 
-def get_station_coordinates(site_name: Any, county_display: Any = None) -> tuple[float, float] | None:
-    """Return station coordinates, then fall back to an available county centroid."""
+def get_station_location(site_name: Any, county_display: Any = None) -> dict[str, Any] | None:
+    """Return a station location together with coordinate provenance."""
     site = to_chinese_site_name(site_name)
-    if site in STATION_COORDINATES:
-        return STATION_COORDINATES[site]
     county = to_chinese_location_name(county_display)
-    return COUNTY_CENTROIDS.get(county)
+    return registry_get_station_location(site, county)
+
+
+def get_station_coordinates(site_name: Any, county_display: Any = None) -> tuple[float, float] | None:
+    """Return coordinates while preserving the legacy tuple interface."""
+    location = get_station_location(site_name, county_display)
+    if not location or location.get("latitude") is None or location.get("longitude") is None:
+        return None
+    return float(location["latitude"]), float(location["longitude"])
 
 
 def add_display_columns(df: pd.DataFrame) -> pd.DataFrame:

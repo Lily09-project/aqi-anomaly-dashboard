@@ -38,6 +38,7 @@ from src.dashboard.components import (
     signal_deck,
 )
 from src.dashboard.maps import _build_station_map, _render_station_map, _station_map_data
+from src.dashboard.provenance import format_source_status, source_status_panel
 from src.dashboard.context import FilterState, PageContext
 from src.dashboard.filters import DATE_RANGE_OPTIONS, format_date_range, resolve_date_range
 from src.dashboard.data_service import clear_artifact_cache, build_filtered_data, load_dashboard_artifacts
@@ -170,8 +171,11 @@ def main() -> None:
     predictions = source_data.predictions
     anomalies = source_data.anomalies
     events = source_data.events
-    source_code = infer_data_source(config, features)
+    source_metadata = dashboard_metrics.source_metadata
+    metadata_source = source_metadata.get("data_source") if isinstance(source_metadata, dict) else None
+    source_code = metadata_source if metadata_source in {"API Data", "Sample Data"} else infer_data_source(config, features)
     data_source = _display_source(source_code)
+    source_status = format_source_status(source_metadata)
     date_limits = _safe_date_range(features)
 
     latest_global_time = features["datetime"].max() if not features.empty and "datetime" in features else None
@@ -183,7 +187,7 @@ def main() -> None:
           <div class="hero-copy">
             <div class="hero-kicker">
               <span>空氣品質監測</span>
-              <span class="status-pill"><span class="status-dot"></span>{escape(_source_caption(source_code))}</span>
+              <span class="status-pill {escape(str(source_status["tone"]))}"><span class="status-dot {escape(str(source_status["tone"]))}"></span>{escape(str(source_status["label"]))}</span>
             </div>
             <h1>台灣 AQI 監測與預測</h1>
             <p>以測站歷史脈絡排序污染異常，並檢視下一小時 AQI 預測與資料品質。</p>
@@ -197,6 +201,7 @@ def main() -> None:
         """,
         unsafe_allow_html=True,
     )
+    source_status_panel(source_metadata)
 
     if features.empty:
         st.warning("尚未產生資料，請先執行 run_project.bat 或 python run_all.py --mode sample。")

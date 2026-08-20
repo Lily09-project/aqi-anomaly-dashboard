@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
+from src.source_metadata import redact_source_url
 from src.utils import write_json
 
 
@@ -127,6 +128,7 @@ def _artifact_paths(config: Mapping[str, Any]) -> list[str | Path]:
         _config_value(config, "data.predictions_file", "data/processed/aqi_predictions.csv"),
         _config_value(config, "data.anomaly_file", "data/processed/aqi_anomaly_results.csv"),
         _config_value(config, "data.events_file", "data/processed/aqi_anomaly_events.csv"),
+        _config_value(config, "reports.source_metadata_file", "reports/metrics/source_metadata.json"),
         _config_value(config, "models.predictor", "models/aqi_predictor.joblib"),
         _config_value(config, "models.anomaly_detector", "models/anomaly_detector.joblib"),
     ]
@@ -199,6 +201,30 @@ def _compact_metrics(root: Path) -> dict[str, Any]:
     }
 
 
+
+def _source_summary(metadata: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Allowlist provenance fields so arbitrary metadata never enters a manifest."""
+    source = metadata if isinstance(metadata, Mapping) else {}
+    datetime_range = source.get("datetime_range", {})
+    datetime_range = dict(datetime_range) if isinstance(datetime_range, Mapping) else {}
+    return {
+        "metadata_version": source.get("metadata_version", "unknown"),
+        "provider": source.get("provider", "unknown"),
+        "mode": source.get("mode", "unknown"),
+        "status": source.get("status", "unknown"),
+        "data_source": source.get("data_source", "Unknown"),
+        "is_simulated_data": bool(source.get("is_simulated_data", False)),
+        "source_url": redact_source_url(str(source.get("source_url", ""))),
+        "requested_at_utc": source.get("requested_at_utc"),
+        "fetched_at_utc": source.get("fetched_at_utc"),
+        "row_count": int(source.get("row_count", 0) or 0),
+        "datetime_range": {"min": datetime_range.get("min"), "max": datetime_range.get("max")},
+        "schema_columns": sorted(str(column) for column in source.get("schema_columns", []) if str(column)),
+        "schema_sha256": source.get("schema_sha256"),
+        "fallback_reason": source.get("fallback_reason"),
+        "error_type": source.get("error_type"),
+        "http_status": source.get("http_status"),
+    }
 def build_run_manifest(
     repo_root: str | Path,
     *,
@@ -206,6 +232,7 @@ def build_run_manifest(
     run_mode: str,
     artifacts: Iterable[str | Path] | None = None,
     generated_at: datetime | str | None = None,
+    source_metadata: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     root = Path(repo_root).resolve()
     timestamp = _normalise_timestamp(generated_at)
@@ -215,7 +242,12 @@ def build_run_manifest(
     feature_columns = list(_config_value(config, "train.feature_columns", []))
     forbidden_features_found = sorted(set(feature_columns).intersection(FORBIDDEN_FEATURES))
     evaluation_summary = _read_json(root / "reports" / "metrics" / "evaluation_summary.json")
-    mode_label = "Sample Data" if run_mode == "sample" else "API Data"
+    source_metadata_path = _project_path(root, _config_value(config, "reports.source_metadata_file", "reports/metrics/source_metadata.json"))
+    disk_source_metadata = _read_json(source_metadata_path)
+    provenance = _source_summary(source_metadata if source_metadata is not None else disk_source_metadata)
+    has_provenance = source_metadata is not None or bool(disk_source_metadata)
+    mode_label = provenance["data_source"] if has_provenance else ("Sample Data" if run_mode == "sample" else "API Data")
+    simulated_data = bool(provenance["is_simulated_data"]) if has_provenance else run_mode == "sample"
     compact_metrics = _compact_metrics(root)
     artifact_values = _artifact_paths(config) if artifacts is None else list(artifacts)
 
@@ -234,7 +266,7 @@ def build_run_manifest(
         "run": {
             "mode": run_mode,
             "data_source": mode_label,
-            "is_simulated_data": run_mode == "sample",
+            "is_simulated_data": simulated_data,
             "reproducible_sample": run_mode == "sample",
             "random_state": _config_value(config, "random_state"),
             "config": {"path": "config.yaml", "sha256": sha256_file(Path(root) / "config.yaml")},
@@ -252,6 +284,7 @@ def build_run_manifest(
             "split_strategy": "chronological train / validation / final_test",
             "leakage_controls": list(LEAKAGE_CONTROLS),
         },
+        "source": provenance,
         "dataset_summary": {
             "rows": evaluation_summary.get("rows", {}),
             "station_count": evaluation_summary.get("site_count"),
@@ -259,6 +292,7 @@ def build_run_manifest(
             "data_health_status": compact_metrics["data_health"].get("status"),
         },
         "metrics": compact_metrics,
+        "source_metadata_sha256": sha256_file(source_metadata_path),
         "artifacts": _artifact_records(root, artifact_values),
         "limitations": [
             "Sample Data is simulated and is intended only for local demonstration and testing.",
@@ -275,6 +309,7 @@ def write_run_manifest(
     config: Mapping[str, Any],
     run_mode: str,
     output_path: str | Path | None = None,
+    source_metadata: Mapping[str, Any] | None = None,
 ) -> Path:
     root = Path(repo_root).resolve()
     target = Path(output_path) if output_path is not None else root / MANIFEST_RELATIVE_PATH
@@ -285,6 +320,6 @@ def write_run_manifest(
         target.relative_to(root)
     except ValueError as exc:
         raise ValueError("Manifest output must stay inside the project root") from exc
-    manifest = build_run_manifest(root, config=config, run_mode=run_mode)
+    manifest = build_run_manifest(root, config=config, run_mode=run_mode, source_metadata=source_metadata)
     write_json(target, manifest)
     return target

@@ -9,6 +9,7 @@ import zlib
 import pandas as pd
 
 from src.data_health import build_data_health
+from src.source_metadata import load_source_metadata
 from src.theme import THEME
 from src.utils import ensure_parent, load_config, resolve_path, write_json
 
@@ -197,7 +198,7 @@ def _plot_figures(features: pd.DataFrame, predictions: pd.DataFrame, anomalies: 
                 _write_placeholder_png(figures_dir / name)
 
 
-def evaluate() -> dict[str, object]:
+def evaluate(source_metadata: dict[str, object] | None = None) -> dict[str, object]:
     config = load_config()
     features = pd.read_csv(resolve_path(config, "data.features_file"), parse_dates=["datetime"])
     predictions = pd.read_csv(resolve_path(config, "data.predictions_file"), parse_dates=["datetime"])
@@ -215,7 +216,9 @@ def evaluate() -> dict[str, object]:
     backtest_metrics = json.loads(backtest_metrics_path.read_text(encoding="utf-8")) if backtest_metrics_path.exists() else {}
     confidence_path = resolve_path(config, "reports.confidence_file")
     confidence_metrics = json.loads(confidence_path.read_text(encoding="utf-8")) if confidence_path.exists() else {}
-    data_health = build_data_health(features)
+    provenance = source_metadata if source_metadata is not None else load_source_metadata(config)
+    stale_after_hours = int(config.get("data", {}).get("stale_after_hours", 3))
+    data_health = build_data_health(features, stale_after_hours=stale_after_hours, source_metadata=provenance)
 
     summary = {
         "rows": {

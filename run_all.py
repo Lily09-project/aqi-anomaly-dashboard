@@ -17,6 +17,7 @@ from src.generate_sample_data import generate_sample_aqi
 from src.preprocess import preprocess
 from src.run_manifest import write_run_manifest
 from src.smoke_test import run_smoke_test
+from src.source_metadata import load_source_metadata, resolve_effective_run_mode
 from src.train_anomaly_model import train_anomaly_model
 from src.train_predictor import train_predictor
 from src.utils import latest_csv, load_config, project_path, resolve_path
@@ -64,6 +65,7 @@ def _output_summary() -> list[Path]:
         resolve_path(config, "reports.confidence_file"),
         resolve_path(config, "reports.metrics_dir") / "data_health.json",
         resolve_path(config, "reports.metrics_dir") / "evaluation_summary.json",
+        resolve_path(config, "reports.metrics_dir") / "source_metadata.json",
         resolve_path(config, "reports.metrics_dir") / "run_manifest.json",
         resolve_path(config, "reports.figures_dir") / "aqi_trend.png",
         resolve_path(config, "reports.figures_dir") / "prediction_vs_actual.png",
@@ -77,31 +79,50 @@ def _output_summary() -> list[Path]:
 
 
 def run(mode: str = "sample") -> list[Path]:
+    requested_mode = mode
     _step("Create required folders", _ensure_dirs)
     input_path: Path | None = None
-    if mode == "api":
+
+    if requested_mode == "api":
         input_path = _step("Fetch API data", fetch_aqi_data)
         if input_path is None:
             config = load_config()
             input_path = latest_csv(resolve_path(config, "data.raw_dir"))
             if input_path is None:
                 print("Falling back to sample mode because API and local raw data are unavailable.")
-                mode = "sample"
+                _step("Generate sample data", generate_sample_aqi)
+                config = load_config()
+                input_path = resolve_path(config, "data.sample_file")
             else:
-                print(f"Using local raw fallback: {input_path}")
-
-    if mode == "sample":
+                print(f"Using local raw fallback with unverified source metadata: {input_path}")
+    else:
         _step("Generate sample data", generate_sample_aqi)
+        config = load_config()
+        input_path = resolve_path(config, "data.sample_file")
 
-    _step("Preprocess data", lambda: preprocess(mode=mode, input_path=input_path))
+    config = load_config()
+    source_metadata = load_source_metadata(config, root=ROOT)
+    effective_mode = resolve_effective_run_mode(requested_mode, source_metadata, input_path)
+    if effective_mode != requested_mode:
+        print(f"Effective source mode: {effective_mode} (requested: {requested_mode})")
+
+    _step(
+        "Preprocess data",
+        lambda: preprocess(mode=effective_mode, input_path=input_path, source_metadata=source_metadata),
+    )
     _step("Build features", build_features)
     _step("Train predictor model", train_predictor)
     _step("Train anomaly model", train_anomaly_model)
-    _step("Evaluate outputs", evaluate)
+    _step("Evaluate outputs", lambda: evaluate(source_metadata=source_metadata))
     config = load_config()
     _step(
         "Write reproducibility manifest",
-        lambda: write_run_manifest(ROOT, config=config, run_mode=mode),
+        lambda: write_run_manifest(
+            ROOT,
+            config=config,
+            run_mode=effective_mode,
+            source_metadata=source_metadata,
+        ),
     )
     _step("Run smoke checks", run_smoke_test)
     print("Pipeline finished successfully.")
