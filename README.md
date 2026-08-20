@@ -23,7 +23,7 @@
 | 預測任務 | 使用同測站當下與過去資料預測下一小時 AQI |
 | 評估方法 | Chronological split、rolling-origin backtest、final test |
 | 可信度輸出 | 80% / 95% empirical forecast intervals |
-| 可重現入口 | run_all.py、smoke test、pytest、Windows one-click launcher |
+| 可重現入口 | run_all.py、smoke test、pytest、Python 3.12 constraints、Windows one-click launcher |
 | 公開原則 | GitHub 只保留程式、設定範例、測試與文件，生成物由流程重新建立 |
 
 快速入口：[部署指南](docs/deployment.md) · [操作檢查表](docs/operations-checklist.md) · [資料契約](docs/data-contract.md) · [中文面試講稿](docs/interview-guide.md)
@@ -141,7 +141,7 @@ Dashboard 的篩選流程以「目前工作範圍」為核心，避免使用者�
 python scripts/validate_public_release.py
 ~~~
 
-這個 gate 會檢查必要公開文件、README 截圖是否存在且已被 Git 追蹤、生成資料／模型是否誤加入版本控制，以及常見 credential pattern。相同檢查也會在 GitHub Actions quality workflow 的測試流程中執行，讓本地與 GitHub 的公開內容規則一致。
+這個 gate 會檢查必要公開文件、README 截圖是否存在且已被 Git 追蹤、生成資料／模型是否誤加入版本控制，以及常見 credential pattern；同時掃描 notebook 內容與 Markdown 圖片引用，避免公開檔案被漏檢。相同檢查也會在 GitHub Actions quality workflow 的測試流程中執行，讓本地與 GitHub 的公開內容規則一致。
 
 ## System Architecture
 
@@ -213,6 +213,8 @@ Streamlit UI、地圖、篩選、下載與六個功能頁
 - 可連線 API endpoint 才能使用 API mode；沒有 API 時可使用 sample mode。
 - 建議在獨立 virtual environment 執行。
 
+Python 3.12 的 CI 與面試 Demo 可使用 `requirements-lock-py312.txt` constraints 固定直接與主要 transitive dependency 版本；Python 3.10／3.11 則使用未鎖定的 `requirements.txt`，以保留相容性彈性。lock file 不包含資料、模型或秘密。
+
 ### Install
 
 Windows PowerShell：
@@ -239,6 +241,12 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ~~~
 
+若目前是 Python 3.12，建議使用已驗證的 constraints：
+
+~~~bash
+python -m pip install -r requirements.txt -c requirements-lock-py312.txt
+~~~
+
 ### Run the reproducible sample pipeline
 
 ~~~bash
@@ -253,7 +261,7 @@ Pipeline 會依序：
 4. 建立 station-aware time-series features。
 5. 訓練預測模型與異常模型。
 6. 輸出 metrics、figures、forecast confidence、data health 與可追溯的 monitoring scored predictions。
-7. 更新監控歷史與建議行動；同一資料截止時間和模型的重跑會更新原紀錄，不重複累積。
+7. 更新監控歷史與建議行動；同一資料截止時間、模型與 monitoring policy 的重跑會更新原紀錄，不重複累積。
 8. 產生包含版本、設定雜湊、資料 contract、metrics、monitoring 摘要與 artifact hash 的 run manifest。
 9. 執行 smoke test。
 
@@ -287,7 +295,7 @@ run_project.bat
 
 - 找到可用的 Python。
 - 建立或修復 .venv。
-- 安裝 requirements.txt。
+- 安裝 requirements.txt；若使用 Python 3.12，會自動套用 requirements-lock-py312.txt。
 - 設定專案本地 Temp，避免 Windows 系統 Temp 權限問題。
 - 執行 Sample Pipeline。
 - 執行 smoke test 與 pytest -q。
@@ -532,14 +540,14 @@ run_manifest.json 是工程可追溯性與除錯工具，不是資料 provenance
 
 ### Monitoring History and Retraining Decisions
 
-`reports/metrics/monitoring_history.json` 是本機生成的監控決策紀錄。每次評估會保存資料截止時間、資料來源、模型、reference/current MAE、80%／95% coverage、AQI／PM2.5 偏移、整體狀態、原因與建議行動：
+`reports/metrics/monitoring_history.json` 是本機生成的監控決策紀錄。每次評估會保存資料截止時間、資料來源、模型、monitoring policy hash、reference/current MAE、80%／95% coverage、AQI／PM2.5 偏移、整體狀態、原因與建議行動：
 
 - `observe`：訊號穩定，持續觀察。
 - `investigate`：出現 warning，先調查資料品質、來源或事件背景。
 - `review_retraining`：critical 或符合重訓建議條件，進入人工審查。
 - `collect_more_data`：資料不足，先累積完整 reference/current windows。
 
-這是 decision support，不是自動重訓器。系統不會因單次 warning 自動替換模型。同一個資料截止時間、資料來源和模型形成固定 `snapshot_id`，重跑時更新原紀錄；預設最多保留最近 90 筆，避免本機檔案無限成長。寫入沿用 atomic JSON helper，損壞或舊格式歷史不會讓 pipeline 崩潰，而會建立新的有效契約。
+這是 decision support，不是自動重訓器。系統不會因單次 warning 自動替換模型。同一個資料截止時間、資料來源、模型與 monitoring policy 形成固定 `snapshot_id`，重跑時更新原紀錄；若 reference/current window 或 drift threshold 改變，會建立新的可追溯紀錄。預設最多保留最近 90 筆，避免本機檔案無限成長。寫入沿用 atomic JSON helper，損壞或舊格式歷史不會讓 pipeline 崩潰，而會建立新的有效契約。
 
 Dashboard 會讀取同一份本機 manifest 並以審查摘要呈現；因此 reviewer 不需要手動打開 JSON 才能先確認版本與 contract。若畫面顯示「未建立或需重建」，代表目前資料可能是舊輸出、manifest 不存在，或 artifact 沒有完整雜湊，應重新執行：
 
@@ -607,14 +615,17 @@ python src/benchmark_dashboard.py
 
 - .env、Streamlit secrets、API key、token 與密碼不得提交 Git。
 - Public release guard 會阻擋 `.env`、`.env.*`、Streamlit secrets 與常見 secrets 檔案，即使它們被強制加入 Git。
+- Public release guard 也會掃描 notebook 內文與 Markdown 圖片引用，避免秘密或 README asset 被檢查器跳過。
 - data/raw、data/sample、data/processed、models 與 reports 的生成物預設不追蹤。
 - API Data 只接受 HTTPS；只有 localhost / loopback 開發端點可以使用 HTTP。
 - API URL 會拒絕 private、link-local、reserved、unspecified IP、非標準 loopback 表示法、embedded credentials、fragment、無效 port 與 redirect。
 - API request 具備 timeout 與 10 MB response size limit。
+- API／Sample provenance 會保存輸入資料檔 SHA-256；API metadata 若與目前輸入檔不一致，流程會 fail closed 為 Sample Data，不沿用舊的 API 標籤。
 - 設定檔與 run manifest 的輸出路徑必須留在 project root 內，避免 `../` 路徑逃逸；JSON/CSV 寫入使用 atomic replace。
 - 核心 CSV、JSON 與 joblib artifact 使用同目錄暫存檔與 atomic replace，避免程序中斷留下半份輸出。
 - Joblib 只從專案 models/ 載入 .joblib，不要載入來源不明的模型檔。
 - GitHub Actions Quality Gate 會重建 Sample Pipeline 並執行 pytest。
+- Python 3.12 Quality Gate 使用 `requirements-lock-py312.txt` constraints，降低依賴更新造成的非預期差異。
 - GitHub Actions Security Audit 會執行 pip-audit、Bandit 高嚴重度掃描、public release guard，並阻擋生成資料、模型與報表被追蹤。
 - GitHub Actions job 具備 timeout 與同分支 concurrency，避免重複工作無限佔用 runner。
 - Streamlit server 預設綁定 `127.0.0.1`，並明確啟用 XSRF protection；公開部署仍需自行配置認證、反向代理與 egress policy。
@@ -640,6 +651,7 @@ aqi-anomaly-dashboard/
 ├── run_project_bat內容.txt
 ├── config.yaml
 ├── requirements.txt
+├── requirements-lock-py312.txt
 ├── pytest.ini
 ├── .env.example
 ├── .github/

@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from src.source_metadata import build_source_metadata, frame_summary, write_source_metadata
+from src.source_metadata import build_source_metadata, file_sha256, frame_summary, write_source_metadata
 from src.utils import load_config, project_path, resolve_path, write_csv
 
 
@@ -39,7 +39,12 @@ def _metadata_target(config: dict, metadata_path: str | Path | None) -> Path:
     return resolve_path(config, "reports.source_metadata_file") if "source_metadata_file" in reports else project_path(configured)
 
 
-def _write_sample_metadata(config: dict, frame: pd.DataFrame, metadata_path: str | Path | None = None) -> None:
+def _write_sample_metadata(
+    config: dict,
+    frame: pd.DataFrame,
+    data_path: str | Path,
+    metadata_path: str | Path | None = None,
+) -> None:
     summary = frame_summary(frame)
     metadata = build_source_metadata(
         provider="sample_generator",
@@ -51,6 +56,7 @@ def _write_sample_metadata(config: dict, frame: pd.DataFrame, metadata_path: str
         schema_hash=summary["schema_sha256"],
         requested_at_utc=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         fetched_at_utc=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        data_file_sha256=file_sha256(data_path),
     )
     write_source_metadata(_metadata_target(config, metadata_path), metadata)
 
@@ -119,7 +125,7 @@ def generate_sample_aqi(
         output_path = resolve_path(config, "data.sample_file")
     out = Path(output_path)
     write_csv(frame, out, index=False, encoding="utf-8")
-    _write_sample_metadata(config, frame, metadata_path)
+    _write_sample_metadata(config, frame, out, metadata_path)
     return frame
 
 

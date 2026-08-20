@@ -15,9 +15,10 @@ DEFAULT_THRESHOLDS = {
 }
 
 
-def _empty_report(reason: str) -> dict[str, Any]:
+def _empty_report(reason: str, policy: Mapping[str, Any] | None = None) -> dict[str, Any]:
     return {
         "monitoring_version": "1.0",
+        "policy": dict(policy or {}),
         "status": "insufficient_data",
         "reason": reason,
         "reference_window": {"start": None, "end": None, "rows": 0},
@@ -171,10 +172,15 @@ def build_monitoring_report(
     thresholds: Mapping[str, float] | None = None,
 ) -> dict[str, Any]:
     active_thresholds = {**DEFAULT_THRESHOLDS, **dict(thresholds or {})}
+    policy = {
+        "reference_days": int(reference_days),
+        "current_days": int(current_days),
+        "thresholds": {str(key): float(value) for key, value in active_thresholds.items()},
+    }
     feature_frame = _prepare(features)
     prediction_frame = _prepare(predictions)
     if feature_frame.empty:
-        return _empty_report("features_missing_or_empty")
+        return _empty_report("features_missing_or_empty", policy)
 
     latest = feature_frame["datetime"].max()
     current_cutoff = latest - pd.Timedelta(days=current_days)
@@ -184,7 +190,7 @@ def build_monitoring_report(
         (feature_frame["datetime"] > reference_cutoff) & (feature_frame["datetime"] <= current_cutoff)
     ]
     if len(current_features) < 24 or len(reference_features) < 24:
-        return _empty_report("reference_or_current_window_too_short")
+        return _empty_report("reference_or_current_window_too_short", policy)
 
     current_predictions = prediction_frame[prediction_frame["datetime"] > current_cutoff]
     reference_predictions = prediction_frame[
@@ -208,6 +214,7 @@ def build_monitoring_report(
     reasons.extend(f"{level}% interval coverage below target" for level, item in coverage.items() if item["status"] != "stable")
     return {
         "monitoring_version": "1.0",
+        "policy": policy,
         "status": status,
         "reason": None,
         "reference_window": _window_payload(reference_features),

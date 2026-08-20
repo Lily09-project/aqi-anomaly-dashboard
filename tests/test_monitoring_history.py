@@ -96,6 +96,37 @@ def test_history_deduplicates_same_data_and_model_run(tmp_path) -> None:
     assert history["entries"][0]["recorded_at_utc"] == "2026-08-20T04:35:00Z"
 
 
+def test_monitoring_policy_changes_create_a_distinct_snapshot() -> None:
+    default_policy_report = _monitoring_report()
+    default_policy_report["policy"] = {
+        "reference_days": 14,
+        "current_days": 7,
+        "thresholds": {"mae_increase_warning_pct": 25.0},
+    }
+    changed_policy_report = _monitoring_report()
+    changed_policy_report["policy"] = {
+        "reference_days": 30,
+        "current_days": 7,
+        "thresholds": {"mae_increase_warning_pct": 25.0},
+    }
+
+    first = build_monitoring_snapshot(
+        default_policy_report,
+        data_end="2026-08-20T12:00:00",
+        data_source="Sample Data",
+        model_name="random_forest",
+    )
+    changed = build_monitoring_snapshot(
+        changed_policy_report,
+        data_end="2026-08-20T12:00:00",
+        data_source="Sample Data",
+        model_name="random_forest",
+    )
+
+    assert first["policy_hash"] != changed["policy_hash"]
+    assert first["snapshot_id"] != changed["snapshot_id"]
+
+
 def test_history_keeps_latest_entries_in_chronological_order(tmp_path) -> None:
     path = tmp_path / "monitoring_history.json"
     for day in (20, 18, 19):

@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 
 import pandas as pd
 
-from src.source_metadata import build_source_metadata, frame_summary, write_source_metadata
+from src.source_metadata import build_source_metadata, file_sha256, frame_summary, write_source_metadata
 from src.utils import load_config, project_path, resolve_path, write_csv
 
 
@@ -148,6 +148,7 @@ def _write_fetch_metadata(
     fallback_reason: str | None = None,
     error_type: str | None = None,
     http_status: int | None = None,
+    data_file_sha256: str | None = None,
 ) -> dict[str, Any]:
     summary = frame_summary(frame)
     metadata = build_source_metadata(
@@ -161,14 +162,12 @@ def _write_fetch_metadata(
         source_url=source_url,
         requested_at_utc=requested_at,
         fetched_at_utc=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z") if frame is not None else None,
+        data_file_sha256=data_file_sha256,
         fallback_reason=fallback_reason,
         error_type=error_type,
         http_status=http_status,
     )
-    try:
-        write_source_metadata(target, metadata)
-    except OSError as exc:
-        print(f"來源 metadata 寫入失敗（{type(exc).__name__}）。")
+    write_source_metadata(target, metadata)
     return metadata
 
 
@@ -298,6 +297,7 @@ def fetch_aqi_data(output_path: str | Path | None = None, metadata_path: str | P
         requested_at=requested_at,
         frame=frame,
         http_status=getattr(response, "status_code", None),
+        data_file_sha256=file_sha256(out),
     )
     print(f"API 資料已儲存：{out}")
     return out

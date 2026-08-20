@@ -63,6 +63,18 @@ def schema_sha256(columns: Iterable[object] | None) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def file_sha256(path: str | Path) -> str | None:
+    """Return a file digest used to bind provenance to the exact input artifact."""
+    digest = hashlib.sha256()
+    try:
+        with Path(path).open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+    except OSError:
+        return None
+    return digest.hexdigest()
+
+
 def frame_summary(frame: pd.DataFrame | None) -> dict[str, Any]:
     if frame is None:
         return {"row_count": 0, "datetime_range": {"min": None, "max": None}, "schema_columns": [], "schema_sha256": schema_sha256([])}
@@ -110,6 +122,7 @@ def build_source_metadata(
     http_status: int | None = None,
     data_source: str | None = None,
     is_simulated_data: bool | None = None,
+    data_file_sha256: str | None = None,
 ) -> dict[str, Any]:
     label, simulated = _source_label(mode, status, data_source)
     columns = sorted({str(column) for column in (schema_columns or [])})
@@ -127,6 +140,7 @@ def build_source_metadata(
         "datetime_range": dict(datetime_range or {"min": None, "max": None}),
         "schema_columns": columns,
         "schema_sha256": schema_hash or schema_sha256(columns),
+        "data_file_sha256": data_file_sha256,
         "fallback_reason": fallback_reason,
         "error_type": error_type,
         "http_status": int(http_status) if http_status is not None else None,
@@ -168,13 +182,18 @@ def resolve_effective_run_mode(
     input_path: Path | None = None,
 ) -> str:
     """Return API only when the source contract proves a successful API fetch."""
-    del input_path
     metadata = source_metadata or {}
+    if input_path is None:
+        return "sample"
+    expected_digest = str(metadata.get("data_file_sha256") or "")
+    actual_digest = file_sha256(input_path)
     if (
         requested_mode == "api"
         and metadata.get("status") == "success"
         and metadata.get("data_source") == "API Data"
         and metadata.get("is_simulated_data") is False
+        and expected_digest
+        and actual_digest == expected_digest
     ):
         return "api"
     return "sample"

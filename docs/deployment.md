@@ -17,6 +17,12 @@ python run_all.py --mode sample
 python -m streamlit run app.py --server.address 127.0.0.1
 ~~~
 
+Python 3.12 的 CI／Demo 環境可套用已驗證的 constraints：
+
+~~~bash
+python -m pip install -r requirements.txt -c requirements-lock-py312.txt
+~~~
+
 Windows 可直接執行 `run_project.bat`。它會固定切換到批次檔所在專案、建立 `.venv`、安裝依賴、重建 Sample Data、執行 smoke test 與 pytest，再以可用 port 啟動 Dashboard。只驗證不啟動前端時使用：
 
 ~~~bat
