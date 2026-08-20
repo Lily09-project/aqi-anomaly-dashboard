@@ -87,7 +87,7 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
         }}
         section[data-testid="stSidebar"] h2 {{
             font-size: 0.82rem !important;
-            letter-spacing: 0.04em;
+            letter-spacing: 0;
             text-transform: uppercase;
             color: var(--muted-text) !important;
             margin-top: 1.15rem;
@@ -232,7 +232,7 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             color: var(--muted-text);
             font-size: 0.75rem;
             font-weight: 800;
-            letter-spacing: 0.04em;
+            letter-spacing: 0;
             text-transform: uppercase;
         }}
         .sidebar-brand {{
@@ -252,7 +252,7 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             color: var(--background);
             font-size: 0.78rem;
             font-weight: 900;
-            letter-spacing: 0.02em;
+            letter-spacing: 0;
         }}
         .sidebar-brand strong {{
             display: block;
@@ -385,7 +385,7 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             color: var(--accent);
             font-size: 0.72rem;
             font-weight: 800;
-            letter-spacing: 0.08em;
+            letter-spacing: 0;
             text-transform: uppercase;
         }}
         .risk-brief h3 {{
@@ -468,7 +468,7 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             color: var(--accent);
             font-size: 0.72rem;
             font-weight: 800;
-            letter-spacing: 0.1em;
+            letter-spacing: 0;
             text-transform: uppercase;
         }}
         .section-context {{
@@ -569,7 +569,8 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
         .watch-card-main span {{ font-size: 0.76rem; }}
         .watch-card p {{ margin: 0.65rem 0; font-size: 0.82rem; line-height: 1.5; }}
         .watch-bounds {{ display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; font-size: 0.76rem; }}
-        .watch-bounds strong {{ color: var(--text); font-variant-numeric: tabular-nums; }}        .map-selection-note {{
+        .watch-bounds strong {{ color: var(--text); font-variant-numeric: tabular-nums; }}
+        .map-selection-note {{
             margin: 0.4rem 0 0.9rem;
             color: var(--muted-text) !important;
             font-size: 0.82rem;
@@ -751,7 +752,7 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             color: var(--accent);
             font-size: 0.72rem;
             font-weight: 800;
-            letter-spacing: 0.08em;
+            letter-spacing: 0;
             text-transform: uppercase;
         }}
         .filter-chip-list {{ display: flex; flex-wrap: wrap; gap: 0.45rem; }}
@@ -792,7 +793,7 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             color: var(--muted-text);
             font-size: 0.76rem;
             font-weight: 800;
-            letter-spacing: 0.05em;
+            letter-spacing: 0;
         }}
         .signal-value {{
             display: block;
@@ -864,7 +865,7 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             color: var(--accent);
             font-size: 0.72rem;
             font-weight: 800;
-            letter-spacing: 0.06em;
+            letter-spacing: 0;
         }}
         .guidance-heading h2 {{
             margin: 0.22rem 0 0;
@@ -1055,7 +1056,8 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
         .watch-card-main span {{ font-size: 0.76rem; }}
         .watch-card p {{ margin: 0.65rem 0; font-size: 0.82rem; line-height: 1.5; }}
         .watch-bounds {{ display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; font-size: 0.76rem; }}
-        .watch-bounds strong {{ color: var(--text); font-variant-numeric: tabular-nums; }}        .map-selection-note {{
+        .watch-bounds strong {{ color: var(--text); font-variant-numeric: tabular-nums; }}
+        .map-selection-note {{
             display: flex;
             align-items: center;
             min-height: 2rem;
@@ -1144,7 +1146,8 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
                 min-height: 44px;
                 padding: 0.4rem 0.25rem;
                 font-size: 0.8rem;
-            }}            [data-testid="stTabs"] [data-baseweb="tab-list"] {{
+            }}
+            [data-testid="stTabs"] [data-baseweb="tab-list"] {{
                 flex-wrap: wrap;
                 gap: 0.2rem;
                 overflow-x: visible;
@@ -1180,7 +1183,7 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
                 transition-duration: 0.01ms !important;
             }}
         }}
-                .source-status-panel {{
+        .source-status-panel {{
             margin: 0 0 1rem;
             padding: 0.8rem 0.95rem;
             border: 1px solid var(--border);
@@ -1208,7 +1211,7 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             color: var(--muted-text);
             font-size: 0.72rem;
             font-weight: 800;
-            letter-spacing: 0.04em;
+            letter-spacing: 0;
             text-transform: uppercase;
         }}
         .source-status-head strong {{
@@ -1220,7 +1223,8 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             color: var(--text) !important;
             font-size: 0.82rem;
             line-height: 1.5;
-        }}        .status-pill.warning {{ border-left-color: var(--accent); }}
+        }}
+        .status-pill.warning {{ border-left-color: var(--accent); }}
         .status-pill.warning .status-dot {{ background: var(--accent); }}
         .status-pill.positive .status-dot {{ background: var(--success); }}</style>
         """,

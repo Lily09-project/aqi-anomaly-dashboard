@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import re
 
 from src.dashboard.styles import inject_global_css as inject_dashboard_css
 
@@ -38,6 +39,11 @@ def test_dashboard_styles_render_high_contrast_responsive_css() -> None:
     assert '[data-testid="stExpandSidebarButton"]' in fake.rendered
     assert "min-width: 44px !important" in fake.rendered
     assert "cursor: pointer" in fake.rendered
+    letter_spacing_values = re.findall(r"letter-spacing:\s*([^;]+);", fake.rendered)
+    assert letter_spacing_values
+    assert set(value.strip() for value in letter_spacing_values) <= {"0", "0 !important"}
+    assert "}}        ." not in fake.rendered
+    assert "}}            [" not in fake.rendered
 
 
 def test_app_css_wrapper_uses_the_current_streamlit_binding(monkeypatch) -> None:
