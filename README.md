@@ -129,7 +129,7 @@ Dashboard 的篩選流程以「目前工作範圍」為核心，避免使用者�
 4. 「重設篩選」會透過 Streamlit callback 清除選擇狀態；「重新整理資料」會清除版本化 artifact cache 後重新載入，適合 API 資料更新或重新產生 Sample Data 後使用。
 5. 若某範圍沒有資料，頁面會保留導覽與可理解的 empty state，不會以例外中斷整個 Dashboard。
 
-在「模型指標」頁的「審查證據與可重現性」區塊，reviewer 可以查看 Git revision、工作樹狀態、資料模式、next-hour target、feature contract、時間切分策略、設定與依賴雜湊，以及 artifact SHA-256 完整度。完整 manifest 仍可下載，但主畫面只顯示扁平化摘要，不把 raw JSON 直接丟給使用者。這使 UI 同時服務兩種角色：
+在「模型指標」頁的「審查證據與可重現性」區塊，reviewer 可以查看 Git revision、工作樹狀態、資料模式、next-hour target、feature contract、時間切分策略、設定與依賴／constraints 雜湊，以及 artifact SHA-256 完整度。完整 manifest 仍可下載，但主畫面只顯示扁平化摘要，不把 raw JSON 直接丟給使用者。這使 UI 同時服務兩種角色：
 
 - 使用者關心目前哪個地區、哪個時間範圍值得判讀。
 - 審查者關心這個數字能否追溯到正確版本、資料契約與完整輸出。
@@ -262,7 +262,7 @@ Pipeline 會依序：
 5. 訓練預測模型與異常模型。
 6. 輸出 metrics、figures、forecast confidence、data health 與可追溯的 monitoring scored predictions。
 7. 更新監控歷史與建議行動；同一資料截止時間、模型與 monitoring policy 的重跑會更新原紀錄，不重複累積。
-8. 產生包含版本、設定雜湊、資料 contract、metrics、monitoring 摘要與 artifact hash 的 run manifest。
+8. 產生包含版本、設定與依賴／constraints 雜湊、資料 contract、metrics、monitoring 摘要與 artifact hash 的 run manifest。
 9. 執行 smoke test。
 
 ### Start the Dashboard
@@ -527,7 +527,7 @@ reports/
 每次 run_all.py 完成評估後，會在本機產生 reports/metrics/run_manifest.json。這份檔案是一次 pipeline run 的可追溯摘要，不保存 raw data 或模型內容，而是保存可驗證的 metadata：
 
 - run_id、UTC 產生時間、Git revision、working tree 是否 dirty、Python 與平台資訊。
-- config.yaml 與 requirements.txt 的 SHA-256，讓設定與依賴版本可以被比對。
+- config.yaml、requirements.txt 與 Python 3.12 constraints 的 SHA-256，讓設定與依賴版本可以被比對。
 - Sample Data / API Data 模式、sample data 是否為模擬資料，以及 random state。
 - next-hour target、feature columns、禁止進入模型的 target 欄位、分組鍵與 leakage controls。
 - dataset rows、station count、日期範圍、data health、predictor / anomaly / backtest / forecast confidence 的 compact metrics。
@@ -593,9 +593,9 @@ run_project.bat --validate
 目前本地最終驗證結果：
 
 ~~~text
-pytest -q                         143 passed
+pytest -q                         146 passed
 public release gate               Passed
-run_project.bat --validate        pipeline + smoke test + 143 passed; exit 0
+run_project.bat --validate        pipeline + smoke test + 146 passed; exit 0
 pip check                         No broken requirements found
 compileall                        Passed
 pip-audit                         No known vulnerabilities found
@@ -729,7 +729,7 @@ aqi-anomaly-dashboard/
 - 建立目前篩選範圍的可靠性 JSON 匯出契約，將資料品質、測站優先級、模型 metrics、預測 coverage 與異常偵測限制整理成可重用的公開報告。
 - 實作 leakage-aware rolling-origin 評估與 80% / 95% empirical forecast intervals，揭露分測站可靠性、AQI 分級表現、coverage、區間寬度與 pseudo-label 限制。
 - 建立可重現 pipeline、smoke test、pytest、依賴安全稽核與 Windows 一鍵啟動流程，並將生成資料與模型排除在公開 GitHub repository 外。
-- 建立 machine-readable run manifest，記錄 Git revision、設定與依賴雜湊、leakage contract、metrics 摘要與輸出 artifact hash，讓每次 pipeline run 可被追溯與驗證。
+- 建立 machine-readable run manifest，記錄 Git revision、設定與依賴／constraints 雜湊、leakage contract、metrics 摘要與輸出 artifact hash，讓每次 pipeline run 可被追溯與驗證。
 - 建立持久化模型監控決策紀錄，以固定 snapshot identity 去重、保留近期歷史，並將漂移、coverage 與人工重訓建議呈現在 Dashboard。
 
 ### English resume bullets

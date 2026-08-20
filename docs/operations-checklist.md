@@ -15,7 +15,7 @@
 - 執行 `python src/smoke_test.py` 與 `pytest -q`。
 - 確認 `source_metadata.json` 的 status、data_source、row_count、datetime_range 與 schema hash。
 - 確認 `data_health.json` 的 missing cells、station count、observation delay 與 stale station count。
-- 確認 `run_manifest.json` 的 run mode、source summary、config hash、requirements hash 與 artifacts hash。
+- 確認 `run_manifest.json` 的 run mode、source summary、config hash、requirements／Python 3.12 constraints hash 與 artifacts hash。
 - 開啟 Dashboard，確認 Header、KPI、地圖、預測、異常、資料品質與模型指標皆能載入。
 - 確認頁面沒有 raw JSON、Python traceback、HTML/code snippet 或 secret 顯示。
 
