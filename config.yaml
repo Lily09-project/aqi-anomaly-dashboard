@@ -15,6 +15,7 @@ data:
   cleaned_file: data/processed/aqi_cleaned.csv
   features_file: data/processed/aqi_features.csv
   predictions_file: data/processed/aqi_predictions.csv
+  monitoring_predictions_file: data/processed/aqi_monitoring_predictions.csv
   anomaly_file: data/processed/aqi_anomaly_results.csv
   events_file: data/processed/aqi_anomaly_events.csv
 models:

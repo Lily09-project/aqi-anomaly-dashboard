@@ -64,6 +64,7 @@ def run_smoke_test() -> None:
         "data.cleaned_file",
         "data.features_file",
         "data.predictions_file",
+        "data.monitoring_predictions_file",
         "data.anomaly_file",
         "data.events_file",
         "models.predictor",
@@ -93,11 +94,31 @@ def run_smoke_test() -> None:
     assert {"county_display", "site_name_display"}.issubset(features.columns), "Missing display columns"
 
     predictions = pd.read_csv(resolve_path(config, "data.predictions_file"))
+    monitoring_predictions = pd.read_csv(resolve_path(config, "data.monitoring_predictions_file"))
     anomalies = pd.read_csv(resolve_path(config, "data.anomaly_file"))
     events = pd.read_csv(resolve_path(config, "data.events_file"))
     assert {"county_display", "site_name_display"}.issubset(predictions.columns), "Predictions missing display columns"
     confidence_columns = {"lower_80_aqi", "upper_80_aqi", "lower_95_aqi", "upper_95_aqi", "threshold_watch_level"}
     assert confidence_columns.issubset(predictions.columns), "Predictions missing confidence columns"
+    monitoring_columns = {
+        "datetime",
+        "site_name",
+        "training_cutoff",
+        "actual_next_hour_aqi",
+        "predicted_next_hour_aqi",
+        "prediction_stage",
+        "lower_80_aqi",
+        "upper_80_aqi",
+        "lower_95_aqi",
+        "upper_95_aqi",
+    }
+    assert monitoring_columns.issubset(monitoring_predictions.columns), "Monitoring predictions missing audit columns"
+    monitoring_times = monitoring_predictions[["datetime", "training_cutoff"]].apply(pd.to_datetime, errors="coerce")
+    assert monitoring_times.notna().all().all(), "Monitoring predictions contain invalid timestamps"
+    assert (monitoring_times["training_cutoff"] < monitoring_times["datetime"]).all(), "Monitoring cutoff leaks future data"
+    monitoring_stages = set(monitoring_predictions["prediction_stage"])
+    assert "final_test" in monitoring_stages, "Monitoring predictions missing final-test rows"
+    assert monitoring_stages.issubset({"rolling_origin_oof", "final_test"}), "Unknown monitoring prediction stage"
     assert {"county_display", "site_name_display"}.issubset(anomalies.columns), "Anomaly results missing display columns"
     assert {"event_id", "duration_hours", "peak_aqi", "evidence_summary"}.issubset(events.columns), "Events missing investigation columns"
     assert "Taipei" not in set(features["site_name_display"].astype(str)), "English site name leaked to display column"

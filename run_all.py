@@ -55,6 +55,7 @@ def _output_summary() -> list[Path]:
         resolve_path(config, "data.cleaned_file"),
         resolve_path(config, "data.features_file"),
         resolve_path(config, "data.predictions_file"),
+        resolve_path(config, "data.monitoring_predictions_file"),
         resolve_path(config, "data.anomaly_file"),
         resolve_path(config, "data.events_file"),
         resolve_path(config, "models.predictor"),

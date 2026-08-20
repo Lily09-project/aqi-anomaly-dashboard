@@ -196,6 +196,7 @@ Streamlit UI、地圖、篩選、下載與六個功能頁
 | src/forecast_confidence.py | 以歷史殘差建立 empirical forecast intervals |
 | src/model_reliability.py | 分測站、分 AQI level 的可靠性與樣本量分析 |
 | src/monitoring.py | 以不重疊時間窗口檢查資料分布、預測誤差與 interval coverage |
+| data/processed/aqi_monitoring_predictions.csv | rolling-origin OOF 與 final-test 的監控專用預測紀錄，不取代 final-test predictions |
 | src/risk_brief.py | 測站歷史基準、近期變化、異常證據與排序 |
 | src/station_comparison.py | 多測站比較、資料時差門檻與公開匯出 |
 | src/dashboard/ | context、資料服務、頁面、元件、地圖與樣式 |
@@ -250,7 +251,7 @@ Pipeline 會依序：
 3. 執行資料清理與 canonical schema mapping。
 4. 建立 station-aware time-series features。
 5. 訓練預測模型與異常模型。
-6. 輸出 metrics、figures、forecast confidence 與 data health。
+6. 輸出 metrics、figures、forecast confidence、data health 與可追溯的 monitoring scored predictions。
 7. 產生包含版本、設定雜湊、資料 contract、metrics、monitoring 摘要與 artifact hash 的 run manifest。
 8. 執行 smoke test。
 
@@ -566,9 +567,9 @@ run_project.bat --validate
 目前本地最終驗證結果：
 
 ~~~text
-pytest -q                         134 passed
+pytest -q                         136 passed
 public release gate               Passed
-run_project.bat --validate        pipeline + smoke test + 134 passed; exit 0
+run_project.bat --validate        pipeline + smoke test + 136 passed; exit 0
 pip check                         No broken requirements found
 compileall                        Passed
 pip-audit                         No known vulnerabilities found

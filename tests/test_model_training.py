@@ -48,8 +48,18 @@ def test_models_train_save_load_and_predict_quickly():
     assert predictor_path.exists()
     assert anomaly_path.exists()
     predictions = pd.read_csv(resolve_path(config, "data.predictions_file"))
+    monitoring_predictions_path = resolve_path(config, "data.monitoring_predictions_file")
+    monitoring_predictions = pd.read_csv(monitoring_predictions_path)
     anomaly_results = pd.read_csv(resolve_path(config, "data.anomaly_file"))
     assert {"county_display", "site_name_display"}.issubset(predictions.columns)
+    assert monitoring_predictions_path.exists()
+    assert {
+        "training_cutoff",
+        "actual_next_hour_aqi",
+        "predicted_next_hour_aqi",
+        "prediction_stage",
+    }.issubset(monitoring_predictions.columns)
+    assert "final_test" in set(monitoring_predictions["prediction_stage"])
     assert {"county_display", "site_name_display"}.issubset(anomaly_results.columns)
     assert predictor_metrics["selection_basis"] == "rolling_origin_rmse"
     assert set(predictor_metrics["split_rows"]) == {"train", "validation", "final_test"}

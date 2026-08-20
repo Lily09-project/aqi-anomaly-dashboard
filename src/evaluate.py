@@ -203,6 +203,12 @@ def evaluate(source_metadata: dict[str, object] | None = None) -> dict[str, obje
     config = load_config()
     features = pd.read_csv(resolve_path(config, "data.features_file"), parse_dates=["datetime"])
     predictions = pd.read_csv(resolve_path(config, "data.predictions_file"), parse_dates=["datetime"])
+    monitoring_predictions_path = resolve_path(config, "data.monitoring_predictions_file")
+    monitoring_predictions = (
+        pd.read_csv(monitoring_predictions_path, parse_dates=["datetime", "training_cutoff"])
+        if monitoring_predictions_path.exists()
+        else predictions
+    )
     anomalies = pd.read_csv(resolve_path(config, "data.anomaly_file"), parse_dates=["datetime"])
     events_path = resolve_path(config, "data.events_file")
     events = pd.read_csv(events_path, parse_dates=["datetime", "end_datetime", "peak_datetime"]) if events_path.exists() else pd.DataFrame()
@@ -223,7 +229,7 @@ def evaluate(source_metadata: dict[str, object] | None = None) -> dict[str, obje
     monitoring_config = config.get("monitoring", {})
     monitoring = build_monitoring_report(
         features,
-        predictions,
+        monitoring_predictions,
         reference_days=int(monitoring_config.get("reference_days", 14)),
         current_days=int(monitoring_config.get("current_days", 7)),
         thresholds=monitoring_config.get("thresholds", {}),
