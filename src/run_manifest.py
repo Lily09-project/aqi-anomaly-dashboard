@@ -21,6 +21,7 @@ DEFAULT_METRIC_FILES = (
     "forecast_confidence.json",
     "data_health.json",
     "monitoring.json",
+    "monitoring_history.json",
     "evaluation_summary.json",
 )
 DEFAULT_FIGURE_FILES = (
@@ -177,6 +178,10 @@ def _compact_metrics(root: Path) -> dict[str, Any]:
     confidence = _read_json(metrics_root / "forecast_confidence.json")
     data_health = _read_json(metrics_root / "data_health.json")
     monitoring = _read_json(metrics_root / "monitoring.json")
+    monitoring_history = _read_json(metrics_root / "monitoring_history.json")
+    history_entries = monitoring_history.get("entries", [])
+    history_entries = history_entries if isinstance(history_entries, list) else []
+    latest_history = history_entries[-1] if history_entries and isinstance(history_entries[-1], dict) else {}
     return {
         "predictor": {
             "best_model": predictor.get("best_model"),
@@ -221,6 +226,12 @@ def _compact_metrics(root: Path) -> dict[str, Any]:
             "reasons": monitoring.get("retraining", {}).get("reasons", [])
             if isinstance(monitoring.get("retraining"), dict)
             else [],
+        },
+        "monitoring_history": {
+            "entry_count": int(monitoring_history.get("entry_count", len(history_entries)) or 0),
+            "latest_status": latest_history.get("status"),
+            "latest_action": latest_history.get("action"),
+            "latest_data_end": latest_history.get("data_end"),
         },
     }
 

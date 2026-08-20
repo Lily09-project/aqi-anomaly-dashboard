@@ -68,6 +68,7 @@ def _output_summary() -> list[Path]:
         resolve_path(config, "reports.monitoring_file")
         if "monitoring_file" in config.get("reports", {})
         else resolve_path(config, "reports.metrics_dir") / "monitoring.json",
+        resolve_path(config, "monitoring.history_file"),
         resolve_path(config, "reports.metrics_dir") / "evaluation_summary.json",
         resolve_path(config, "reports.metrics_dir") / "source_metadata.json",
         resolve_path(config, "reports.metrics_dir") / "run_manifest.json",

@@ -12,7 +12,7 @@ from src.dashboard.context import (
     PageContext,
 )
 from src.dashboard.pages import PAGE_RENDERERS
-from src.dashboard.pages.metrics import manifest_evidence_table
+from src.dashboard.pages.metrics import manifest_evidence_table, monitoring_history_table
 
 
 EXPECTED_PAGES = {"總覽", "地區比較", "預測", "異常偵測", "資料品質", "模型指標"}
@@ -155,3 +155,31 @@ def test_manifest_evidence_is_flattened_for_reviewers() -> None:
     assert table.loc[table["項目"] == "Feature contract", "內容"].item() == "通過"
     assert table.loc[table["項目"] == "Artifact SHA-256", "內容"].item() == "1/1 已記錄"
     assert not any(isinstance(value, dict) for value in table.to_numpy().ravel())
+
+
+def test_monitoring_history_is_flattened_and_localized() -> None:
+    history = {
+        "entries": [
+            {
+                "recorded_at_utc": "2026-08-20T04:30:00Z",
+                "data_end": "2026-08-20T12:00:00",
+                "data_source": "Sample Data",
+                "model_name": "random_forest",
+                "status": "warning",
+                "action": "investigate",
+                "reference_mae": 4.0,
+                "current_mae": 5.0,
+                "mae_change_pct": 25.0,
+                "coverage_80": 0.8,
+                "coverage_95": 0.95,
+            }
+        ]
+    }
+
+    table = monitoring_history_table(history)
+
+    assert table.loc[0, "status"] == "需留意"
+    assert table.loc[0, "action"] == "調查偏移原因"
+    assert table.loc[0, "current_mae"] == 5.0
+    assert table.loc[0, "data_source"] == "Sample Data"
+    assert not any(isinstance(value, (dict, list)) for value in table.to_numpy().ravel())

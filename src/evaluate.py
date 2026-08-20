@@ -10,6 +10,7 @@ import pandas as pd
 
 from src.data_health import build_data_health
 from src.monitoring import build_monitoring_report
+from src.monitoring_history import build_monitoring_snapshot, update_monitoring_history
 from src.source_metadata import load_source_metadata
 from src.theme import THEME
 from src.utils import ensure_parent, load_config, resolve_path, write_json
@@ -234,6 +235,19 @@ def evaluate(source_metadata: dict[str, object] | None = None) -> dict[str, obje
         current_days=int(monitoring_config.get("current_days", 7)),
         thresholds=monitoring_config.get("thresholds", {}),
     )
+    data_end = features["datetime"].max().isoformat()
+    monitoring_snapshot = build_monitoring_snapshot(
+        monitoring,
+        data_end=data_end,
+        data_source=str(provenance.get("data_source", "Unknown")),
+        model_name=str(predictor_metrics.get("best_model", "unknown")),
+    )
+    history_path = resolve_path(config, "monitoring.history_file")
+    monitoring_history = update_monitoring_history(
+        history_path,
+        monitoring_snapshot,
+        max_entries=int(monitoring_config.get("max_history_entries", 90)),
+    )
 
     summary = {
         "rows": {
@@ -253,6 +267,11 @@ def evaluate(source_metadata: dict[str, object] | None = None) -> dict[str, obje
         "forecast_confidence": confidence_metrics,
         "data_health": data_health,
         "monitoring": monitoring,
+        "monitoring_history": {
+            "entry_count": monitoring_history["entry_count"],
+            "latest_status": monitoring_snapshot["status"],
+            "latest_action": monitoring_snapshot["action"],
+        },
         "interpretation": [
             "Moving Average 作為下一小時 AQI 預測 baseline。",
             "預測模型僅以 validation split 選擇，final test 僅用於最終報告；rolling-origin backtest 用於檢查多個歷史時間窗。",

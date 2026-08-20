@@ -79,6 +79,7 @@ def run_smoke_test() -> None:
                 "data_health.json",
                 "forecast_confidence.json",
                 "monitoring.json",
+                "monitoring_history.json",
                 "run_manifest.json",
             ]:
                 report = resolve_path(config, key) / report_name
@@ -140,6 +141,17 @@ def run_smoke_test() -> None:
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     assert "data_health" in summary and "backtest_metrics" in summary, "Evaluation summary missing reliability reports"
     assert summary.get("monitoring", {}).get("status") in {"stable", "warning", "critical", "insufficient_data"}, "Evaluation summary missing monitoring status"
+    monitoring_history_path = resolve_path(config, "monitoring.history_file")
+    monitoring_history = json.loads(monitoring_history_path.read_text(encoding="utf-8"))
+    assert monitoring_history.get("history_version") == "1.0", "Monitoring history version is missing"
+    assert monitoring_history.get("entry_count", 0) >= 1, "Monitoring history is empty"
+    latest_history = monitoring_history.get("entries", [])[-1]
+    assert latest_history.get("action") in {
+        "observe",
+        "investigate",
+        "review_retraining",
+        "collect_more_data",
+    }, "Monitoring history action is invalid"
     assert summary.get("forecast_confidence", {}).get("method") == "rolling_origin_conformal", "Evaluation summary missing forecast confidence"
     manifest_path = resolve_path(config, "reports.metrics_dir") / "run_manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))

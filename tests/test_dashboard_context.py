@@ -60,6 +60,7 @@ def test_dashboard_metrics_empty_has_all_named_reports() -> None:
     assert metrics.evaluation == {}
     assert metrics.manifest == {}
     assert metrics.monitoring == {}
+    assert metrics.monitoring_history == {}
 
 
 def test_page_context_validates_required_selected_columns() -> None:

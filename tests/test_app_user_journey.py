@@ -51,3 +51,17 @@ def test_user_can_change_theme_filters_and_custom_date_range() -> None:
     assert len(app.date_input) == 1
     assert len(app.button) == 2
     assert len(app.get("download_button")) >= 3
+
+
+def test_reviewer_can_inspect_monitoring_history_and_decision_state() -> None:
+    app = _app()
+    navigation = app.get("button_group")[0]
+    navigation.set_value("模型指標")
+    app.run()
+
+    assert not app.exception
+    assert "監控歷史與重訓決策" in [element.value for element in app.subheader]
+    metric_labels = [element.label for element in app.metric]
+    assert "監控批次" in metric_labels
+    assert "最新狀態" in metric_labels
+    assert "建議行動" in metric_labels

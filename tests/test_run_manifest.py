@@ -66,6 +66,7 @@ def test_write_run_manifest_is_valid_json_and_marks_missing_outputs(tmp_path: Pa
     assert payload["run"]["is_simulated_data"] is False
     assert any(item["exists"] is False for item in payload["artifacts"])
     assert any(item["path"] == "reports/metrics/monitoring.json" for item in payload["artifacts"])
+    assert any(item["path"] == "reports/metrics/monitoring_history.json" for item in payload["artifacts"])
     assert any(item["path"] == "data/processed/aqi_monitoring_predictions.csv" for item in payload["artifacts"])
     assert payload["project"]["git_revision"]
 
