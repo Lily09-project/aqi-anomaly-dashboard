@@ -52,10 +52,12 @@ def test_evaluation_writes_metrics_and_figures():
     assert (metrics_dir / "evaluation_summary.json").exists()
     assert (metrics_dir / "backtest_metrics.json").exists()
     assert (metrics_dir / "data_health.json").exists()
+    assert (metrics_dir / "monitoring.json").exists()
     assert resolve_path(config, "data.events_file").exists()
     assert summary["rows"]["anomaly_events"] >= 0
     assert summary["forecast_confidence"]["method"] == "rolling_origin_conformal"
     assert confidence_metrics["intervals"]["95"]["empirical_coverage"] >= 0
     assert "status" in summary["data_health"]
+    assert summary["monitoring"]["status"] in {"stable", "warning", "critical", "insufficient_data"}
     for figure in ["aqi_trend.png", "prediction_vs_actual.png", "anomaly_cases.png"]:
         assert (resolve_path(config, "reports.figures_dir") / figure).exists()

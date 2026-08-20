@@ -40,3 +40,14 @@ Sample Data 的日期由 sample generator 以目前日期往前產生，仍然�
 ## 官方資料欄位
 
 本 adapter 對環境部 AQX API 常見欄位做 canonical alias mapping：`SiteName`、`County`、`AQI`、`PM2.5`、`PM10`、`O3`、`CO`、`WIND_SPEED`、`WIND_DIREC` 與 `publishtime` 等欄位會標準化為 pipeline 使用的英文欄位。schema 不完整時不進入模型流程，而是記錄 fallback。
+
+官方資料集與 API 說明：
+
+- 資料集：<https://data.moenv.gov.tw/dataset/detail/aqx_p_432>
+- API endpoint：`https://data.moenv.gov.tw/api/v2/AQX_P_432`
+
+本專案不在 Dashboard render 階段直接呼叫上游 API；API 取得、schema 驗證、fallback 與 provenance metadata 都由 pipeline 處理，前端只讀取已驗證的本地 artifacts。
+
+## 監控報表
+
+`reports/metrics/monitoring.json` 比較兩個不重疊的時間窗口：預設為最近 7 天（current window）與其之前 14 天（reference window）。報表會整理 AQI／PM2.5 分布偏移、預測 MAE 變化與 80%／95% 預測區間 coverage。`warning` 或 `critical` 只代表需要人工檢查的診斷訊號，不會自動替換模型或發送官方警報；資料不足時會明確標記 `insufficient_data`。

@@ -43,6 +43,7 @@ class DashboardMetrics:
     confidence: dict[str, Any]
     data_health: dict[str, Any]
     evaluation: dict[str, Any]
+    monitoring: dict[str, Any]
     manifest: dict[str, Any] = field(default_factory=dict)
     source_metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -55,6 +56,7 @@ class DashboardMetrics:
             confidence={},
             data_health={},
             evaluation={},
+            monitoring={},
             manifest={},
             source_metadata={},
         )

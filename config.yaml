@@ -25,6 +25,16 @@ reports:
   figures_dir: reports/figures
   confidence_file: reports/metrics/forecast_confidence.json
   source_metadata_file: reports/metrics/source_metadata.json
+  monitoring_file: reports/metrics/monitoring.json
+monitoring:
+  reference_days: 14
+  current_days: 7
+  thresholds:
+    mean_shift_warning: 0.5
+    mean_shift_critical: 1.0
+    mae_increase_warning_pct: 25.0
+    coverage_shortfall_warning: 0.05
+    coverage_shortfall_critical: 0.10
 selected_sites:
   - 松山測站
   - 西屯測站
