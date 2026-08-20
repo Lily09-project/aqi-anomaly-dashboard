@@ -26,7 +26,7 @@
 | 可重現入口 | run_all.py、smoke test、pytest、Windows one-click launcher |
 | 公開原則 | GitHub 只保留程式、設定範例、測試與文件，生成物由流程重新建立 |
 
-快速入口：[部署指南](docs/deployment.md) · [操作檢查表](docs/operations-checklist.md) · [資料契約](docs/data-contract.md)
+快速入口：[部署指南](docs/deployment.md) · [操作檢查表](docs/operations-checklist.md) · [資料契約](docs/data-contract.md) · [中文面試講稿](docs/interview-guide.md)
 
 ## Actual Output Preview
 
@@ -101,6 +101,7 @@
 - KPI 顯示 Latest AQI、AQI Level、Average AQI、Latest PM2.5、Anomaly Count、Data Rows 與 Station Count。
 - 可以下載目前篩選後的公開 CSV、繁體中文文字摘要與可靠性 JSON 報告。
 - 可靠性報告固定整理資料品質、測站優先級、模型表現、預測區間與異常偵測限制。
+- 模型指標頁會比較 reference／current windows，顯示 AQI、PM2.5 分布偏移、預測 MAE 變化與預測區間 coverage；這些是人工診斷訊號，不會自動重訓。
 - 公開下載欄位不包含 target、lag、rolling window 或其他模型內部特徵。
 - 缺資料、缺模型與 API 失敗時會顯示可理解的 fallback 或 empty state，而不是直接崩潰。
 
@@ -174,7 +175,7 @@ train_predictor.py          train_anomaly_model.py
         └──────────────┬──────────┘
                        ▼
 evaluate.py / model_reliability.py / data_health.py
-metrics、figures、資料健康度、分站可靠性
+metrics、figures、資料健康度、分站可靠性、monitoring drift report
                        │
                        ▼
 app.py + src/dashboard/
@@ -194,6 +195,7 @@ Streamlit UI、地圖、篩選、下載與六個功能頁
 | src/train_anomaly_model.py | 異常模型、pseudo-label 評估與事件輸出 |
 | src/forecast_confidence.py | 以歷史殘差建立 empirical forecast intervals |
 | src/model_reliability.py | 分測站、分 AQI level 的可靠性與樣本量分析 |
+| src/monitoring.py | 以不重疊時間窗口檢查資料分布、預測誤差與 interval coverage |
 | src/risk_brief.py | 測站歷史基準、近期變化、異常證據與排序 |
 | src/station_comparison.py | 多測站比較、資料時差門檻與公開匯出 |
 | src/dashboard/ | context、資料服務、頁面、元件、地圖與樣式 |
@@ -249,7 +251,7 @@ Pipeline 會依序：
 4. 建立 station-aware time-series features。
 5. 訓練預測模型與異常模型。
 6. 輸出 metrics、figures、forecast confidence 與 data health。
-7. 產生包含版本、設定雜湊、資料 contract、metrics 與 artifact hash 的 run manifest。
+7. 產生包含版本、設定雜湊、資料 contract、metrics、monitoring 摘要與 artifact hash 的 run manifest。
 8. 執行 smoke test。
 
 ### Start the Dashboard
@@ -340,7 +342,8 @@ Sample Data 只能代表可重現的測試情境，不可用來推論真實空�
 API URL 可以放在 config.yaml 的 api.url，或放入未提交的 .env：
 
 ~~~dotenv
-AQI_API_URL=https://your-aqi-endpoint.example/api/data
+AQI_API_URL=https://data.moenv.gov.tw/api/v2/AQX_P_432
+# AQI_API_KEY=  # 若上游要求授權，請只放在未提交的 .env 或平台 secrets
 ~~~
 
 Parser 支援 JSON records、result、data 結構與 CSV，並將來源欄位轉成 canonical schema。必要欄位為：
@@ -360,6 +363,8 @@ API 讀取安全措施：
 - 欄位不足、格式錯誤或連線失敗時 fallback 到 Sample Data。
 - API key、token 與密碼不寫入前端程式碼或 repository。
 - 這些檢查是靜態 URL 邊界；正式公開部署仍應搭配固定 allowlist、egress policy 或受控 proxy。
+
+本專案使用的官方資料集為環境部 AQX_P_432：[資料集說明](https://data.moenv.gov.tw/dataset/detail/aqx_p_432)。API Data 仍須依上游回應通過 schema、時間與資料品質驗證；Sample Data 是離線展示與測試用模擬資料。
 
 ## Modeling
 
@@ -561,9 +566,9 @@ run_project.bat --validate
 目前本地最終驗證結果：
 
 ~~~text
-pytest -q                         130 passed
+pytest -q                         134 passed
 public release gate               Passed
-run_project.bat --validate        pipeline + smoke test + 130 passed; exit 0
+run_project.bat --validate        pipeline + smoke test + 134 passed; exit 0
 pip check                         No broken requirements found
 compileall                        Passed
 pip-audit                         No known vulnerabilities found
@@ -656,6 +661,7 @@ aqi-anomaly-dashboard/
 - api.url、timeout 與資料路徑。
 - train.feature_columns、validation / test ratio 與 backtest folds。
 - forecast_confidence.levels 與 AQI 門檻。
+- monitoring.reference_days、current_days 與 drift thresholds。
 - anomaly.contamination、AQI / PM2.5 pseudo-label 門檻與事件間隔。
 - risk_policy 的 lookback、近期窗口、基準門檻與排序權重。
 
@@ -679,7 +685,7 @@ aqi-anomaly-dashboard/
 2. 將 station registry 與官方測站狀態、維護資訊及座標版本同步。
 3. 加入可信氣象來源，評估風速、風向、降雨與邊界層條件。
 4. 依測站、季節與時段校準異常門檻，並導入人工事件標註。
-5. 加入資料漂移、預測漂移、coverage 漂移與模型重訓監控。
+5. 將目前的 drift report 接到長期歷史儲存、告警通知與人工重訓審核流程。
 6. 以排程工作與容器化部署支援每日更新。
 7. 將目前的 run manifest 擴充為 dataset / model registry，保存官方資料版本、模型 artifact metadata 與長期評估歷史。
 

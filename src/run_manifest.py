@@ -20,6 +20,7 @@ DEFAULT_METRIC_FILES = (
     "backtest_metrics.json",
     "forecast_confidence.json",
     "data_health.json",
+    "monitoring.json",
     "evaluation_summary.json",
 )
 DEFAULT_FIGURE_FILES = (
@@ -169,6 +170,7 @@ def _compact_metrics(root: Path) -> dict[str, Any]:
     backtest = _read_json(metrics_root / "backtest_metrics.json")
     confidence = _read_json(metrics_root / "forecast_confidence.json")
     data_health = _read_json(metrics_root / "data_health.json")
+    monitoring = _read_json(metrics_root / "monitoring.json")
     return {
         "predictor": {
             "best_model": predictor.get("best_model"),
@@ -198,6 +200,22 @@ def _compact_metrics(root: Path) -> dict[str, Any]:
             "limitation_note": confidence.get("limitation_note"),
         },
         "data_health": data_health,
+        "monitoring": {
+            "status": monitoring.get("status"),
+            "reference_window": monitoring.get("reference_window", {}),
+            "current_window": monitoring.get("current_window", {}),
+            "prediction_status": monitoring.get("prediction", {}).get("status")
+            if isinstance(monitoring.get("prediction"), dict)
+            else None,
+            "retraining_recommended": bool(
+                monitoring.get("retraining", {}).get("recommended")
+                if isinstance(monitoring.get("retraining"), dict)
+                else False
+            ),
+            "reasons": monitoring.get("retraining", {}).get("reasons", [])
+            if isinstance(monitoring.get("retraining"), dict)
+            else [],
+        },
     }
 
 

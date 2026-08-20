@@ -77,6 +77,7 @@ def run_smoke_test() -> None:
                 "backtest_metrics.json",
                 "data_health.json",
                 "forecast_confidence.json",
+                "monitoring.json",
                 "run_manifest.json",
             ]:
                 report = resolve_path(config, key) / report_name
@@ -117,6 +118,7 @@ def run_smoke_test() -> None:
     summary_path = resolve_path(config, "reports.metrics_dir") / "evaluation_summary.json"
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     assert "data_health" in summary and "backtest_metrics" in summary, "Evaluation summary missing reliability reports"
+    assert summary.get("monitoring", {}).get("status") in {"stable", "warning", "critical", "insufficient_data"}, "Evaluation summary missing monitoring status"
     assert summary.get("forecast_confidence", {}).get("method") == "rolling_origin_conformal", "Evaluation summary missing forecast confidence"
     manifest_path = resolve_path(config, "reports.metrics_dir") / "run_manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))

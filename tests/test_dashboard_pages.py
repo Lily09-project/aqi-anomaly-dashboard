@@ -79,7 +79,7 @@ def test_registered_renderers_accept_page_context(label: str) -> None:
 
 
 def test_metrics_page_builds_reliability_tables_without_raw_json() -> None:
-    from src.dashboard.pages.metrics import reliability_station_table, station_coverage_table
+    from src.dashboard.pages.metrics import monitoring_signal_table, reliability_station_table, station_coverage_table
 
     predictor = {
         "reliability": {
@@ -105,16 +105,32 @@ def test_metrics_page_builds_reliability_tables_without_raw_json() -> None:
 
     reliability_table = reliability_station_table(predictor)
     coverage_table = station_coverage_table(confidence)
+    monitoring_table = monitoring_signal_table(
+        {
+            "signals": [
+                {
+                    "column": "aqi",
+                    "reference_mean": 50.0,
+                    "current_mean": 65.0,
+                    "standardized_mean_shift": 1.2,
+                    "status": "critical",
+                }
+            ]
+        }
+    )
     source = (Path(__file__).parents[1] / "src" / "dashboard" / "pages" / "metrics.py").read_text(encoding="utf-8")
 
     assert reliability_table.loc[0, "rows"] == 12
     assert coverage_table.loc[0, "coverage_80"] == 0.75
     assert coverage_table.loc[0, "rows_95"] == 12
+    assert monitoring_table.loc[0, "signal"] == "AQI"
+    assert monitoring_table.loc[0, "status"] == "嚴重偏移"
     assert "baseline_improvement" in source
     assert "worst_station" in source
     assert "審查證據與可重現性" in source
     assert "feature_contract_valid" in source
     assert "st.json" not in source
+    assert "模型健康度與漂移" in source
 
 
 def test_manifest_evidence_is_flattened_for_reviewers() -> None:

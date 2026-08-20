@@ -9,6 +9,7 @@ import zlib
 import pandas as pd
 
 from src.data_health import build_data_health
+from src.monitoring import build_monitoring_report
 from src.source_metadata import load_source_metadata
 from src.theme import THEME
 from src.utils import ensure_parent, load_config, resolve_path, write_json
@@ -219,6 +220,14 @@ def evaluate(source_metadata: dict[str, object] | None = None) -> dict[str, obje
     provenance = source_metadata if source_metadata is not None else load_source_metadata(config)
     stale_after_hours = int(config.get("data", {}).get("stale_after_hours", 3))
     data_health = build_data_health(features, stale_after_hours=stale_after_hours, source_metadata=provenance)
+    monitoring_config = config.get("monitoring", {})
+    monitoring = build_monitoring_report(
+        features,
+        predictions,
+        reference_days=int(monitoring_config.get("reference_days", 14)),
+        current_days=int(monitoring_config.get("current_days", 7)),
+        thresholds=monitoring_config.get("thresholds", {}),
+    )
 
     summary = {
         "rows": {
@@ -237,6 +246,7 @@ def evaluate(source_metadata: dict[str, object] | None = None) -> dict[str, obje
         "backtest_metrics": backtest_metrics,
         "forecast_confidence": confidence_metrics,
         "data_health": data_health,
+        "monitoring": monitoring,
         "interpretation": [
             "Moving Average 作為下一小時 AQI 預測 baseline。",
             "預測模型僅以 validation split 選擇，final test 僅用於最終報告；rolling-origin backtest 用於檢查多個歷史時間窗。",
@@ -248,6 +258,8 @@ def evaluate(source_metadata: dict[str, object] | None = None) -> dict[str, obje
 
     _plot_figures(features, predictions, anomalies, figures_dir)
     write_json(metrics_dir / "data_health.json", data_health)
+    monitoring_path = resolve_path(config, "reports.monitoring_file") if "monitoring_file" in config.get("reports", {}) else metrics_dir / "monitoring.json"
+    write_json(monitoring_path, monitoring)
     write_json(metrics_dir / "evaluation_summary.json", summary)
     return summary
 

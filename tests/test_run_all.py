@@ -37,6 +37,9 @@ def test_run_all_sample_creates_required_outputs():
         resolve_path(config, "reports.metrics_dir") / "backtest_metrics.json",
         resolve_path(config, "reports.confidence_file"),
         resolve_path(config, "reports.metrics_dir") / "data_health.json",
+        resolve_path(config, "reports.monitoring_file")
+        if "monitoring_file" in config.get("reports", {})
+        else resolve_path(config, "reports.metrics_dir") / "monitoring.json",
         resolve_path(config, "reports.metrics_dir") / "evaluation_summary.json",
         resolve_path(config, "reports.metrics_dir") / "run_manifest.json",
     ]
@@ -49,4 +52,10 @@ def test_run_all_sample_creates_required_outputs():
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest["run"]["data_source"] == "Sample Data"
     assert manifest["data_contract"]["target"] == "target_next_hour_aqi"
+    assert manifest["metrics"]["monitoring"]["status"] in {
+        "stable",
+        "warning",
+        "critical",
+        "insufficient_data",
+    }
     assert all(artifact["exists"] for artifact in manifest["artifacts"])

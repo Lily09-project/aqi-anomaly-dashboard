@@ -45,6 +45,29 @@ def _mapping(value: object) -> dict[str, object]:
     return value if isinstance(value, dict) else {}
 
 
+def monitoring_signal_table(monitoring: dict[str, object]) -> pd.DataFrame:
+    status_labels = {"stable": "穩定", "warning": "需留意", "critical": "嚴重偏移"}
+    signal_labels = {"aqi": "AQI", "pm25": "PM2.5"}
+    rows = []
+    signals = monitoring.get("signals", [])
+    if not isinstance(signals, list):
+        return pd.DataFrame()
+    for item in signals:
+        if not isinstance(item, dict):
+            continue
+        column = str(item.get("column", ""))
+        rows.append(
+            {
+                "signal": signal_labels.get(column, column),
+                "reference_mean": item.get("reference_mean"),
+                "current_mean": item.get("current_mean"),
+                "standardized_mean_shift": item.get("standardized_mean_shift"),
+                "status": status_labels.get(str(item.get("status", "")), "資料不足"),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def manifest_evidence_table(manifest: dict[str, object]) -> pd.DataFrame:
     """Flatten the run manifest into a reviewer-readable evidence table."""
     project = _mapping(manifest.get("project"))
@@ -79,10 +102,45 @@ def render(context: PageContext) -> None:
     backtest_metrics = context.metrics.backtest
     confidence_metrics = context.metrics.confidence
     evaluation_summary = context.metrics.evaluation
+    monitoring = context.metrics.monitoring
     st.markdown(
         '<div class="section-note">此頁整理預測與異常偵測指標。異常偵測 precision、recall、F1 是對 pseudo-label 評估，不代表真實污染事件準確率。</div>',
         unsafe_allow_html=True,
     )
+    st.subheader("模型健康度與漂移")
+    monitoring_status = str(monitoring.get("status", "insufficient_data"))
+    status_labels = {
+        "stable": "穩定",
+        "warning": "需留意",
+        "critical": "嚴重偏移",
+        "insufficient_data": "資料不足",
+    }
+    prediction_drift = _mapping(monitoring.get("prediction"))
+    retraining = _mapping(monitoring.get("retraining"))
+    monitoring_columns = st.columns(3)
+    monitoring_columns[0].metric("整體狀態", status_labels.get(monitoring_status, "資料不足"))
+    monitoring_columns[1].metric("目前 MAE", prediction_drift.get("current_mae", "N/A"))
+    monitoring_columns[2].metric("建議重新訓練", "是" if retraining.get("recommended") else "否")
+    monitoring_table = monitoring_signal_table(monitoring)
+    if monitoring_table.empty:
+        st.info("目前資料不足以比較 reference 與 current window；至少需要完整的歷史與近期資料窗口。")
+    else:
+        render_table(
+            monitoring_table.rename(
+                columns={
+                    "signal": "監控訊號",
+                    "reference_mean": "基準平均",
+                    "current_mean": "近期平均",
+                    "standardized_mean_shift": "標準化偏移",
+                    "status": "狀態",
+                }
+            ),
+            label="資料分布漂移",
+        )
+    reasons = retraining.get("reasons", [])
+    if isinstance(reasons, list) and reasons:
+        st.warning("重新訓練依據：" + "；".join(str(reason) for reason in reasons))
+    st.caption("監控比較最近 7 天與前 14 天；這是診斷訊號，不會自動替換模型。")
     st.subheader("AQI 預測模型")
     predictor_table = _model_metrics_table(predictor_metrics)
     if predictor_table.empty:
