@@ -26,6 +26,8 @@
 | 可重現入口 | run_all.py、smoke test、pytest、Windows one-click launcher |
 | 公開原則 | GitHub 只保留程式、設定範例、測試與文件，生成物由流程重新建立 |
 
+快速入口：[部署指南](docs/deployment.md) · [操作檢查表](docs/operations-checklist.md) · [資料契約](docs/data-contract.md)
+
 ## Actual Output Preview
 
 以下圖片由本次 run_all.py --mode sample 實際產生，不是手工繪製的 mockup。圖片只包含公開分析結果，不包含 API token、原始 API 回應或模型檔。
@@ -559,9 +561,9 @@ run_project.bat --validate
 目前本地最終驗證結果：
 
 ~~~text
-pytest -q                         113 passed
+pytest -q                         128 passed
 public release gate               Passed
-run_project.bat --validate        pipeline + smoke test + 113 passed; exit 0
+run_project.bat --validate        pipeline + smoke test + 128 passed; exit 0
 pip check                         No broken requirements found
 compileall                        Passed
 pip-audit                         No known vulnerabilities found
@@ -668,13 +670,13 @@ aqi-anomaly-dashboard/
 - 模型未納入完整氣象場、交通、排放源、地形與衛星觀測，因此不能做污染因果解釋。
 - 測站脈絡排序是人工檢視輔助，不是官方警報或健康風險分數。
 - 地區比較不代表個人暴露量、交通時間或健康適宜性。
-- 地圖座標對 Sample Data 有內建對照；正式部署應改用官方測站經緯度資料。
+- 地圖座標由 `config/stations.yaml` 的單一 registry 管理；近似座標會明確標示來源，正式使用仍應定期與官方測站 metadata 校對。
 - 現行結果適合作品集與本地 Demo，若要正式部署，還需要資料授權、監控、人工標註、模型治理與適用法規審查。
 
 ## Roadmap
 
 1. 串接穩定的環境部或 data.gov.tw 開放資料，建立資料版本與更新時間。
-2. 以官方測站經緯度、測站狀態與維護資訊取代 Demo 座標。
+2. 將 station registry 與官方測站狀態、維護資訊及座標版本同步。
 3. 加入可信氣象來源，評估風速、風向、降雨與邊界層條件。
 4. 依測站、季節與時段校準異常門檻，並導入人工事件標註。
 5. 加入資料漂移、預測漂移、coverage 漂移與模型重訓監控。

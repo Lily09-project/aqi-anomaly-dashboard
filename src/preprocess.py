@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import Any, Mapping
 
 import pandas as pd
 
@@ -36,7 +37,23 @@ def _input_path(config: dict, mode: str) -> Path:
     return latest or resolve_path(config, "data.sample_file")
 
 
-def preprocess(mode: str = "sample", input_path: str | Path | None = None) -> pd.DataFrame:
+def _is_verified_api_source(mode: str, source_metadata: Mapping[str, Any] | None) -> bool:
+    if mode != "api":
+        return False
+    if source_metadata is None:
+        return True
+    return (
+        source_metadata.get("status") == "success"
+        and source_metadata.get("data_source") == "API Data"
+        and source_metadata.get("is_simulated_data") is False
+    )
+
+
+def preprocess(
+    mode: str = "sample",
+    input_path: str | Path | None = None,
+    source_metadata: Mapping[str, Any] | None = None,
+) -> pd.DataFrame:
     config = load_config()
     src = Path(input_path) if input_path else _input_path(config, mode)
     if not src.exists():
@@ -61,9 +78,7 @@ def preprocess(mode: str = "sample", input_path: str | Path | None = None) -> pd
 
     df = df.dropna(subset=NUMERIC_COLUMNS)
     df = df.drop_duplicates(["site_name", "datetime"]).reset_index(drop=True)
-    sample_path = resolve_path(config, "data.sample_file").resolve()
-    is_sample = mode == "sample" or src.resolve() == sample_path
-    df["data_source"] = "Sample Data" if is_sample else "API Data"
+    df["data_source"] = "API Data" if _is_verified_api_source(mode, source_metadata) else "Sample Data"
     df = add_display_columns(df)
     out = resolve_path(config, "data.cleaned_file")
     write_csv(df, out, index=False, encoding="utf-8")

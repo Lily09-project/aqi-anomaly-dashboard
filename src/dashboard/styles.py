@@ -1180,7 +1180,49 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
                 transition-duration: 0.01ms !important;
             }}
         }}
-        </style>
+                .source-status-panel {{
+            margin: 0 0 1rem;
+            padding: 0.8rem 0.95rem;
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--secondary);
+            border-radius: 8px;
+            background: var(--surface);
+            color: var(--text);
+        }}
+        .source-status-panel.warning {{
+            border-left-color: var(--accent);
+            background: var(--accent-soft);
+        }}
+        .source-status-panel.positive {{
+            border-left-color: var(--success);
+            background: var(--success-soft);
+        }}
+        .source-status-head {{
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+        }}
+        .source-status-kicker {{
+            color: var(--muted-text);
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }}
+        .source-status-head strong {{
+            color: var(--text);
+            font-size: 0.92rem;
+        }}
+        .source-status-panel p {{
+            margin: 0.3rem 0 0;
+            color: var(--text) !important;
+            font-size: 0.82rem;
+            line-height: 1.5;
+        }}        .status-pill.warning {{ border-left-color: var(--accent); }}
+        .status-pill.warning .status-dot {{ background: var(--accent); }}
+        .status-pill.positive .status-dot {{ background: var(--success); }}</style>
         """,
         unsafe_allow_html=True,
     )

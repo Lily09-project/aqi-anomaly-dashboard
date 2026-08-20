@@ -27,6 +27,7 @@ def test_public_release_guard_accepts_required_files_and_tracked_assets(tmp_path
 
     assert result["passed"] is True
     assert result["missing_public_paths"] == []
+    assert result["untracked_public_paths"] == []
     assert result["missing_readme_assets"] == []
     assert result["untracked_readme_assets"] == []
     assert result["sensitive_paths"] == []
@@ -51,3 +52,15 @@ def test_public_release_guard_blocks_generated_files_and_credentials(tmp_path: P
     assert "notes.txt" in result["credential_hits"]
     assert ".env" in result["sensitive_paths"]
     assert ".streamlit/secrets.toml" in result["sensitive_paths"]
+
+
+def test_public_release_guard_requires_public_files_to_be_tracked(tmp_path: Path) -> None:
+    tracked_files = list(REQUIRED_PUBLIC_PATHS)
+    _write_public_fixture(tmp_path, tracked_files)
+    tracked_files.remove("docs/deployment.md")
+
+    result = validate_public_release(tmp_path, tracked_files)
+
+    assert result["passed"] is False
+    assert result["missing_public_paths"] == []
+    assert result["untracked_public_paths"] == ["docs/deployment.md"]

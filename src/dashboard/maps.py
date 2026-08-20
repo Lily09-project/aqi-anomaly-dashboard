@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from src.app_helpers import get_station_coordinates
+from src.app_helpers import get_station_location
 
 try:
     import plotly.graph_objects as go  # type: ignore
@@ -18,10 +18,11 @@ except Exception:  # pragma: no cover
 def _station_map_data(brief: pd.DataFrame) -> pd.DataFrame:
     rows: list[dict[str, object]] = []
     for _, row in brief.iterrows():
-        coordinates = get_station_coordinates(row.get("site_name_display"), row.get("county_display"))
-        if coordinates is None:
+        location = get_station_location(row.get("site_name_display"), row.get("county_display"))
+        if location is None:
             continue
-        latitude, longitude = coordinates
+        latitude = float(location["latitude"])
+        longitude = float(location["longitude"])
         rows.append(
             {
                 "site_name_display": str(row.get("site_name_display", "未知測站")),
@@ -32,6 +33,8 @@ def _station_map_data(brief: pd.DataFrame) -> pd.DataFrame:
                 "latest_pm25": row.get("latest_pm25"),
                 "attention_level": str(row.get("attention_level", "一般監測")),
                 "evidence_summary": str(row.get("evidence_summary", "")),
+                "coordinate_source": str(location.get("coordinate_source", "unknown")),
+                "source_note": str(location.get("source_note", "")),
             }
         )
     return pd.DataFrame(rows)
@@ -75,7 +78,7 @@ def _build_station_map(brief: pd.DataFrame, theme: dict[str, str]):
         go.Scatter(
             x=map_data["longitude"],
             y=map_data["latitude"],
-            customdata=map_data[["site_name_display", "county_display", "latest_aqi", "latest_pm25", "attention_level"]],
+            customdata=map_data[["site_name_display", "county_display", "latest_aqi", "latest_pm25", "attention_level", "coordinate_source", "source_note"]],
             mode="markers",
             marker={
                 "size": marker_sizes,
@@ -93,6 +96,8 @@ def _build_station_map(brief: pd.DataFrame, theme: dict[str, str]):
                 "目前 AQI: %{customdata[2]:.1f}<br>"
                 "PM2.5: %{customdata[3]:.1f}<br>"
                 "關注程度: %{customdata[4]}<br>"
+                "座標來源: %{customdata[5]}<br>"
+                "%{customdata[6]}<br>"
                 "點選此站即可套用篩選<extra></extra>"
             ),
             showlegend=False,
