@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
-from src.release_guard import REQUIRED_PUBLIC_PATHS, validate_public_release
+from src.release_guard import REQUIRED_PUBLIC_PATHS, _tracked_files, validate_public_release
 
 
 def _write_public_fixture(root: Path, tracked_files: list[str]) -> None:
@@ -82,3 +83,38 @@ def test_public_release_guard_scans_notebooks_and_markdown_assets(tmp_path: Path
     assert result["credential_hits"] == ["notebooks/eda.ipynb"]
     assert result["missing_readme_assets"] == []
     assert result["untracked_readme_assets"] == []
+
+
+def test_public_release_guard_scans_staged_content_not_only_worktree(tmp_path: Path) -> None:
+    tracked_files = list(REQUIRED_PUBLIC_PATHS)
+    _write_public_fixture(tmp_path, tracked_files)
+    staged_secret = tmp_path / "staged-secret.txt"
+    credential_fixture = "api_" + "key = '" + ("A" * 20) + "'\n"
+    staged_secret.write_text(credential_fixture, encoding="utf-8")
+
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True)
+    staged_secret.write_text("secret removed from worktree\n", encoding="utf-8")
+
+    result = validate_public_release(tmp_path)
+
+    assert "staged-secret.txt" in result["credential_hits"]
+def test_public_release_guard_scans_unicode_paths_in_index_and_worktree(tmp_path: Path) -> None:
+    tracked_files = list(REQUIRED_PUBLIC_PATHS)
+    _write_public_fixture(tmp_path, tracked_files)
+    unicode_secret = tmp_path / "中文憑證.txt"
+    credential_fixture = "api_" + "key = '" + ("B" * 20) + "'\n"
+    unicode_secret.write_text(credential_fixture, encoding="utf-8")
+
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True)
+    unicode_secret.write_text("secret removed from worktree\n", encoding="utf-8")
+
+    result = validate_public_release(tmp_path)
+
+    assert "中文憑證.txt" in result["credential_hits"]
+def test_tracked_files_preserves_git_path_bytes(monkeypatch, tmp_path: Path) -> None:
+    completed = subprocess.CompletedProcess(args=[], returncode=0, stdout=b"folder\\secret.txt\0")
+    monkeypatch.setattr("src.release_guard.subprocess.run", lambda *args, **kwargs: completed)
+
+    assert _tracked_files(tmp_path) == [r"folder\secret.txt"]

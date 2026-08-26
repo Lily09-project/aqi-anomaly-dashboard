@@ -2,7 +2,7 @@ pandas
 numpy
 requests
 scikit-learn
-streamlit
+streamlit>=1.58,<2
 plotly
 matplotlib
 joblib

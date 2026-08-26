@@ -41,7 +41,12 @@ from src.dashboard.maps import _build_station_map, _render_station_map, _station
 from src.dashboard.provenance import format_source_status, source_status_panel
 from src.dashboard.context import FilterState, PageContext
 from src.dashboard.filters import DATE_RANGE_OPTIONS, format_date_range, resolve_date_range
-from src.dashboard.data_service import clear_artifact_cache, build_filtered_data, load_dashboard_artifacts
+from src.dashboard.data_service import (
+    ArtifactReadError,
+    build_filtered_data,
+    clear_artifact_cache,
+    load_dashboard_artifacts,
+)
 from src.dashboard.navigation import VIEW_LABELS, render_active_view
 from src.dashboard.pages import (
     PAGE_RENDERERS,
@@ -153,7 +158,7 @@ def main() -> None:
             index=list(THEME_OPTIONS.keys()).index(DEFAULT_THEME_NAME),
             format_func=lambda name: THEME_OPTIONS[name]["label"],
         )
-        if st.button("重新整理資料", key="refresh_data", use_container_width=True):
+        if st.button("重新整理資料", key="refresh_data", width="stretch"):
             clear_artifact_cache()
             st.rerun()
     theme = get_theme(selected_theme_name)
@@ -165,8 +170,17 @@ def main() -> None:
     inject_global_css(theme)
     if fallback_theme_used:
         st.warning("目前主題部分顏色對比不足，已使用預設主題。")
+    st.markdown(
+        '<a class="skip-link" href="#dashboard-main">跳到主要內容</a>'
+        '<div id="dashboard-main" class="main-content-anchor" tabindex="-1"></div>',
+        unsafe_allow_html=True,
+    )
 
-    source_data, dashboard_metrics = load_dashboard_artifacts(config)
+    try:
+        source_data, dashboard_metrics = load_dashboard_artifacts(config)
+    except ArtifactReadError as exc:
+        st.error(str(exc))
+        st.stop()
     features = source_data.features
     predictions = source_data.predictions
     anomalies = source_data.anomalies
@@ -242,15 +256,16 @@ def main() -> None:
                     "自訂日期",
                     st.session_state.get("custom_date_range"),
                 )
-                if stored_custom_range is not None:
-                    st.session_state["custom_date_range"] = stored_custom_range
-                custom_date_range = st.date_input(
-                    "自訂日期區間",
-                    value=stored_custom_range or date_limits,
-                    min_value=date_limits[0],
-                    max_value=date_limits[1],
-                    key="custom_date_range",
-                )
+                date_input_kwargs = {
+                    "min_value": date_limits[0],
+                    "max_value": date_limits[1],
+                    "key": "custom_date_range",
+                }
+                if "custom_date_range" in st.session_state:
+                    st.session_state["custom_date_range"] = stored_custom_range or date_limits
+                else:
+                    date_input_kwargs["value"] = stored_custom_range or date_limits
+                custom_date_range = st.date_input("自訂日期區間", **date_input_kwargs)
             date_range = resolve_date_range(date_limits, date_preset, custom_date_range)
         else:
             date_preset = "尚無日期"
@@ -259,7 +274,7 @@ def main() -> None:
             "重設篩選",
             key="reset_filters",
             on_click=_reset_filter_state,
-            use_container_width=True,
+            width="stretch",
         )
 
     start_date = date_range[0] if isinstance(date_range, tuple) and len(date_range) == 2 else None
@@ -363,7 +378,7 @@ def main() -> None:
                 data=export_csv_bytes(filtered_features),
                 file_name=f"taiwan_aqi_{download_date}.csv",
                 mime="text/csv",
-                use_container_width=True,
+                width="stretch",
                 disabled=filtered_features.empty,
             )
             st.download_button(
@@ -371,7 +386,7 @@ def main() -> None:
                 data=consumer_summary.encode("utf-8-sig"),
                 file_name=f"taiwan_aqi_summary_{download_date}.txt",
                 mime="text/plain",
-                use_container_width=True,
+                width="stretch",
                 disabled=filtered_features.empty,
             )
             st.download_button(
@@ -379,7 +394,7 @@ def main() -> None:
                 data=export_reliability_report_bytes(reliability_report),
                 file_name=f"taiwan_aqi_reliability_{download_date}.json",
                 mime="application/json",
-                use_container_width=True,
+                width="stretch",
                 disabled=filtered_features.empty,
             )
             st.caption("可靠性摘要整合資料品質、測站優先級、模型 metrics、預測區間與異常偵測限制；不含模型內部特徵。")
@@ -390,7 +405,7 @@ def main() -> None:
                     data=json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8"),
                     file_name=f"taiwan_aqi_run_manifest_{manifest_run_id}.json",
                     mime="application/json",
-                    use_container_width=True,
+                    width="stretch",
                 )
     kpis = compute_kpis(filtered_features, filtered_anomalies)
     category, _category_color = aqi_category(float(kpis["latest_aqi"]))

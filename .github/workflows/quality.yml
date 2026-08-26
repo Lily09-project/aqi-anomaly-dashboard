@@ -14,6 +14,7 @@ permissions:
 
 env:
   PYTHONUTF8: "1"
+  AQI_CONSTRAINTS_APPLIED: "1"
 
 jobs:
   test:
@@ -56,3 +57,14 @@ jobs:
             details=$(tail -n 60 pytest-output.txt | tr '\n' ' ' | cut -c1-900)
             echo "::error title=Pytest failure::$details"
           fi
+  windows-launcher:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate Windows one-click launcher
+        shell: cmd
+        run: run_project.bat --validate

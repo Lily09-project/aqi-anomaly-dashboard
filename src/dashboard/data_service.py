@@ -20,6 +20,18 @@ class FileSignature:
     size: int
 
 
+class ArtifactReadError(RuntimeError):
+    """Raised when an existing dashboard artifact cannot be decoded."""
+
+    def __init__(self, path: str | Path, artifact_type: str) -> None:
+        self.path = Path(path)
+        self.artifact_type = artifact_type
+        super().__init__(
+            f"資料產物 {self.path.name} 無法讀取，可能已損壞或格式錯誤。"
+            "請執行 run_project.bat 或 python run_all.py --mode sample 重新建立。"
+        )
+
+
 def file_signature(path: str | Path) -> FileSignature | None:
     resolved = Path(path).expanduser().resolve()
     try:
@@ -30,20 +42,29 @@ def file_signature(path: str | Path) -> FileSignature | None:
 
 
 @lru_cache(maxsize=32)
-def _read_csv_cached(signature: FileSignature, parse_dates: tuple[str, ...]) -> pd.DataFrame:
+def _read_csv_cached(
+    signature: FileSignature,
+    parse_dates: tuple[str, ...],
+    required_columns: tuple[str, ...],
+) -> pd.DataFrame:
     try:
-        return pd.read_csv(signature.path, parse_dates=list(parse_dates) or None)
-    except (OSError, ValueError, pd.errors.ParserError):
-        return pd.DataFrame()
+        frame = pd.read_csv(signature.path, parse_dates=list(parse_dates) or None)
+    except (OSError, ValueError, pd.errors.ParserError) as exc:
+        raise ArtifactReadError(signature.path, "CSV") from exc
+    if not set(required_columns).issubset(frame.columns):
+        raise ArtifactReadError(signature.path, "CSV")
+    return frame
 
 
 @lru_cache(maxsize=32)
 def _read_json_cached(signature: FileSignature) -> dict[str, Any]:
     try:
         value = json.loads(Path(signature.path).read_text(encoding="utf-8"))
-    except (OSError, ValueError, TypeError):
-        return {}
-    return value if isinstance(value, dict) else {}
+    except (OSError, ValueError, TypeError) as exc:
+        raise ArtifactReadError(signature.path, "JSON") from exc
+    if not isinstance(value, dict):
+        raise ArtifactReadError(signature.path, "JSON")
+    return value
 
 
 def clear_artifact_cache() -> None:
@@ -54,11 +75,16 @@ def clear_artifact_cache() -> None:
 def read_csv_versioned(
     path: str | Path,
     parse_dates: tuple[str, ...] | list[str] = (),
+    required_columns: tuple[str, ...] | list[str] = (),
 ) -> pd.DataFrame:
     signature = file_signature(path)
     if signature is None:
         return pd.DataFrame()
-    return _read_csv_cached(signature, tuple(parse_dates)).copy(deep=True)
+    return _read_csv_cached(
+        signature,
+        tuple(parse_dates),
+        tuple(required_columns),
+    ).copy(deep=True)
 
 
 def read_json_versioned(path: str | Path) -> dict[str, Any]:
@@ -71,18 +97,31 @@ def read_json_versioned(path: str | Path) -> dict[str, Any]:
 def load_dashboard_artifacts(config: dict[str, Any]) -> tuple[DashboardData, DashboardMetrics]:
     data = DashboardData(
         features=add_display_columns(
-            read_csv_versioned(resolve_path(config, "data.features_file"), ("datetime",))
+            read_csv_versioned(
+                resolve_path(config, "data.features_file"),
+                ("datetime",),
+                ("datetime", "site_name", "aqi", "pm25"),
+            )
         ),
         predictions=add_display_columns(
-            read_csv_versioned(resolve_path(config, "data.predictions_file"), ("datetime",))
+            read_csv_versioned(
+                resolve_path(config, "data.predictions_file"),
+                ("datetime",),
+                ("datetime", "site_name", "actual_next_hour_aqi", "predicted_next_hour_aqi"),
+            )
         ),
         anomalies=add_display_columns(
-            read_csv_versioned(resolve_path(config, "data.anomaly_file"), ("datetime",))
+            read_csv_versioned(
+                resolve_path(config, "data.anomaly_file"),
+                ("datetime",),
+                ("datetime", "site_name", "aqi", "pm25", "is_anomaly", "anomaly_score"),
+            )
         ),
         events=add_display_columns(
             read_csv_versioned(
                 resolve_path(config, "data.events_file"),
                 ("datetime", "end_datetime", "peak_datetime"),
+                ("datetime", "site_name", "duration_hours", "peak_aqi"),
             )
         ),
     )

@@ -16,13 +16,13 @@ echo [1/8] Checking Python...
 set "BASE_PY_EXE="
 set "BASE_PY_ARGS="
 
-python --version >nul 2>&1
+python -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>&1
 if not errorlevel 1 (
     set "BASE_PY_EXE=python"
 )
 
 if not defined BASE_PY_EXE (
-    py -3 --version >nul 2>&1
+    py -3 -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>&1
     if not errorlevel 1 (
         set "BASE_PY_EXE=py"
         set "BASE_PY_ARGS=-3"
@@ -37,7 +37,7 @@ if not defined BASE_PY_EXE (
         "%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
     ) do (
         if exist "%%~fP" (
-            "%%~fP" --version >nul 2>&1
+            "%%~fP" -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>&1
             if not errorlevel 1 (
                 set "BASE_PY_EXE=%%~fP"
                 set "BASE_PY_ARGS="
@@ -49,18 +49,24 @@ if not defined BASE_PY_EXE (
 
 :python_found
 if not defined BASE_PY_EXE (
-    echo [ERROR] Python was not found.
-    echo Install Python 3.10 or newer and enable Add Python to PATH.
+    echo [ERROR] Python 3.10 or newer was not found.
+    echo Install a supported Python version and enable Add Python to PATH.
     pause
     exit /b 1
 )
 
 echo [2/8] Preparing virtual environment...
 if exist ".venv\Scripts\python.exe" (
-    ".venv\Scripts\python.exe" -m pip --version >nul 2>&1
+    ".venv\Scripts\python.exe" -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>&1
     if errorlevel 1 (
-        echo [INFO] Existing .venv is broken. Recreating it...
+        echo [INFO] Existing .venv uses unsupported Python. Recreating it...
         rmdir /s /q ".venv"
+    ) else (
+        ".venv\Scripts\python.exe" -m pip --version >nul 2>&1
+        if errorlevel 1 (
+            echo [INFO] Existing .venv is broken. Recreating it...
+            rmdir /s /q ".venv"
+        )
     )
 )
 
@@ -84,8 +90,12 @@ set "PYTEST_BASETEMP=.tmp\pytest_%RANDOM%%RANDOM%"
 set "PYTEST_ADDOPTS=--basetemp=%PYTEST_BASETEMP% -p no:cacheprovider"
 set "STREAMLIT_PORT="
 set "CONSTRAINT_ARGS="
+set "AQI_CONSTRAINTS_APPLIED="
 "%PY%" -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 12) else 1)" >nul 2>&1
-if not errorlevel 1 if exist "requirements-lock-py312.txt" set "CONSTRAINT_ARGS=-c requirements-lock-py312.txt"
+if not errorlevel 1 if exist "requirements-lock-py312.txt" (
+    set "CONSTRAINT_ARGS=-c requirements-lock-py312.txt"
+    set "AQI_CONSTRAINTS_APPLIED=1"
+)
 
 echo [3/8] Checking pip...
 "%PY%" -m pip --version
@@ -135,6 +145,14 @@ if errorlevel 1 (
     exit /b 1
 )
 
+if /I "%~1"=="--validate" set "AQI_SKIP_STREAMLIT=1"
+if "%AQI_SKIP_STREAMLIT%"=="1" (
+    echo ============================================================
+    echo Validation completed successfully. Streamlit launch skipped.
+    echo ============================================================
+    exit /b 0
+)
+
 echo ============================================================
 echo All checks passed. Starting Streamlit Dashboard.
 for /f "delims=" %%P in ('%PY% src\find_free_port.py') do set "STREAMLIT_PORT=%%P"
@@ -143,12 +161,6 @@ echo AQI Dashboard URL: http://localhost:%STREAMLIT_PORT%
 echo If the browser does not open, paste the URL above into Chrome.
 echo ============================================================
 echo.
-
-if /I "%~1"=="--validate" set "AQI_SKIP_STREAMLIT=1"
-if "%AQI_SKIP_STREAMLIT%"=="1" (
-    echo [OK] Streamlit launch skipped by validation mode.
-    exit /b 0
-)
 
 "%PY%" -m streamlit run app.py --server.port %STREAMLIT_PORT% --server.address localhost
 

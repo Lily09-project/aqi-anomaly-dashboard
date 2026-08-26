@@ -1,8 +1,14 @@
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
-from src.dashboard.data_service import clear_artifact_cache, read_csv_versioned
+import src.dashboard.data_service as data_service
+from src.dashboard.data_service import (
+    clear_artifact_cache,
+    read_csv_versioned,
+    read_json_versioned,
+)
 
 
 def test_unchanged_csv_is_read_once(monkeypatch, tmp_path) -> None:
@@ -52,3 +58,30 @@ def test_csv_change_invalidates_cache(monkeypatch, tmp_path) -> None:
 def test_missing_csv_returns_empty_frame(tmp_path) -> None:
     clear_artifact_cache()
     assert read_csv_versioned(tmp_path / "missing.csv").empty
+
+
+def test_malformed_existing_csv_reports_actionable_error(tmp_path) -> None:
+    path = tmp_path / "broken.csv"
+    path.write_text('value\n"unterminated\n', encoding="utf-8")
+    clear_artifact_cache()
+
+    assert hasattr(data_service, "ArtifactReadError")
+    with pytest.raises(data_service.ArtifactReadError, match=r"broken\.csv.*run_all\.py --mode sample"):
+        read_csv_versioned(path)
+
+
+def test_malformed_existing_json_reports_actionable_error(tmp_path) -> None:
+    path = tmp_path / "broken.json"
+    path.write_text('{"status":', encoding="utf-8")
+    clear_artifact_cache()
+
+    assert hasattr(data_service, "ArtifactReadError")
+    with pytest.raises(data_service.ArtifactReadError, match=r"broken\.json.*run_all\.py --mode sample"):
+        read_json_versioned(path)
+def test_existing_csv_with_missing_required_columns_reports_artifact_error(tmp_path) -> None:
+    path = tmp_path / "wrong-schema.csv"
+    path.write_text("foo\n1\n", encoding="utf-8")
+    clear_artifact_cache()
+
+    with pytest.raises(data_service.ArtifactReadError, match=r"wrong-schema\.csv.*格式錯誤"):
+        read_csv_versioned(path, required_columns=("datetime", "aqi", "pm25"))

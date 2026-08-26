@@ -527,7 +527,7 @@ reports/
 每次 run_all.py 完成評估後，會在本機產生 reports/metrics/run_manifest.json。這份檔案是一次 pipeline run 的可追溯摘要，不保存 raw data 或模型內容，而是保存可驗證的 metadata：
 
 - run_id、UTC 產生時間、Git revision、working tree 是否 dirty、Python 與平台資訊。
-- config.yaml、requirements.txt 與 Python 3.12 constraints 的 SHA-256，讓設定與依賴版本可以被比對。
+- config.yaml、requirements.txt 與 Python 3.12 constraints 的 SHA-256，讓設定與依賴版本可以被比對；manifest 另以 `applicable_to_runtime` 與 `installation_verified` 區分 constraints 是否適用及本次安裝是否可被驗證。
 - Sample Data / API Data 模式、sample data 是否為模擬資料，以及 random state。
 - next-hour target、feature columns、禁止進入模型的 target 欄位、分組鍵與 leakage controls。
 - dataset rows、station count、日期範圍、data health、predictor / anomaly / backtest / forecast confidence 的 compact metrics。
@@ -593,9 +593,9 @@ run_project.bat --validate
 目前本地最終驗證結果：
 
 ~~~text
-pytest -q                         146 passed
+pytest -q                         162 passed
 public release gate               Passed
-run_project.bat --validate        pipeline + smoke test + 146 passed; exit 0
+run_project.bat --validate        pipeline + smoke test + 162 passed; exit 0
 pip check                         No broken requirements found
 compileall                        Passed
 pip-audit                         No known vulnerabilities found

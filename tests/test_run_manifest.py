@@ -75,3 +75,40 @@ def test_write_run_manifest_rejects_output_outside_project(tmp_path: Path) -> No
     outside_path = tmp_path.parent / "outside-manifest.json"
     with pytest.raises(ValueError, match="inside the project root"):
         write_run_manifest(tmp_path, config=_config(), run_mode="sample", output_path=outside_path)
+
+
+def test_manifest_does_not_claim_constraints_were_applied(monkeypatch, tmp_path: Path) -> None:
+    (tmp_path / "config.yaml").write_text("project: {}\n", encoding="utf-8")
+    (tmp_path / "requirements.txt").write_text("streamlit>=1.58,<2\n", encoding="utf-8")
+    (tmp_path / "requirements-lock-py312.txt").write_text("streamlit==1.58.0\n", encoding="utf-8")
+    monkeypatch.setattr("src.run_manifest.platform.python_version_tuple", lambda: ("3", "11", "9"))
+
+    manifest = build_run_manifest(
+        tmp_path,
+        config=_config(),
+        run_mode="sample",
+        artifacts=[],
+        generated_at="2026-08-23T00:00:00Z",
+    )
+
+    constraints = manifest["run"]["constraints"]
+    assert constraints["applicable_to_runtime"] is False
+    assert constraints["installation_verified"] is False
+    assert "does not prove" in constraints["note"]
+def test_manifest_verifies_installed_versions_before_claiming_constraints(monkeypatch, tmp_path: Path) -> None:
+    (tmp_path / "config.yaml").write_text("project: {}\n", encoding="utf-8")
+    (tmp_path / "requirements.txt").write_text("demo-package\n", encoding="utf-8")
+    (tmp_path / "requirements-lock-py312.txt").write_text("demo-package==1.2.3\n", encoding="utf-8")
+    monkeypatch.setattr("src.run_manifest.platform.python_version_tuple", lambda: ("3", "12", "9"))
+    monkeypatch.setenv("AQI_CONSTRAINTS_APPLIED", "1")
+    monkeypatch.setattr("src.run_manifest._installed_version", lambda _name: "9.9.9", raising=False)
+
+    manifest = build_run_manifest(
+        tmp_path,
+        config=_config(),
+        run_mode="sample",
+        artifacts=[],
+        generated_at="2026-08-23T00:00:00Z",
+    )
+
+    assert manifest["run"]["constraints"]["installation_verified"] is False

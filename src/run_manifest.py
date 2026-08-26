@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import platform
 import subprocess
+from importlib.metadata import PackageNotFoundError, version
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping
@@ -268,6 +270,29 @@ def _source_summary(metadata: Mapping[str, Any] | None) -> dict[str, Any]:
         "error_type": source.get("error_type"),
         "http_status": source.get("http_status"),
     }
+def _installed_version(distribution_name: str) -> str | None:
+    try:
+        return version(distribution_name)
+    except PackageNotFoundError:
+        return None
+
+
+def _constraints_match_runtime(path: Path) -> bool:
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return False
+    pinned = [line.strip() for line in lines if line.strip() and not line.lstrip().startswith("#")]
+    if not pinned:
+        return False
+    for requirement in pinned:
+        if requirement.count("==") != 1 or ";" in requirement:
+            return False
+        distribution_name, expected_version = (part.strip() for part in requirement.split("==", 1))
+        if not distribution_name or _installed_version(distribution_name) != expected_version:
+            return False
+    return True
+
 def build_run_manifest(
     repo_root: str | Path,
     *,
@@ -294,6 +319,12 @@ def build_run_manifest(
     simulated_data = bool(provenance["is_simulated_data"]) if has_provenance else run_mode == "sample"
     compact_metrics = _compact_metrics(root, config)
     artifact_values = _artifact_paths(config) if artifacts is None else list(artifacts)
+    python_version = platform.python_version_tuple()
+    constraints_applicable = tuple(python_version[:2]) == ("3", "12")
+    constraints_applied = constraints_applicable and os.getenv("AQI_CONSTRAINTS_APPLIED") == "1"
+    constraints_verified = constraints_applied and _constraints_match_runtime(
+        Path(root) / "requirements-lock-py312.txt"
+    )
 
     return {
         "manifest_version": MANIFEST_VERSION,
@@ -318,6 +349,12 @@ def build_run_manifest(
             "constraints": {
                 "path": "requirements-lock-py312.txt",
                 "sha256": sha256_file(Path(root) / "requirements-lock-py312.txt"),
+                "applicable_to_runtime": constraints_applicable,
+                "installation_verified": constraints_verified,
+                "note": (
+                    "The constraints hash does not prove the graph was installed; "
+                    "installation_verified is true only when the launcher applied it and every pinned distribution matches."
+                ),
             },
         },
         "data_contract": {

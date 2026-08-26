@@ -204,7 +204,7 @@ def render(context: PageContext) -> None:
                 data=export_comparison_csv(comparison),
                 file_name="taiwan_aqi_station_comparison.csv",
                 mime="text/csv",
-                use_container_width=True,
+                width="stretch",
             )
     st.markdown(
         f'<div class="section-note">比較結果不是官方行程或健康建議。推薦會排除落後最新時點超過 2 小時的測站，並優先比較下一小時點預測；缺少預測時才使用目前 AQI。{escape(data_source)} 的限制仍適用。</div>',

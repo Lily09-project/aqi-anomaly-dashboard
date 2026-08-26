@@ -198,7 +198,7 @@ def render(context: PageContext) -> None:
                 st.line_chart(
                     trend.rename(columns={"reference_mae": "基準 MAE", "current_mae": "近期 MAE"}),
                     color=[context.theme["secondary"], context.theme["accent"]],
-                    use_container_width=True,
+                    width="stretch",
                 )
         recent_history = history_table.iloc[::-1].head(10)[
             [
@@ -346,7 +346,7 @@ def render(context: PageContext) -> None:
             data=json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8"),
             file_name=f"taiwan_aqi_run_manifest_{run_id}.json",
             mime="application/json",
-            use_container_width=True,
+            width="stretch",
             key="metrics_manifest_download",
         )
 

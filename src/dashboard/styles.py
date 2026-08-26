@@ -74,6 +74,28 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
         a {{
             color: var(--primary) !important;
         }}
+        .skip-link {{
+            position: fixed;
+            top: max(0.75rem, env(safe-area-inset-top));
+            left: max(1rem, env(safe-area-inset-left));
+            z-index: 1000000;
+            padding: 0.7rem 0.9rem;
+            border: 2px solid var(--text);
+            border-radius: 6px;
+            background: var(--accent);
+            color: var(--background) !important;
+            font-weight: 800;
+            transform: translateY(-180%);
+            transition: transform 120ms ease;
+        }}
+        .skip-link:focus-visible {{
+            transform: translateY(0);
+            outline: 3px solid var(--text);
+            outline-offset: 2px;
+        }}
+        .main-content-anchor {{
+            scroll-margin-top: 1rem;
+        }}
         [data-testid="stMarkdownContainer"],
         [data-testid="stWidgetLabel"],
         [data-testid="stCaptionContainer"] {{ color: var(--text); }}
@@ -1091,6 +1113,14 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
         }}
         @media (max-width: 900px) {{
             .block-container {{ padding: 1.5rem 1.35rem 3rem; }}
+            .st-key-overview_map_queue [data-testid="stHorizontalBlock"] {{
+                flex-direction: column;
+                gap: 1.25rem;
+            }}
+            .st-key-overview_map_queue [data-testid="stColumn"] {{
+                width: 100% !important;
+                flex: 1 1 auto !important;
+            }}
             h1 {{ font-size: 2rem !important; }}
             .section-header {{ align-items: start; flex-direction: column; gap: 0.25rem; }}
             .section-context {{ text-align: left; }}

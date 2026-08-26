@@ -51,13 +51,12 @@ SENSITIVE_EXACT_PATHS = {
 
 def _tracked_files(repo_root: Path) -> list[str]:
     result = subprocess.run(
-        ["git", "-C", str(repo_root), "ls-files"],
+        ["git", "-C", str(repo_root), "-c", "core.quotePath=false", "ls-files", "-z"],
         check=True,
         capture_output=True,
-        text=True,
-        encoding="utf-8",
     )
-    return [line.strip().replace("\\", "/") for line in result.stdout.splitlines() if line.strip()]
+    output = result.stdout.decode("utf-8")
+    return [path for path in output.split("\0") if path]
 
 
 def _matches_any(path: str, patterns: Iterable[str]) -> bool:
@@ -81,6 +80,20 @@ def _read_text(path: Path) -> str:
         return ""
 
 
+def _read_index_text(repo_root: Path, relative_path: str) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(repo_root), "show", f":{relative_path}"],
+        check=False,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        return ""
+    try:
+        return result.stdout.decode("utf-8")
+    except UnicodeDecodeError:
+        return ""
+
+
 def _readme_assets(repo_root: Path) -> list[str]:
     readme = _read_text(repo_root / "README.md")
     html_assets = re.findall(r"(?:src|href)\s*=\s*[\"']([^\"']+)[\"']", readme)
@@ -92,6 +105,7 @@ def _readme_assets(repo_root: Path) -> list[str]:
 def validate_public_release(repo_root: str | Path, tracked_files: Iterable[str] | None = None) -> dict[str, object]:
     """Validate that the repository is safe and complete for a public release."""
     root = Path(repo_root).resolve()
+    scan_git_index = tracked_files is None
     tracked = sorted(set(tracked_files if tracked_files is not None else _tracked_files(root)))
     missing_public_paths = [path for path in REQUIRED_PUBLIC_PATHS if not (root / path).exists()]
     untracked_public_paths = [path for path in REQUIRED_PUBLIC_PATHS if path not in tracked]
@@ -109,11 +123,11 @@ def validate_public_release(repo_root: str | Path, tracked_files: Iterable[str] 
     for relative_path in tracked:
         if relative_path.lower().endswith((".png", ".jpg", ".jpeg", ".gif")):
             continue
-        content = _read_text(root / relative_path)
-        for pattern in CREDENTIAL_PATTERNS:
-            if pattern.search(content):
-                credential_hits.append(relative_path)
-                break
+        contents = [_read_text(root / relative_path)]
+        if scan_git_index:
+            contents.append(_read_index_text(root, relative_path))
+        if any(pattern.search(content) for content in contents for pattern in CREDENTIAL_PATTERNS):
+            credential_hits.append(relative_path)
     return {
         "passed": not any(
             (

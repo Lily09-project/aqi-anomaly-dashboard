@@ -90,24 +90,25 @@ def render(context: PageContext) -> None:
         anomalies=map_anomalies,
         policy=config.get("risk_policy"),
     )
-    map_column, queue_column = st.columns([1.3, 0.7], gap="large")
-    with map_column:
-        section_header("地圖篩選", "台灣測站分布", "點選測站同步更新篩選條件")
-        _render_station_map(map_risk_brief, theme, selected_site_display)
-        st.markdown(
-            '<p class="map-selection-note">標記大小代表 AQI；圓形、方形與菱形分別代表一般監測、持續觀察與優先檢視。</p>',
-            unsafe_allow_html=True,
-        )
-    with queue_column:
-        section_header("工作優先序", "先檢視哪些測站", "本站基準、預測與異常訊號")
-        _render_risk_brief(risk_brief)
-        _render_priority_queue(risk_brief)
-        with st.expander("檢視完整測站判讀", expanded=False):
-            render_table(
-                _risk_brief_table(risk_brief),
-                empty_message="目前沒有可排序的測站資料。",
-                label="測站脈絡風險排序表",
+    with st.container(key="overview_map_queue"):
+        map_column, queue_column = st.columns([1.3, 0.7], gap="large")
+        with map_column:
+            section_header("地圖篩選", "台灣測站分布", "點選測站同步更新篩選條件")
+            _render_station_map(map_risk_brief, theme, selected_site_display)
+            st.markdown(
+                '<p class="map-selection-note">標記大小代表 AQI；圓形、方形與菱形分別代表一般監測、持續觀察與優先檢視。</p>',
+                unsafe_allow_html=True,
             )
+        with queue_column:
+            section_header("工作優先序", "先檢視哪些測站", "本站基準、預測與異常訊號")
+            _render_risk_brief(risk_brief)
+            _render_priority_queue(risk_brief)
+            with st.expander("檢視完整測站判讀", expanded=False):
+                render_table(
+                    _risk_brief_table(risk_brief),
+                    empty_message="目前沒有可排序的測站資料。",
+                    label="測站脈絡風險排序表",
+                )
 
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     section_header("趨勢監測", "AQI 與 PM2.5 變化", "依目前選取的地區、測站與日期範圍呈現")
