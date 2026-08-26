@@ -32,7 +32,7 @@ def test_validation_mode_does_not_claim_dashboard_will_start() -> None:
 def test_pytest_defaults_to_project_local_temp_directory() -> None:
     pytest_config = (ROOT / "pytest.ini").read_text(encoding="utf-8")
 
-    assert "--basetemp=.tmp/pytest-default" in pytest_config
+    assert "--basetemp=.pytest-tmp" in pytest_config
 
 
 def test_streamlit_runtime_contract_matches_dashboard_api() -> None:
