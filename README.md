@@ -308,7 +308,7 @@ run_project.bat
 run_project.bat --validate
 ~~~
 
-run_project_bat內容.txt 是啟動檔文字備份，不是主要執行入口。
+run_project.bat 是唯一正式的一鍵啟動入口。
 
 ## Data Sources and Data Contract
 
@@ -648,7 +648,6 @@ aqi-anomaly-dashboard/
 ├── app.py
 ├── run_all.py
 ├── run_project.bat
-├── run_project_bat內容.txt
 ├── config.yaml
 ├── requirements.txt
 ├── requirements-lock-py312.txt

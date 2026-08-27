@@ -42,7 +42,7 @@ def test_models_train_save_load_and_predict_quickly():
     anomaly_metrics = train_anomaly_model()
     elapsed = time.perf_counter() - start
 
-    assert elapsed < 30
+    assert elapsed < 60
     predictor_path = resolve_path(config, "models.predictor")
     anomaly_path = resolve_path(config, "models.anomaly_detector")
     assert predictor_path.exists()

@@ -59,13 +59,7 @@ def run_smoke_test() -> None:
     py_compile.compile(str(app_path), doraise=True)
 
     bat_path = project_path("run_project.bat")
-    bat_text_path = project_path("run_project_bat內容.txt")
     _require(bat_path.exists(), "Missing run_project.bat")
-    _require(bat_text_path.exists(), "Missing run_project_bat內容.txt")
-    _require(
-        bat_path.read_text(encoding="utf-8") == bat_text_path.read_text(encoding="utf-8"),
-        "run_project.bat and run_project_bat內容.txt are not identical",
-    )
 
     for key in [
         "data.cleaned_file",

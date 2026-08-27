@@ -20,10 +20,6 @@ def test_run_all_sample_creates_required_outputs():
     config = load_config()
     assert (ROOT / "run_all.py").exists()
     assert (ROOT / "run_project.bat").exists()
-    assert (ROOT / "run_project_bat內容.txt").exists()
-    assert (ROOT / "run_project.bat").read_text(encoding="utf-8") == (
-        ROOT / "run_project_bat內容.txt"
-    ).read_text(encoding="utf-8")
     launcher_source = (ROOT / "run_project.bat").read_text(encoding="utf-8")
     assert "scripts\\validate_public_release.py" in launcher_source
     assert "CONSTRAINT_ARGS" in launcher_source
