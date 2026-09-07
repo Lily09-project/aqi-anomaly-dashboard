@@ -1,6 +1,6 @@
 # Python 3.12 constraints captured for the reproducible CI/demo environment.
 # Install with: python -m pip install -r requirements.txt -c requirements-lock-py312.txt
-GitPython==3.1.59
+GitPython==3.1.61
 Jinja2==3.1.6
 MarkupSafe==3.0.3
 PyYAML==6.0.3
