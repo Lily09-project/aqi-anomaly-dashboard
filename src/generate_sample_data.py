@@ -76,47 +76,50 @@ def generate_sample_aqi(
     else:
         start_at = pd.to_datetime(start_date).to_pydatetime().replace(hour=0, minute=0, second=0, microsecond=0)
     timestamps = pd.date_range(start_at, periods=days * 24, freq="h")
-    rows: list[dict[str, object]] = []
+    sample_count = len(timestamps)
+    positions = np.arange(sample_count)
+    hours = timestamps.hour.to_numpy(dtype=float)
+    weekdays = timestamps.dayofweek.to_numpy()
+    commute = 12 * np.exp(-((hours - 8) / 2.5) ** 2) + 10 * np.exp(-((hours - 18) / 3) ** 2)
+    weekend_offset = np.where(weekdays >= 5, -7.0, 0.0)
+    seasonal_wave = 6 * np.sin(positions / 24 / 5 * 2 * np.pi)
+    site_frames: list[pd.DataFrame] = []
 
     for site_name, county, base_aqi, base_pm25 in SITES:
-        site_shift = rng.normal(0, 3)
-        for i, ts in enumerate(timestamps):
-            hour = ts.hour
-            weekday = ts.dayofweek
-            commute = 12 * np.exp(-((hour - 8) / 2.5) ** 2) + 10 * np.exp(-((hour - 18) / 3) ** 2)
-            weekend_offset = -7 if weekday >= 5 else 0
-            seasonal_wave = 6 * np.sin(i / 24 / 5 * 2 * np.pi)
-            noise = rng.normal(0, 5)
-            aqi = base_aqi + site_shift + commute + weekend_offset + seasonal_wave + noise
+        aqi = base_aqi + rng.normal(0, 3) + commute + weekend_offset + seasonal_wave + rng.normal(0, 5, sample_count)
 
-            if site_name in {"前金測站", "安南測站"} and hour in {9, 10, 19, 20} and i % 47 == 0:
-                aqi += rng.uniform(45, 80)
-            if site_name == "松山測站" and i % 113 == 0:
-                aqi += rng.uniform(35, 60)
+        if site_name in {"前金測站", "安南測站"}:
+            event_mask = np.isin(hours, (9, 10, 19, 20)) & (positions % 47 == 0)
+            aqi[event_mask] += rng.uniform(45, 80, int(event_mask.sum()))
+        if site_name == "松山測站":
+            event_mask = positions % 113 == 0
+            aqi[event_mask] += rng.uniform(35, 60, int(event_mask.sum()))
 
-            pm25 = base_pm25 + aqi * 0.24 + rng.normal(0, 3)
-            pm10 = pm25 * rng.uniform(1.45, 2.0) + rng.normal(0, 4)
-            o3 = max(8, 30 + 0.25 * aqi + 9 * np.sin((hour - 13) / 24 * 2 * np.pi) + rng.normal(0, 4))
-            co = max(0.1, 0.28 + aqi / 210 + rng.normal(0, 0.05))
-            wind_speed = max(0.2, 3.2 - aqi / 75 + rng.normal(0, 0.7))
-            wind_directions = float((rng.normal(180, 55) + i * 3) % 360)
+        pm25 = base_pm25 + aqi * 0.24 + rng.normal(0, 3, sample_count)
+        pm10 = pm25 * rng.uniform(1.45, 2.0, sample_count) + rng.normal(0, 4, sample_count)
+        o3 = np.maximum(8, 30 + 0.25 * aqi + 9 * np.sin((hours - 13) / 24 * 2 * np.pi) + rng.normal(0, 4, sample_count))
+        co = np.maximum(0.1, 0.28 + aqi / 210 + rng.normal(0, 0.05, sample_count))
+        wind_speed = np.maximum(0.2, 3.2 - aqi / 75 + rng.normal(0, 0.7, sample_count))
+        wind_directions = (rng.normal(180, 55, sample_count) + positions * 3) % 360
 
-            rows.append(
+        site_frames.append(
+            pd.DataFrame(
                 {
-                    "datetime": ts,
+                    "datetime": timestamps,
                     "site_name": site_name,
                     "county": county,
-                    "aqi": round(float(np.clip(aqi, 12, 230)), 1),
-                    "pm25": round(float(np.clip(pm25, 2, 95)), 1),
-                    "pm10": round(float(np.clip(pm10, 5, 160)), 1),
-                    "o3": round(float(np.clip(o3, 1, 125)), 1),
-                    "co": round(float(np.clip(co, 0.1, 2.8)), 3),
-                    "wind_speed": round(float(np.clip(wind_speed, 0.2, 8)), 2),
-                    "wind_directions": round(wind_directions, 1),
+                    "aqi": np.round(np.clip(aqi, 12, 230), 1),
+                    "pm25": np.round(np.clip(pm25, 2, 95), 1),
+                    "pm10": np.round(np.clip(pm10, 5, 160), 1),
+                    "o3": np.round(np.clip(o3, 1, 125), 1),
+                    "co": np.round(np.clip(co, 0.1, 2.8), 3),
+                    "wind_speed": np.round(np.clip(wind_speed, 0.2, 8), 2),
+                    "wind_directions": np.round(wind_directions, 1),
                 }
             )
+        )
 
-    frame = pd.DataFrame(rows)
+    frame = pd.concat(site_frames, ignore_index=True)
     missing_columns = ["pm25", "pm10", "o3", "co", "wind_speed"]
     missing_mask = rng.random((len(frame), len(missing_columns))) < 0.006
     for idx, col in enumerate(missing_columns):

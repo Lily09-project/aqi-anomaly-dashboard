@@ -21,13 +21,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade "pip>=26.2"
           python -m pip install -r requirements.txt -c requirements-lock-py312.txt
       - name: Validate public release contents
         run: python scripts/validate_public_release.py
@@ -61,10 +61,39 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
       - name: Validate Windows one-click launcher
         shell: cmd
         run: run_project.bat --validate
+
+  browser-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install browser QA dependencies
+        run: |
+          python -m pip install -r requirements-e2e.txt -c requirements-lock-py312.txt
+          python -m playwright install --with-deps chromium
+      - name: Prepare deterministic sample artifacts
+        run: python run_all.py --mode sample
+      - name: Start Streamlit
+        shell: bash
+        run: |
+          nohup python -m streamlit run app.py --server.address 127.0.0.1 --server.port 8851 > streamlit-ui-qa.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8851/_stcore/health | grep --quiet ok; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat streamlit-ui-qa.log
+          exit 1
+      - name: Run responsive browser QA
+        run: python scripts/ui_qa.py --url http://127.0.0.1:8851

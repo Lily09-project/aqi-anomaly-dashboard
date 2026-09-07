@@ -21,12 +21,35 @@ def test_dashboard_exposes_keyboard_skip_link() -> None:
 
 def test_validation_mode_does_not_claim_dashboard_will_start() -> None:
     launcher_source = (ROOT / "run_project.bat").read_text(encoding="utf-8")
+    assert "%userprofile%\\.cache\\" not in launcher_source.lower()
 
     validation_gate = launcher_source.index('if /I "%~1"=="--validate"')
     start_message = launcher_source.index("Starting Streamlit Dashboard")
 
     assert validation_gate < start_message
     assert "Validation completed successfully. Streamlit launch skipped." in launcher_source
+
+
+def test_launcher_validation_is_complete_and_unknown_arguments_fail_closed() -> None:
+    launcher_source = (ROOT / "run_project.bat").read_text(encoding="utf-8")
+
+    for command in (
+        '"%PY%" -m pip check',
+        '"%PY%" -m compileall -q app.py run_all.py src scripts tests',
+        'scripts\\validate_public_release.py',
+        'src\\smoke_test.py',
+        '"%PY%" -W error -m pytest -q -p no:cacheprovider --basetemp "%PYTEST_BASETEMP%"',
+    ):
+        assert command in launcher_source
+    assert 'if /I "%~1"=="--help" goto :usage' in launcher_source
+    assert "[ERROR] Unsupported argument: %~1" in launcher_source
+    assert "exit /b 2" in launcher_source
+    assert 'rmdir /s /q "%PYTEST_BASETEMP%"' in launcher_source
+    assert '"%PY%" -m pip install --disable-pip-version-check -r requirements-security.txt' in launcher_source
+    assert '"%PY%" -m pip install --disable-pip-version-check --upgrade "pip>=26.2"' in launcher_source
+    assert '"%PY%" -m bandit -q --severity-level high --confidence-level high -r app.py src scripts' in launcher_source
+    assert '"%PY%" -m pip_audit --strict --progress-spinner off' in launcher_source
+    assert 'if /I not "%~1"=="--validate" pause' in launcher_source
 
 
 def test_pytest_defaults_to_project_local_temp_directory() -> None:
@@ -53,7 +76,7 @@ def test_launcher_rejects_unsupported_python_versions() -> None:
 def test_security_audit_checks_the_locked_dependency_graph() -> None:
     workflow = (ROOT / ".github" / "workflows" / "security.yml").read_text(encoding="utf-8")
 
-    assert "pip-audit -r requirements-lock-py312.txt --no-deps" in workflow
+    assert "python -m pip_audit -r requirements-lock-py312.txt --no-deps" in workflow
 
 
 def test_overview_map_and_priority_stack_on_tablet() -> None:

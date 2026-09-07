@@ -16,7 +16,6 @@ REQUIRED_PUBLIC_PATHS = (
     "config/stations.yaml",
     "docs/data-contract.md",
     "docs/deployment.md",
-    "docs/interview-guide.md",
     "docs/operations-checklist.md",
     "requirements.txt",
     "run_project.bat",

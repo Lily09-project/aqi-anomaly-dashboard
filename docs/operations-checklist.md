@@ -12,7 +12,8 @@
 
 ## 更新後
 
-- 執行 `python src/smoke_test.py` 與 `pytest -q`。
+- 執行 `.venv\Scripts\python.exe quality\run_acceptance.py release`，由共同 manifest 完成 pipeline、完整 pytest、瀏覽器 QA、timeout 與 evidence 檢查。
+- 若修改資料流程、AppTest 或 UI 路由，另執行 `.venv\Scripts\python.exe quality\run_benchmarks.py`，確認三次中位數沒有超過 warning／blocker 門檻；只有在確認行為與測試覆蓋未縮減後才可重建 baseline。
 - 確認 `source_metadata.json` 的 status、data_source、row_count、datetime_range 與 schema hash。
 - 確認 `data_health.json` 的 missing cells、station count、observation delay 與 stale station count。
 - 確認 `run_manifest.json` 的 run mode、source summary、config hash、requirements／Python 3.12 constraints hash 與 artifacts hash。
@@ -24,7 +25,7 @@
 - Source Status 顯示 API fallback 時，確認 Data Source 同時顯示 Sample Data。
 - 確認 fallback reason 是安全化代碼或使用者可理解文字，不包含 response body、token 或完整 exception message。
 - 不將 fallback 畫面截圖描述成即時資料。
-- 面試 Demo 可繼續使用 Sample Data，但須保留模擬資料警示。
+- 離線審查可使用 Sample Data，但必須保留模擬資料警示。
 
 ## Stale Data 判讀
 
@@ -38,7 +39,7 @@
 - 停止使用驗證失敗的新 artifacts，不手動修改 JSON 數字或模型輸出。
 - 正式環境切回上一組完整、同版本的 data/model/report artifact set。
 - 本機展示執行 `python run_all.py --mode sample` 重建可重現基線。
-- 回復後重新執行 smoke test、pytest、public release gate 與 Streamlit health check。
+- 回復後重新執行 `.venv\Scripts\python.exe quality\run_acceptance.py release`；其報告必須為 `passed`，再檢查 Streamlit health 與資料來源狀態。
 - 記錄失敗時間、provider、error type、影響範圍與採取措施；不要記錄 secret 或 raw response。
 
 ## 公開前

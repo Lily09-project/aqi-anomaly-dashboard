@@ -29,6 +29,8 @@ Windows 可直接執行 `run_project.bat`。它會固定切換到批次檔所在
 run_project.bat --validate
 ~~~
 
+這條驗收包含 Sample Pipeline、依賴一致性、Python 編譯、public release gate、smoke test 與完整 pytest。執行 `run_project.bat --help` 可查看支援模式；未知參數會 fail closed，不會啟動服務。
+
 ## 本機 API Data
 
 將設定放在本機環境變數或未追蹤的 `.env`。不可把實際值寫入 `.env.example`、`config.yaml`、README、截圖或 Git commit。
@@ -67,7 +69,10 @@ Streamlit Community Cloud 或同類平台可用於展示 UI，但仍需安排獨
 python src/smoke_test.py
 python scripts/validate_public_release.py
 pytest -q
+.venv\Scripts\python.exe quality\run_acceptance.py release
 ~~~
+
+正式候選版本以 `quality\run_acceptance.py release` 的機器可讀報告為整體判定；手動命令保留作單項診斷。若本次變更影響資料流程、AppTest 或六頁響應式 UI，另執行 `.venv\Scripts\python.exe quality\run_benchmarks.py` 比對同環境三次中位數。
 
 Streamlit 啟動後可檢查 `http://127.0.0.1:<port>/_stcore/health`。回傳 `ok` 只代表服務存活；仍需在 Dashboard Header 與「資料品質」頁確認 Data Source、Source Status、Fetched at、Latest Observation、Observation Delay 與 fallback reason。
 
