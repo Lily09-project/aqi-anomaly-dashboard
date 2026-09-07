@@ -1256,7 +1256,38 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
         }}
         .status-pill.warning {{ border-left-color: var(--accent); }}
         .status-pill.warning .status-dot {{ background: var(--accent); }}
-        .status-pill.positive .status-dot {{ background: var(--success); }}</style>
+        .status-pill.positive .status-dot {{ background: var(--success); }}
+
+        /* UI Pro Max: keep dense dashboard controls readable at every viewport. */
+        :where(button, [role="button"], a, input, select, textarea):focus-visible {{
+            outline: 3px solid var(--accent) !important;
+            outline-offset: 3px !important;
+        }}
+        [data-testid="stPlotlyChart"],
+        [data-testid="stDataFrame"] {{
+            max-width: 100%;
+            min-width: 0;
+        }}
+        [data-testid="stDataFrame"] {{
+            overflow-x: auto;
+            scrollbar-color: var(--border) var(--surface);
+        }}
+        .metric-card .value,
+        .signal-value,
+        .risk-fact-value {{
+            font-variant-numeric: tabular-nums;
+        }}
+        @media (max-width: 640px) {{
+            [data-testid="stButtonGroup"] button,
+            [data-testid="stTabs"] button[data-baseweb="tab"] {{
+                min-height: 48px;
+            }}
+            [data-testid="stPlotlyChart"] {{
+                padding: 0;
+                border-radius: 6px;
+            }}
+        }}
+        </style>
         """,
         unsafe_allow_html=True,
     )
