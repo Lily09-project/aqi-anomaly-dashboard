@@ -19,10 +19,6 @@ def render(context: PageContext) -> None:
     data_source = context.data_source
     quality = data_quality_summary(filtered_features)
 
-    st.markdown(
-        '<div class="section-note">此頁整理資料完整性、缺失值與來源摘要，協助快速判斷目前資料是否適合分析。</div>',
-        unsafe_allow_html=True,
-    )
     source_status_panel(source_metadata)
 
     q_cols_top = st.columns(3, gap="large")
@@ -47,7 +43,6 @@ def render(context: PageContext) -> None:
     health_cols[2].metric("延遲測站", data_health.get("stale_station_count", "N/A"))
     largest_gap = data_health.get("largest_gap_hours")
     health_cols[3].metric("最大間隔", "N/A" if largest_gap is None else f"{float(largest_gap):g} 小時")
-    st.caption("可靠性檢查以完整特徵資料計算，包含站點時間戳重複、測站更新延遲與最大觀測間隔。")
 
     freshness_cols = st.columns(4, gap="large")
     freshness_cols[0].metric("來源狀態", data_health.get("source_status", "未知"))

@@ -73,10 +73,6 @@ def render(context: PageContext) -> None:
     selected_site = context.filters.site_name
     selected_site_display = context.filters.site_display
     quality = data_quality_summary(filtered_features)
-    st.markdown(
-        '<div class="section-note">系統整合污染門檻與近期變化，標示值得人工確認的觀測。每筆事件都保留觸發依據，但不代表污染來源已被確認。</div>',
-        unsafe_allow_html=True,
-    )
     st.subheader("事件調查摘要")
     if filtered_events.empty:
         st.info("目前篩選範圍沒有可合併的異常事件。")

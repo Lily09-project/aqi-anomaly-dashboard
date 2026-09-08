@@ -397,7 +397,6 @@ def main() -> None:
                 width="stretch",
                 disabled=filtered_features.empty,
             )
-            st.caption("可靠性摘要整合資料品質、測站優先級、模型 metrics、預測區間與異常偵測限制；不含模型內部特徵。")
             if manifest:
                 manifest_run_id = str(manifest.get("run_id", "run"))
                 st.download_button(
@@ -425,15 +424,6 @@ def main() -> None:
         ("測站數", station_count, "目前篩選範圍", "calm"),
         ("資料狀態", data_health.get("status", "尚未評估"), "完整資料可靠性檢查", "calm"),
     ]
-    st.markdown(
-        f"""
-        <div class="dashboard-intro">
-            <span><strong>監測摘要</strong>　以目前篩選結果建立今日的工作優先序。</span>
-            <span>{escape(data_source)} · {len(filtered_features):,} 筆資料</span>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
     st.markdown(
         filter_context_html(
             selected_county,
@@ -465,12 +455,7 @@ def main() -> None:
     )
     render_active_view(selected_view or VIEW_LABELS[0], page_context, PAGE_RENDERERS)
     st.markdown(
-        f"""
-        <div class="dashboard-footer">
-            <span>環境監測資料工作台</span>
-            <span>測站脈絡判讀 · 下一小時預測 · {escape(data_source)}</span>
-        </div>
-        """,
+        '<div class="dashboard-footer"><span>環境監測資料工作台</span></div>',
         unsafe_allow_html=True,
     )
 

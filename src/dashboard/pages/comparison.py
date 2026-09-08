@@ -73,10 +73,6 @@ def render(context: PageContext) -> None:
     selected_site = context.filters.site_name
     selected_site_display = context.filters.site_display
     quality = data_quality_summary(filtered_features)
-    st.markdown(
-        '<div class="section-note">同時比較 2–3 個測站的目前 AQI、下一小時預測與資料時點；此分頁不受側欄單站篩選限制，但會沿用日期區間。</div>',
-        unsafe_allow_html=True,
-    )
     latest_station_rows = pd.DataFrame()
     if not comparison_features.empty and {"site_name_display", "site_name", "datetime", "aqi"}.issubset(comparison_features.columns):
         latest_station_rows = (
@@ -206,7 +202,8 @@ def render(context: PageContext) -> None:
                 mime="text/csv",
                 width="stretch",
             )
-    st.markdown(
-        f'<div class="section-note">比較結果不是官方行程或健康建議。推薦會排除落後最新時點超過 2 小時的測站，並優先比較下一小時點預測；缺少預測時才使用目前 AQI。{escape(data_source)} 的限制仍適用。</div>',
-        unsafe_allow_html=True,
-    )
+    with st.expander("比較方式與限制", expanded=False):
+        st.markdown(
+            f"比較結果不是官方行程或健康建議。落後最新時點超過 2 小時的測站不列入推薦；"
+            f"優先比較下一小時預測，缺少預測時才使用目前 AQI。{escape(data_source)} 的限制仍適用。"
+        )

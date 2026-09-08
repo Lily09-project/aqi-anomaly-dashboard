@@ -73,10 +73,6 @@ def render(context: PageContext) -> None:
     selected_site = context.filters.site_name
     selected_site_display = context.filters.site_display
     quality = data_quality_summary(filtered_features)
-    st.markdown(
-        '<div class="section-note">根據目前及過去資料估計同一測站下一小時 AQI；模型不會使用預測時點之後的資料。</div>',
-        unsafe_allow_html=True,
-    )
     if filtered_predictions.empty:
         st.info("找不到預測結果，請先執行完整 sample mode 流程。")
     else:
@@ -166,7 +162,8 @@ def render(context: PageContext) -> None:
                     )
             with st.expander("檢視區間校準摘要", expanded=False):
                 render_table(confidence_table, label="預測區間校準摘要")
-            st.caption("區間來自歷史 rolling-origin 誤差的經驗校準，不代表保證機率，也不是官方警報或健康風險判定。")
+            with st.expander("預測區間說明", expanded=False):
+                st.caption("根據目前及過去資料估計同一測站下一小時 AQI；區間以歷史誤差校準，不代表保證機率或官方警報。")
 
         st.subheader("預測誤差")
         error_df = prediction_plot.copy()
@@ -200,12 +197,13 @@ def render(context: PageContext) -> None:
         p_cols[2].metric("R2", predictor_metrics.get("r2", "N/A"))
         split_rows = predictor_metrics.get("split_rows", {})
         if split_rows:
-            st.caption(
-                "模型以時間順序切分："
-                f"訓練 {split_rows.get('train', 0):,} 筆、"
-                f"驗證 {split_rows.get('validation', 0):,} 筆、"
-                f"最終測試 {split_rows.get('final_test', 0):,} 筆。"
-            )
+            with st.expander("資料切分", expanded=False):
+                st.caption(
+                    "依時間順序切分："
+                    f"訓練 {split_rows.get('train', 0):,}、"
+                    f"驗證 {split_rows.get('validation', 0):,}、"
+                    f"測試 {split_rows.get('final_test', 0):,} 筆。"
+                )
 
     st.subheader("滾動回測")
     backtest_table = _backtest_aggregate_table(backtest_metrics)
@@ -213,5 +211,5 @@ def render(context: PageContext) -> None:
         st.info("尚無滾動回測結果；請先執行 sample pipeline。")
     else:
         fold_count = int(backtest_metrics.get("fold_count", 0))
-        st.caption(f"{fold_count} 個測試窗皆只使用更早資料訓練，用於檢查不同時間段的穩定性。")
+        st.caption(f"{fold_count} 個時間序列測試窗")
         render_table(backtest_table, label="滾動回測模型比較")

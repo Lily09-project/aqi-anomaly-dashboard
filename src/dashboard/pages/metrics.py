@@ -142,10 +142,6 @@ def render(context: PageContext) -> None:
     evaluation_summary = context.metrics.evaluation
     monitoring = context.metrics.monitoring
     monitoring_history = context.metrics.monitoring_history
-    st.markdown(
-        '<div class="section-note">此頁整理預測與異常偵測指標。異常偵測 precision、recall、F1 是對 pseudo-label 評估，不代表真實污染事件準確率。</div>',
-        unsafe_allow_html=True,
-    )
     st.subheader("模型健康度與漂移")
     monitoring_status = str(monitoring.get("status", "insufficient_data"))
     status_labels = {
@@ -179,7 +175,6 @@ def render(context: PageContext) -> None:
     reasons = retraining.get("reasons", [])
     if isinstance(reasons, list) and reasons:
         st.warning("重新訓練依據：" + "；".join(str(reason) for reason in reasons))
-    st.caption("監控比較最近 7 天與前 14 天；這是診斷訊號，不會自動替換模型。")
     st.subheader("監控歷史與重訓決策")
     history_table = monitoring_history_table(monitoring_history)
     if history_table.empty:
@@ -225,11 +220,6 @@ def render(context: PageContext) -> None:
             ),
             label="歷史監控與決策紀錄",
         )
-        max_history_entries = int(context.config.get("monitoring", {}).get("max_history_entries", 90))
-        st.caption(
-            f"顯示最近 10 筆；同一資料截止時間與模型的重跑會更新原紀錄，不重複灌入。"
-            f"完整歷史最多保留最近 {max_history_entries} 筆。"
-        )
     st.subheader("AQI 預測模型")
     predictor_table = _model_metrics_table(predictor_metrics)
     if predictor_table.empty:
@@ -266,7 +256,6 @@ def render(context: PageContext) -> None:
                 ),
                 label="各 AQI 區間可靠性",
             )
-        st.caption("分組指標皆顯示樣本數；小樣本測站或高 AQI 區間的數值波動較大，不應單獨作為部署依據。")
 
     coverage_table = station_coverage_table(confidence_metrics)
     if not coverage_table.empty:
@@ -286,7 +275,6 @@ def render(context: PageContext) -> None:
             ),
             label="各測站 final-test 區間校準檢查",
         )
-        st.caption("區間由 final test 之前的 rolling-origin 殘差校準；此表只評估覆蓋率，不用測試結果回頭調整寬度。")
     st.subheader("時間序列穩定性")
     backtest_table = _backtest_aggregate_table(backtest_metrics)
     if backtest_table.empty:
@@ -331,7 +319,6 @@ def render(context: PageContext) -> None:
             bool(item.get("exists")) and bool(item.get("sha256")) for item in artifact_records
         )
         revision = str(project.get("git_revision", "N/A"))
-        st.caption("此區塊將一次 pipeline 的版本、資料 contract 與輸出雜湊轉成可供審查的摘要，不顯示 raw JSON。")
         evidence_columns = st.columns(3)
         evidence_columns[0].metric("Git revision", revision[:12] if revision else "N/A")
         evidence_columns[1].metric("輸出完整度", f"{complete_artifacts}/{len(artifact_records)}")
@@ -350,7 +337,9 @@ def render(context: PageContext) -> None:
             key="metrics_manifest_download",
         )
 
-    st.markdown(
-        '<div class="section-note">限制：Sample Data 是模擬資料；API 欄位格式可能變動；異常偵測目前沒有人工標註 ground truth。未來可接入排程 API、真實事件標註與更嚴格的時間序列交叉驗證。</div>',
-        unsafe_allow_html=True,
-    )
+    with st.expander("方法與限制", expanded=False):
+        st.markdown(
+            "- 監控比較最近 7 天與前 14 天，不會自動替換模型。\n"
+            "- Sample Data 為模擬資料；API 欄位可能變動。\n"
+            "- 異常指標使用 pseudo-label，不能視為真實污染事件準確率。"
+        )
