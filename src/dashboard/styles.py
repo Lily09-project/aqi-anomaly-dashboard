@@ -1130,6 +1130,17 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             .comparison-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
             .signal-primary {{ grid-row: auto; grid-column: span 2; }}
         }}
+        @media (max-width: 1100px) and (min-width: 641px) {{
+            [data-testid="stButtonGroup"] [data-baseweb="button-group"] {{
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }}
+            [data-testid="stButtonGroup"] button {{
+                min-width: 0;
+                white-space: nowrap !important;
+                word-break: keep-all;
+                overflow-wrap: normal;
+            }}
+        }}
         @media (max-width: 640px) {{
             .block-container {{ padding: 3.75rem 0.9rem 2.5rem; }}
             h1 {{ font-size: 1.75rem !important; }}

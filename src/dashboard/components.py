@@ -181,6 +181,11 @@ def activity_guidance_panel(latest_aqi: object, data_source: str, observed_at: o
         if data_source != "API Data"
         else "資料時效取決於上游 API，重要決策請查閱官方資訊。"
     )
+    source_note = escape(source_note).replace(
+        "僅供模擬，不是官方即時資訊。", "非官方即時資訊。"
+    ).replace(
+        "資料時效取決於上游 API，重要決策請查閱官方資訊。", "資料時效依上游 API。"
+    )
     st.markdown(
         f"""
         <section class="guidance-panel" aria-label="空氣品質活動建議">
@@ -198,7 +203,7 @@ def activity_guidance_panel(latest_aqi: object, data_source: str, observed_at: o
                 <div><span>一般民眾</span><p>{escape(str(guidance['general']))}</p></div>
                 <div><span>敏感族群</span><p>{escape(str(guidance['sensitive']))}</p></div>
             </div>
-            <p class="guidance-disclaimer">依環境部 AQI 分級整理。{escape(source_note)}
+            <p class="guidance-disclaimer">依環境部 AQI 分級 · {source_note}
                 <a href="https://airtw.moenv.gov.tw/CHT/Information/Standard/AirQualityIndicatorNew.aspx" target="_blank" rel="noopener noreferrer">查看環境部 AQI 說明</a>
             </p>
         </section>
@@ -606,4 +611,3 @@ def _risk_brief_table(brief: pd.DataFrame) -> pd.DataFrame:
     return display
 
 model_metrics_table = _model_metrics_table
-
