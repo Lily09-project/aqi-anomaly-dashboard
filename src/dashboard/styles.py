@@ -219,6 +219,18 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             overflow-wrap: anywhere;
             line-height: 1.25;
         }}
+        /* Keep segmented labels readable when users zoom text to 200%. */
+        [data-testid="stButtonGroup"] button[data-testid^="stBaseButton-segmented_control"] {{
+            height: auto !important;
+            min-height: 44px;
+            overflow: visible !important;
+        }}
+        [data-testid="stButtonGroup"] button[data-testid^="stBaseButton-segmented_control"] > div,
+        [data-testid="stButtonGroup"] button[data-testid^="stBaseButton-segmented_control"] span {{
+            max-height: none !important;
+            overflow: visible !important;
+            white-space: inherit !important;
+        }}
         [data-testid="stButtonGroup"] button:hover {{
             background: var(--card) !important;
             color: var(--text) !important;

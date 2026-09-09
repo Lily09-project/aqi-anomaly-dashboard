@@ -34,6 +34,9 @@ def test_dashboard_styles_render_high_contrast_responsive_css() -> None:
     assert "@media (max-width: 1100px) and (min-width: 641px)" in fake.rendered
     assert "grid-template-columns: repeat(3, minmax(0, 1fr))" in fake.rendered
     assert '[data-testid="stButtonGroup"] button' in fake.rendered
+    assert 'button[data-testid^="stBaseButton-segmented_control"]' in fake.rendered
+    assert "height: auto !important" in fake.rendered
+    assert "overflow: visible !important" in fake.rendered
     assert "word-break: keep-all" in fake.rendered
     assert "overflow-wrap: normal" in fake.rendered
     assert "button:focus-visible" in fake.rendered
