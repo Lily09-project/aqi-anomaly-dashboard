@@ -13,7 +13,7 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
         f"""
         <style>
         html, body {{
-            color-scheme: dark;
+            color-scheme: {theme.get("mode", "dark")};
             background: var(--background);
         }}
         :root {{
@@ -144,6 +144,10 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             color: var(--text) !important;
             min-height: 44px;
             border-radius: 8px !important;
+        }}
+        [data-baseweb="select"] svg {{
+            color: var(--muted-text) !important;
+            fill: var(--muted-text) !important;
         }}
         [role="listbox"], [role="option"] {{
             background-color: var(--surface) !important;
@@ -619,6 +623,13 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
         [data-testid="stExpandSidebarButton"] {{
             min-width: 44px !important;
             min-height: 44px !important;
+        }}
+        [data-testid="stSidebar"] [data-testid="stBaseButton-headerNoPadding"],
+        [data-testid="stExpandSidebarButton"] button,
+        [data-testid="stSidebarCollapsedControl"] button {{
+            color: var(--text) !important;
+            border-color: var(--text) !important;
+            background: transparent !important;
         }}
         button:not(:disabled),
         [role="button"]:not([aria-disabled="true"]) {{

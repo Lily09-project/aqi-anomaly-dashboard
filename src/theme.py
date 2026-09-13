@@ -94,6 +94,25 @@ THEME_OPTIONS: dict[str, dict[str, str]] = {
         "table_header": "#2C2C48",
         "chart_grid": "#3A3A5A",
     },
+    "paper_blue": {
+        "label": "霧白藍（淺色）",
+        "mode": "light",
+        "background": "#F8FAFC",
+        "surface": "#EEF2F7",
+        "card": "#FFFFFF",
+        "sidebar": "#F1F5F9",
+        "primary": "#1E40AF",
+        "secondary": "#2563EB",
+        "accent": "#B45309",
+        "danger": "#B91C1C",
+        "success": "#047857",
+        "warning": "#A16207",
+        "text": "#0F172A",
+        "muted_text": "#475569",
+        "border": "#CBD5E1",
+        "table_header": "#E2E8F0",
+        "chart_grid": "#CBD5E1",
+    },
 }
 
 DEFAULT_THEME_NAME = "midnight_blue"

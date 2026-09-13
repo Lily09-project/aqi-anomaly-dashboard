@@ -153,7 +153,7 @@ def main() -> None:
         )
         st.header("主題設定")
         selected_theme_name = st.selectbox(
-            "選擇深色主題",
+            "選擇介面主題",
             options=list(THEME_OPTIONS.keys()),
             index=list(THEME_OPTIONS.keys()).index(DEFAULT_THEME_NAME),
             format_func=lambda name: THEME_OPTIONS[name]["label"],
