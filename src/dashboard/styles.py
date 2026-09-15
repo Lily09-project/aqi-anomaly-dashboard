@@ -1321,6 +1321,323 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
                 border-radius: 6px;
             }}
         }}
+
+        /* UI Pro Max v2: a single, responsive visual language for every AQI view. */
+        :root {{
+            --ui-font: "Fira Sans", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei UI", sans-serif;
+            --ui-data-font: "Fira Code", "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+            --ui-radius-sm: 8px;
+            --ui-radius-md: 12px;
+            --ui-content-gutter: clamp(0.9rem, 2.2vw, 2.75rem);
+        }}
+        *, *::before, *::after {{ box-sizing: border-box; }}
+        .stApp, .stApp button, .stApp input, .stApp textarea, .stApp select {{
+            font-family: var(--ui-font);
+        }}
+        .stApp {{
+            font-size: clamp(1rem, 0.96rem + 0.18vw, 1.08rem);
+            line-height: 1.6;
+            text-rendering: optimizeLegibility;
+        }}
+        .block-container {{
+            width: 100%;
+            max-width: 1560px;
+            padding-inline: var(--ui-content-gutter);
+            padding-block: clamp(1.25rem, 2.4vw, 2.75rem) clamp(2.5rem, 5vw, 4rem);
+        }}
+        h1 {{
+            font-size: clamp(1.8rem, 1.35rem + 2vw, 2.8rem) !important;
+            line-height: 1.14 !important;
+        }}
+        h2 {{
+            font-size: clamp(1.3rem, 1.12rem + 0.8vw, 1.75rem) !important;
+            line-height: 1.25 !important;
+        }}
+        h3 {{
+            font-size: clamp(1.05rem, 0.98rem + 0.35vw, 1.25rem) !important;
+            line-height: 1.35 !important;
+        }}
+        p, li, label, [data-testid="stMarkdownContainer"] {{
+            max-width: 75ch;
+            overflow-wrap: anywhere;
+        }}
+        [data-testid="stColumn"], [data-testid="stHorizontalBlock"],
+        .hero-copy, .section-header, .risk-brief, .guidance-panel,
+        .comparison-card, .signal-card, .signal-primary, .watch-card {{
+            min-width: 0;
+        }}
+        .hero-band, .source-status-panel, .filter-context, .guidance-panel,
+        .risk-brief, .metric-card, .signal-card, .signal-primary,
+        .comparison-card, .watch-card, .table-shell {{
+            border-radius: var(--ui-radius-md);
+        }}
+        .hero-band {{
+            padding-block: clamp(0.8rem, 1.6vw, 1.35rem) clamp(1rem, 2vw, 1.6rem);
+        }}
+        .hero-band h1 {{ max-width: 22ch; }}
+        .hero-band p {{ font-size: clamp(1rem, 0.96rem + 0.16vw, 1.08rem); }}
+        .metric-card {{
+            min-height: 124px;
+            padding: 1.05rem 1.1rem;
+            box-shadow: 0 8px 20px var(--shadow);
+        }}
+        .metric-card .value, .signal-value, .risk-fact-value,
+        .comparison-aqi strong, .watch-card-main strong {{
+            font-family: var(--ui-data-font);
+            font-variant-numeric: tabular-nums;
+        }}
+        .signal-card {{ min-height: 116px; }}
+        .signal-primary {{ min-height: 236px; }}
+        .section-header {{ align-items: baseline; }}
+        .section-context {{ max-width: 34ch; overflow-wrap: anywhere; }}
+        .table-shell {{
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            overscroll-behavior-inline: contain;
+        }}
+        .dashboard-table {{ min-width: 38rem; }}
+        [data-testid="stDataFrame"] {{
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            border-radius: var(--ui-radius-md);
+        }}
+        [data-testid="stPlotlyChart"] {{
+            width: 100%;
+            max-width: 100%;
+            border-radius: var(--ui-radius-md);
+        }}
+        @media (max-width: 900px) {{
+            .signal-deck {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+            .signal-primary {{ grid-column: 1 / -1; grid-row: auto; min-height: 190px; }}
+            .section-header {{ align-items: flex-start; }}
+            .section-context {{ text-align: left; }}
+        }}
+        @media (max-width: 640px) {{
+            .block-container {{
+                padding-inline: max(0.85rem, env(safe-area-inset-left)) max(0.85rem, env(safe-area-inset-right));
+                padding-top: 4rem;
+            }}
+            .hero-band h1 {{ max-width: none; font-size: clamp(1.6rem, 7vw, 2.15rem) !important; }}
+            .hero-band p {{ line-height: 1.55; }}
+            .filter-chip {{ flex-basis: 100%; }}
+            .signal-deck {{ grid-template-columns: 1fr; }}
+            .signal-primary {{ grid-column: auto; min-height: 170px; }}
+            .signal-value {{ font-size: clamp(2.1rem, 12vw, 2.8rem); }}
+            .metric-card {{ min-height: 108px; }}
+            .dashboard-table {{ min-width: 34rem; }}
+            .table-shell {{ margin-inline: 0; }}
+        }}
+        @media (min-width: 1440px) {{
+            .block-container {{ padding-inline: clamp(2.75rem, 4vw, 4.5rem); }}
+        }}
+        @media (prefers-reduced-motion: reduce) {{
+            html {{ scroll-behavior: auto; }}
+            *, *::before, *::after {{
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }}
+        }}
+        /* UI/UX rebuild: AQI observation console.  Hierarchy is intentionally
+           quiet: confirm source, read the signal deck, then choose one view. */
+        :root {{
+            --ui-radius-xl: 20px;
+            --ui-radius-lg: 16px;
+            --ui-radius-md: 12px;
+            --ui-surface-muted: color-mix(in srgb, var(--surface) 72%, var(--background));
+            --ui-border-strong: color-mix(in srgb, var(--accent) 42%, var(--border));
+            --ui-panel-shadow: 0 14px 36px color-mix(in srgb, var(--background) 64%, transparent);
+        }}
+        .stApp {{
+            background: var(--background) !important;
+            color: var(--text) !important;
+            font-family: var(--ui-font) !important;
+            font-size: clamp(1rem, .96rem + .16vw, 1.08rem);
+            line-height: 1.62;
+        }}
+        .block-container {{
+            max-width: 1360px !important;
+            padding-inline: clamp(1rem, 3vw, 3.5rem) !important;
+            padding-block: clamp(1rem, 2.5vw, 2.5rem) clamp(3rem, 5vw, 4.5rem) !important;
+        }}
+        section[data-testid="stSidebar"] {{
+            background: var(--sidebar) !important;
+            border-right: 1px solid var(--border) !important;
+        }}
+        section[data-testid="stSidebar"] > div:first-child {{ padding: 1.35rem 1.05rem 2rem !important; }}
+        .sidebar-brand {{
+            min-height: 58px;
+            padding-bottom: 1.15rem !important;
+            border-bottom-color: var(--border) !important;
+        }}
+        .sidebar-brand-mark {{
+            width: 2.55rem !important;
+            height: 2.55rem !important;
+            border-radius: 12px !important;
+            background: var(--accent) !important;
+            color: var(--background) !important;
+            font-family: var(--ui-data-font) !important;
+        }}
+        .hero-band {{
+            display: grid !important;
+            grid-template-columns: minmax(0, 1fr) minmax(260px, .7fr) !important;
+            gap: clamp(1.25rem, 3vw, 3rem) !important;
+            align-items: end !important;
+            margin: 0 0 1.25rem !important;
+            padding: clamp(1.25rem, 2.8vw, 2.1rem) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: var(--ui-radius-xl) !important;
+            background: var(--surface) !important;
+            box-shadow: var(--ui-panel-shadow) !important;
+        }}
+        .hero-copy {{ min-width: 0; }}
+        .hero-kicker {{
+            display: flex !important;
+            align-items: center;
+            gap: .65rem;
+            flex-wrap: wrap;
+            margin-bottom: .85rem;
+            color: var(--accent) !important;
+            font-size: .72rem !important;
+            font-weight: 900 !important;
+            letter-spacing: 0 !important;
+        }}
+        .hero-band h1 {{
+            max-width: 18ch;
+            margin: 0 !important;
+            font-size: clamp(2rem, 1.5rem + 2vw, 3rem) !important;
+            line-height: 1.1 !important;
+            letter-spacing: 0 !important;
+        }}
+        .hero-band p {{
+            max-width: 52ch !important;
+            margin: .8rem 0 0 !important;
+            color: var(--muted-text) !important;
+            font-size: 1rem !important;
+            line-height: 1.6 !important;
+        }}
+        .hero-meta {{
+            display: grid !important;
+            grid-template-columns: 1fr !important;
+            gap: .55rem !important;
+            align-self: stretch !important;
+            margin: 0 !important;
+            padding: .75rem 0 0 !important;
+            border: 0 !important;
+            border-top: 1px solid var(--border) !important;
+        }}
+        .hero-meta-item {{
+            display: flex !important;
+            align-items: center;
+            justify-content: space-between;
+            gap: .75rem;
+            min-height: 2.25rem;
+            padding: .15rem 0 !important;
+            border: 0 !important;
+            border-bottom: 1px solid var(--border) !important;
+            color: var(--muted-text) !important;
+            font-size: .84rem !important;
+        }}
+        .hero-meta-item strong {{ color: var(--text) !important; font-family: var(--ui-data-font); font-size: .86rem; text-align: right; }}
+        .status-pill {{
+            min-height: 34px;
+            border-radius: 999px !important;
+            border-color: var(--ui-border-strong) !important;
+            background: var(--ui-surface-muted) !important;
+        }}
+        .source-status-panel,
+        .filter-context,
+        .guidance-panel,
+        .risk-brief,
+        .comparison-recommendation {{
+            border-radius: var(--ui-radius-lg) !important;
+            box-shadow: 0 8px 24px color-mix(in srgb, var(--background) 40%, transparent) !important;
+        }}
+        .source-status-panel {{ padding: 1rem 1.1rem !important; }}
+        .filter-context {{
+            border-left-width: 4px !important;
+            background: var(--ui-surface-muted) !important;
+        }}
+        .filter-chip {{ min-height: 36px !important; border-radius: 999px !important; padding-inline: .7rem !important; }}
+        .signal-deck {{
+            grid-template-columns: minmax(240px, 1.25fr) repeat(3, minmax(150px, 1fr)) !important;
+            gap: .85rem !important;
+            margin: .65rem 0 1.65rem !important;
+        }}
+        .signal-primary,
+        .signal-card,
+        .metric-card,
+        .comparison-card,
+        .watch-card {{
+            border-radius: var(--ui-radius-lg) !important;
+            box-shadow: 0 8px 22px color-mix(in srgb, var(--background) 38%, transparent) !important;
+        }}
+        .signal-primary {{
+            min-height: 236px !important;
+            padding: 1.35rem !important;
+            border-left-width: 5px !important;
+        }}
+        .signal-value,
+        .metric-card .value,
+        .comparison-aqi strong,
+        .watch-card-main strong,
+        .risk-fact-value {{
+            font-family: var(--ui-data-font) !important;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0;
+        }}
+        .signal-value {{ font-size: clamp(2.65rem, 2.1rem + 2vw, 4rem) !important; }}
+        .signal-card {{ min-height: 118px !important; padding: 1rem !important; }}
+        .guidance-panel {{ padding: 1.2rem 1.25rem !important; }}
+        .guidance-grid > div {{ border-radius: var(--ui-radius-md) !important; padding: 1rem !important; }}
+        .section-header {{ margin-top: 2.25rem !important; }}
+        .section-kicker {{ color: var(--accent) !important; letter-spacing: 0 !important; }}
+        [data-testid="stButtonGroup"] [data-baseweb="button-group"] {{
+            border-radius: var(--ui-radius-lg) !important;
+            border-color: var(--border) !important;
+            background: var(--ui-surface-muted) !important;
+            box-shadow: none !important;
+        }}
+        [data-testid="stButtonGroup"] button {{ min-height: 48px !important; border-radius: 10px !important; font-weight: 800 !important; }}
+        [data-testid="stPlotlyChart"], [data-testid="stDataFrame"], .table-shell {{
+            border-radius: var(--ui-radius-lg) !important;
+            border: 1px solid var(--border) !important;
+            box-shadow: 0 8px 20px color-mix(in srgb, var(--background) 28%, transparent);
+        }}
+        [data-testid="stPlotlyChart"] {{ padding: .45rem !important; }}
+        .dashboard-table {{ font-variant-numeric: tabular-nums; }}
+        .dashboard-footer {{ margin-top: 3.5rem !important; padding-top: 1rem !important; border-top-color: var(--border) !important; }}
+        :where(button, [role="button"], a, input, select, textarea):focus-visible {{
+            outline: 3px solid var(--accent) !important;
+            outline-offset: 3px !important;
+        }}
+        @media (max-width: 900px) {{
+            .hero-band {{ grid-template-columns: 1fr !important; align-items: start !important; }}
+            .hero-meta {{ grid-template-columns: repeat(3, minmax(0, 1fr)) !important; padding-top: .75rem !important; }}
+            .hero-meta-item {{ display: grid !important; align-content: start; justify-content: start; gap: .2rem; }}
+            .hero-meta-item strong {{ text-align: left; }}
+        }}
+        @media (max-width: 640px) {{
+            .block-container {{
+                padding-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right)) !important;
+                padding-top: 4rem !important;
+            }}
+            .hero-band {{ padding: 1.1rem !important; border-radius: var(--ui-radius-lg) !important; }}
+            .hero-band h1 {{ max-width: none; font-size: clamp(1.75rem, 8vw, 2.35rem) !important; }}
+            .hero-meta {{ grid-template-columns: 1fr !important; }}
+            .hero-meta-item {{ display: flex !important; align-items: baseline; justify-content: space-between; }}
+            .hero-meta-item strong {{ text-align: right; }}
+            .signal-deck {{ grid-template-columns: 1fr !important; }}
+            .signal-primary {{ grid-column: auto !important; min-height: 178px !important; }}
+            .signal-card {{ min-height: 104px !important; }}
+            .guidance-panel {{ padding: 1rem !important; }}
+            .filter-chip {{ flex-basis: 100% !important; }}
+            [data-testid="stPlotlyChart"] {{ padding: 0 !important; }}
+        }}
+        @media (prefers-reduced-motion: reduce) {{
+            *, *::before, *::after {{ animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }}
+        }}
         </style>
         """,
         unsafe_allow_html=True,

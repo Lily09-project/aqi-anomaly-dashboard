@@ -200,11 +200,11 @@ def main() -> None:
         <div class="hero-band">
           <div class="hero-copy">
             <div class="hero-kicker">
-              <span>空氣品質監測</span>
+              <span>AQI · OBSERVATORY</span>
               <span class="status-pill {escape(str(source_status["tone"]))}"><span class="status-dot {escape(str(source_status["tone"]))}"></span>{escape(str(source_status["label"]))}</span>
             </div>
             <h1>台灣 AQI 監測與預測</h1>
-            <p>以測站歷史脈絡排序污染異常，並檢視下一小時 AQI 預測與資料品質。</p>
+            <p>監測、預測、異常與資料品質，集中在一個可追溯的工作台。</p>
           </div>
           <div class="hero-meta">
             <span class="hero-meta-item">預測週期 <strong>下一小時</strong></span>
