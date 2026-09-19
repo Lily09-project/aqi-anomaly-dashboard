@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import subprocess
+import sys
+
+import pytest
 from streamlit.testing.v1 import AppTest
 
 
@@ -13,8 +17,23 @@ PAGE_MARKERS = {
 }
 
 
+@pytest.fixture(scope="module", autouse=True)
+def prepare_sample_artifacts() -> None:
+    result = subprocess.run(
+        [sys.executable, "run_all.py", "--mode", "sample"],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+
+
 def _app() -> AppTest:
-    return AppTest.from_file("app.py", default_timeout=30).run()
+    app = AppTest.from_file("app.py", default_timeout=30).run()
+    errors = [str(item.value) for item in app.exception]
+    assert not errors, f"dashboard startup failed: {errors}"
+    return app
 
 
 def test_reviewer_can_open_every_dashboard_page_without_runtime_errors() -> None:
