@@ -31,6 +31,9 @@ EXTENDED_VIEWPORTS = (
 VIEWPORTS = CORE_VIEWPORTS
 STREAMLIT_EXCEPTION_SELECTOR = '[data-testid="stException"]'
 TEXT_SCALE_CSS = ":root { font-size: 200% !important; }"
+# WCAG-friendly touch target floor for user-facing controls. Streamlit's
+# internal toolbar/header controls are explicitly excluded below.
+MIN_INTERACTIVE_TARGET_PX = 44
 
 
 def viewport_matrix(extended: bool = False) -> tuple[tuple[str, int, int], ...]:
@@ -71,8 +74,9 @@ def layout_issues(page) -> list[str]:
                 const testId = control.getAttribute('data-testid') || '';
                 if (!inViewport || testId === 'stBaseButton-elementToolbar'
                     || testId.startsWith('stBaseButton-header')) continue;
-                if (rect.width < 24 || rect.height < 24) {
-                    issues.push(`small interactive target: ${control.tagName}`);
+                if (rect.width < 44 || rect.height < 44) {
+                    const label = (control.innerText || control.getAttribute('aria-label') || '').trim().slice(0, 80);
+                    issues.push(`small interactive target: ${testId || control.tagName} ${Math.round(rect.width)}x${Math.round(rect.height)} ${label}`.trim());
                     break;
                 }
             }

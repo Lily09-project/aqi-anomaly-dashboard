@@ -7,6 +7,7 @@ from scripts.ui_qa import (
     focus_issues,
     CORE_VIEWPORTS,
     EXTENDED_VIEWPORTS,
+    MIN_INTERACTIVE_TARGET_PX,
     STREAMLIT_EXCEPTION_SELECTOR,
     TEXT_SCALE_CSS,
     VIEW_CONTRACTS,
@@ -47,6 +48,14 @@ def test_ui_qa_covers_desktop_small_phone_and_landscape() -> None:
 def test_layout_issues_is_fail_closed_for_browser_contract() -> None:
     assert callable(layout_issues)
     assert callable(focus_issues)
+    assert MIN_INTERACTIVE_TARGET_PX == 44
+
+
+def test_user_facing_streamlit_buttons_have_a_touch_target_floor() -> None:
+    source = Path("src/dashboard/styles.py").read_text(encoding="utf-8")
+
+    assert 'button[data-testid^="stBaseButton-"]' in source
+    assert "min-height: 44px !important;" in source
 
 
 def test_browser_qa_is_wired_into_ci_and_kept_out_of_release_artifacts() -> None:

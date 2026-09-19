@@ -619,6 +619,11 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             touch-action: manipulation;
             transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
         }}
+        [data-testid="stButton"] button,
+        [data-testid="stDownloadButton"] button,
+        button[data-testid^="stBaseButton-"] {{
+            min-height: 44px !important;
+        }}
         [data-testid="stBaseButton-headerNoPadding"],
         [data-testid="stExpandSidebarButton"] {{
             min-width: 44px !important;
