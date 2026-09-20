@@ -2,7 +2,7 @@ pandas
 numpy
 requests
 scikit-learn
-streamlit>=1.58,<2
+streamlit>=1.64.0,<2
 plotly
 matplotlib
 joblib
@@ -10,5 +10,5 @@ pyyaml
 pytest
 python-dotenv
 # Streamlit's transitive dependencies must stay on versions with known fixes.
-GitPython>=3.1.61,<4
+GitPython>=3.1.62,<4
 Pillow>=12.3.0,<13
