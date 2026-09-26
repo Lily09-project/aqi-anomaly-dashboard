@@ -22,7 +22,7 @@
 - `requested_at_utc`、`fetched_at_utc`：請求與成功解析時間。
 - `row_count`、`datetime_range`：資料量與觀測時間範圍。
 - `schema_columns`、`schema_sha256`：欄位契約，不保存資料列內容。
-- `source_url`：只保留 scheme、host、path；query、fragment、username、password 一律移除。
+- `source_url`：只保留 scheme 與 host；path、query、fragment、username、password 一律移除。
 - `fallback_reason`、`error_type`、`http_status`：可判讀的失敗摘要，不保存完整 exception message 或 response body。
 
 API key 只從 `AQI_API_KEY` 環境變數讀取，request 時以 query parameter 傳給上游，但永遠不寫入 metadata、manifest、log、Dashboard 或 Git。正式環境應使用 secret store；本地 Demo 可以維持空 key 並執行 Sample mode。

@@ -17,10 +17,11 @@ from src.source_metadata import (
 )
 
 
-def test_redact_source_url_removes_credentials_query_and_fragment() -> None:
+def test_redact_source_url_keeps_only_public_origin() -> None:
     value = redact_source_url("https://user:secret@example.com/aqi?token=private#debug")
 
-    assert value == "https://example.com/aqi"
+    assert value == "https://example.com"
+    assert redact_source_url("https://example.com/path/private-token") == "https://example.com"
 
 
 def test_source_metadata_marks_sample_data() -> None:
