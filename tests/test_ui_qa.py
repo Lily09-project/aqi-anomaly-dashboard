@@ -75,6 +75,14 @@ def test_browser_qa_is_wired_into_ci_and_kept_out_of_release_artifacts() -> None
     assert "docs/screenshots/ui-qa/" in gitignore
 
 
+def test_focus_audit_uses_real_keyboard_tab_navigation() -> None:
+    source = Path("scripts/ui_qa.py").read_text(encoding="utf-8")
+
+    assert 'page.keyboard.press("Tab")' in source
+    assert "keyboard focus did not reach the skip link" in source
+    assert ".focus({preventScroll: true})" not in source
+
+
 def test_browser_failure_evidence_is_structured_and_atomic(tmp_path: Path) -> None:
     (tmp_path / "failure-route-mobile.png").write_bytes(b"png")
     (tmp_path / "route-mobile.png").write_bytes(b"png")
