@@ -69,6 +69,8 @@ def test_browser_qa_is_wired_into_ci_and_kept_out_of_release_artifacts() -> None
         in workflow
     )
     assert "python -m playwright install --with-deps chromium" in workflow
+    assert 'PIP_DEFAULT_TIMEOUT: "60"' in workflow
+    assert 'PIP_RETRIES: "10"' in workflow
     assert "playwright==1.58.0" in requirements
     assert "docs/screenshots/ui-qa/" in gitignore
 
