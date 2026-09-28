@@ -64,6 +64,10 @@ def test_browser_qa_is_wired_into_ci_and_kept_out_of_release_artifacts() -> None
     gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
 
     assert "python scripts/ui_qa.py --url http://127.0.0.1:8851" in workflow
+    assert (
+        "python scripts/ui_qa.py --url http://127.0.0.1:8851 --extended --text-scale"
+        in workflow
+    )
     assert "python -m playwright install --with-deps chromium" in workflow
     assert "playwright==1.58.0" in requirements
     assert "docs/screenshots/ui-qa/" in gitignore
