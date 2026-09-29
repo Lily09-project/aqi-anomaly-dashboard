@@ -74,6 +74,10 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
         a {{
             color: var(--primary) !important;
         }}
+        [data-testid="stSidebar"][aria-expanded="false"] {{
+            visibility: hidden !important;
+        }}
+
         .skip-link {{
             position: fixed;
             top: max(0.75rem, env(safe-area-inset-top));
