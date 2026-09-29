@@ -89,8 +89,7 @@ def test_focus_audit_uses_real_keyboard_tab_navigation() -> None:
 def test_focus_audit_validates_radio_proxy_and_mobile_controls() -> None:
     source = Path("scripts/ui_qa.py").read_text(encoding="utf-8")
     start = source.index("def focus_issues(page)")
-    focus_source = source[start:source.index("
-def ", start + 1)]
+    focus_source = source[start:source.index(chr(10) + "def ", start + 1)]
 
     assert 'page.keyboard.press("Tab")' in focus_source
     assert "page.wait_for_function(" in focus_source
