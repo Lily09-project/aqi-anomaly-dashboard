@@ -77,8 +77,7 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
         [data-testid="stSidebar"][aria-expanded="false"] {{
             visibility: hidden !important;
         }}
-        @media (max-width: 760px) {{
-            [data-testid="stSidebar"][aria-expanded="true"]
+        @media (max-width: 1024px) {{
             [data-testid="stBaseButton-headerNoPadding"] {{
                 position: fixed !important;
                 top: 0.75rem !important;
@@ -90,9 +89,9 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
         }}
 
         .skip-link {{
-            position: fixed;
-            top: max(0.75rem, env(safe-area-inset-top));
-            left: max(1rem, env(safe-area-inset-left));
+            position: fixed !important;
+            top: 0.75rem !important;
+            left: 0.75rem !important;
             z-index: 1000000;
             padding: 0.7rem 0.9rem;
             border: 2px solid var(--text);
