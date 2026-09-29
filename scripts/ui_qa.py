@@ -31,6 +31,7 @@ EXTENDED_VIEWPORTS = (
 VIEWPORTS = CORE_VIEWPORTS
 STREAMLIT_EXCEPTION_SELECTOR = '[data-testid="stException"]'
 TEXT_SCALE_CSS = ":root { font-size: 200% !important; }"
+THEME_OPTION_LABELS = {"light":"霧白藍（淺色）","dark":"午夜藍"}
 # WCAG-friendly touch target floor for user-facing controls. Streamlit's
 # internal toolbar/header controls are explicitly excluded below.
 MIN_INTERACTIVE_TARGET_PX = 44
@@ -313,11 +314,46 @@ def check_health(base_url: str) -> None:
         raise RuntimeError(f"Unexpected Streamlit health response: {body[:200]}")
 
 
+def apply_theme_mode(
+    page,
+    theme_mode: str | None,
+    *,
+    selector_label: str | None = None,
+    option_labels: dict[str, str] | None = None,
+) -> None:
+    if theme_mode is None:
+        return
+    if theme_mode not in {"light", "dark"}:
+        raise ValueError("theme_mode must be light or dark")
+    if selector_label is not None:
+        sidebar = page.locator('[data-testid="stSidebar"]')
+        if sidebar.get_attribute("aria-expanded") != "true":
+            expand_control = page.locator('[data-testid="stExpandSidebarButton"]')
+            expand_button = expand_control.locator("button")
+            if expand_button.count():
+                expand_button.click(timeout=15_000)
+            else:
+                expand_control.click(timeout=15_000)
+        option_label = (option_labels or {}).get(theme_mode)
+        if not option_label:
+            raise ValueError(f"missing app theme label for {theme_mode}")
+        page.get_by_role("combobox", name=selector_label).click(timeout=15_000)
+        page.get_by_role("option", name=option_label, exact=True).click(timeout=15_000)
+        collapse_button = page.locator('[data-testid="stSidebarCollapseButton"] button')
+        if sidebar.get_attribute("aria-expanded") == "true" and collapse_button.count():
+            collapse_button.click(timeout=15_000)
+    page.wait_for_function(
+        "expected => getComputedStyle(document.documentElement).colorScheme === expected",
+        arg=theme_mode,
+        timeout=15_000,
+    )
+
 def run_browser_checks(
     base_url: str,
     screenshot_dir: Path,
     extended: bool = False,
     text_scale: bool = False,
+    theme_mode: str | None = None,
 ) -> str:
     try:
         from playwright.sync_api import Error as PlaywrightError
@@ -341,10 +377,19 @@ def run_browser_checks(
             )
             page.on("pageerror", lambda error, errors=console_errors: errors.append(str(error)))
             try:
+                if theme_mode is None:
                 page.emulate_media(reduced_motion="reduce")
+            else:
+                page.emulate_media(reduced_motion="reduce", color_scheme=theme_mode)
                 page.goto(base_url, wait_until="domcontentloaded", timeout=60_000)
                 page.get_by_role("heading", name="台灣 AQI 監測與預測", exact=True).wait_for(
                     timeout=60_000
+                )
+                apply_theme_mode(
+                    page,
+                    theme_mode,
+                    selector_label="選擇介面主題",
+                    option_labels=THEME_OPTION_LABELS,
                 )
                 if text_scale:
                     page.add_style_tag(content=TEXT_SCALE_CSS)
@@ -412,6 +457,7 @@ def main() -> int:
         action="store_true",
         help="apply 200% root text scaling and rerun reflow checks",
     )
+    parser.add_argument("--theme-mode", choices=("light", "dark"))
     args = parser.parse_args()
     screenshot_dir = Path(args.screenshots)
     (screenshot_dir / "failure-evidence.json").unlink(missing_ok=True)
@@ -424,6 +470,7 @@ def main() -> int:
             screenshot_dir,
             extended=args.extended,
             text_scale=args.text_scale,
+            theme_mode=args.theme_mode,
         )
     except (OSError, urllib.error.URLError, RuntimeError, ValueError) as exc:
         evidence = write_failure_evidence(args.url, screenshot_dir, str(exc))
