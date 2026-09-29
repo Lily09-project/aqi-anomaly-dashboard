@@ -175,7 +175,7 @@ def main() -> None:
     if fallback_theme_used:
         st.warning("目前主題部分顏色對比不足，已使用預設主題。")
     st.html(
-        '<a class="skip-link" href="#dashboard-main" tabindex="1">跳到主要內容</a>'
+        '<a class="skip-link" href="#dashboard-main" tabindex="0">跳到主要內容</a>'
         '<div id="dashboard-main" class="main-content-anchor" tabindex="-1"></div>'
     )
 
