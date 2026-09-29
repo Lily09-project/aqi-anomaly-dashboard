@@ -76,6 +76,11 @@ jobs:
         run: run_project.bat --validate
 
   browser-ui:
+    name: Browser UI (${{ matrix.theme }})
+    strategy:
+      fail-fast: false
+      matrix:
+        theme: [light, dark]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -92,9 +97,11 @@ jobs:
       - name: Prepare deterministic sample artifacts
         run: python run_all.py --mode sample
       - name: Start Streamlit
+        env:
+          UI_THEME: ${{ matrix.theme }}
         shell: bash
         run: |
-          nohup python -m streamlit run app.py --server.address 127.0.0.1 --server.port 8851 > streamlit-ui-qa.log 2>&1 &
+          nohup python -m streamlit run app.py --server.address 127.0.0.1 --server.port 8851 --theme.base "$UI_THEME" > streamlit-ui-qa.log 2>&1 &
           for attempt in {1..30}; do
             if curl --fail --silent http://127.0.0.1:8851/_stcore/health | grep --quiet ok; then
               exit 0
