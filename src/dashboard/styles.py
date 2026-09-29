@@ -94,7 +94,7 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
                 position: fixed !important;
                 top: 0.75rem !important;
                 left: 300px !important;
-                z-index: 1001 !important;
+                z-index: 1000002 !important;
                 width: 44px !important;
                 height: 44px !important;
             }}
@@ -104,7 +104,7 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             position: fixed !important;
             top: 0.75rem !important;
             left: 0.75rem !important;
-            z-index: 1000000;
+            z-index: 1000003 !important;
             padding: 0.7rem 0.9rem;
             border: 2px solid var(--text);
             border-radius: 6px;
