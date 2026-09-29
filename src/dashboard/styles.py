@@ -93,7 +93,7 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             [data-testid="stBaseButton-headerNoPadding"] {{
                 position: fixed !important;
                 top: 0.75rem !important;
-                left: 0.75rem !important;
+                left: 300px !important;
                 z-index: 1001 !important;
                 width: 44px !important;
                 height: 44px !important;
