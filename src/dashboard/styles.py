@@ -78,6 +78,13 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             visibility: hidden !important;
         }}
         @media (max-width: 1024px) {{
+            [data-testid="stSidebarCollapseButton"] {{
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                transform: none !important;
+                z-index: 1000 !important;
+            }}
             [data-testid="stBaseButton-headerNoPadding"] {{
                 position: fixed !important;
                 top: 0.75rem !important;
