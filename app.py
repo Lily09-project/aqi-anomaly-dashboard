@@ -133,7 +133,11 @@ def main() -> None:
         st.error("目前缺少 Plotly，請先執行：pip install -r requirements.txt")
         return
 
-    st.set_page_config(page_title="台灣 AQI 監測與預測", layout="wide")
+    st.set_page_config(
+        page_title="台灣 AQI 監測與預測",
+        layout="wide",
+        initial_sidebar_state="collapsed",
+    )
     pending_station_filter = st.session_state.pop("pending_station_filter", None)
     if pending_station_filter:
         st.session_state["station_filter"] = pending_station_filter
