@@ -88,7 +88,10 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
                 max-width: 100vw !important;
                 margin: 0 !important;
                 transform: none !important;
-                z-index: 1000 !important;
+                z-index: 1000002 !important;
+            }}
+            [data-testid="stExpandSidebarButton"] {{
+                z-index: 1000002 !important;
             }}
             [data-testid="stBaseButton-headerNoPadding"] {{
                 position: fixed !important;
