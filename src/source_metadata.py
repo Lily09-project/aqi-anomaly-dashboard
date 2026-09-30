@@ -38,7 +38,7 @@ def _normalise_timestamp(value: datetime | date | str | None) -> str | None:
 
 
 def redact_source_url(url: str | None) -> str:
-    """Keep only the public endpoint identity; remove credentials and request data."""
+    """Keep only the public origin; remove credentials, paths, and request data."""
     if not url:
         return ""
     try:
@@ -53,7 +53,7 @@ def redact_source_url(url: str | None) -> str:
             port = None
         if port is not None and not ((parsed.scheme == "https" and port == 443) or (parsed.scheme == "http" and port == 80)):
             netloc = f"{netloc}:{port}"
-        return urlunsplit((parsed.scheme, netloc, parsed.path.rstrip("/") or "/", "", ""))
+        return urlunsplit((parsed.scheme, netloc, "", "", ""))
     except (TypeError, ValueError):
         return ""
 
