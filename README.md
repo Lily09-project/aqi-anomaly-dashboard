@@ -7,6 +7,10 @@
 
 > Sample Data 僅供重現與測試，不代表官方警報、醫療建議或污染來源判定。
 
+## 公開展示版
+
+互動式 GitHub Pages 版提供搜尋、篩選、圖表、明細比較與 CSV／JSON 下載，支援手機與深淺主題。Python／Streamlit 版本保留完整分析流程；展示版的資料模式與部署方式見 [GitHub Pages](docs/GITHUB_PAGES.md)。
+
 ## 介面預覽
 
 ![AQI 資料品質與來源狀態](docs/screenshots/ui-data-health.png)
