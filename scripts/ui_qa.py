@@ -348,6 +348,73 @@ def apply_theme_mode(
         timeout=15_000,
     )
 
+
+def download_payload(page, label: str, suffix: str) -> bytes:
+    """Read the real browser download, not the button's presence or URL."""
+    with page.expect_download(timeout=30_000) as pending:
+        page.get_by_role("button", name=label, exact=True).click(timeout=30_000)
+    download = pending.value
+    failure = download.failure()
+    if failure or not download.suggested_filename.endswith(suffix):
+        raise RuntimeError(f"download failed or unexpected filename: {label}: {failure}")
+    path = download.path()
+    if path is None:
+        raise RuntimeError(f"download has no readable payload: {label}")
+    payload = Path(path).read_bytes()
+    if not payload:
+        raise RuntimeError(f"download is empty: {label}")
+    return payload
+
+
+def open_sidebar(page) -> None:
+    sidebar = page.locator('[data-testid="stSidebar"]')
+    if sidebar.get_attribute("aria-expanded") != "true":
+        control = page.locator('[data-testid="stExpandSidebarButton"]')
+        button = control.locator("button")
+        (button if button.count() else control).click(timeout=15_000)
+    page.wait_for_function(
+        "() => document.querySelector('[data-testid=stSidebar]')?.getAttribute('aria-expanded') === 'true'",
+        timeout=15_000,
+    )
+
+
+def choose_option(page, label: str, value: str) -> None:
+    selector = page.get_by_role("combobox", name=label, exact=True)
+    selector.scroll_into_view_if_needed()
+    selector.click()
+    page.get_by_role("option", name=value, exact=True).click()
+    page.keyboard.press("Escape")
+
+
+def functional_download_smoke(page, base_url: str, theme_mode: str | None) -> None:
+    import csv
+    from datetime import date
+    from io import StringIO
+
+    page.goto(base_url, wait_until="domcontentloaded", timeout=60_000)
+    page.get_by_role("heading", name="台灣 AQI 監測與預測", exact=True).wait_for(timeout=60_000)
+    apply_theme_mode(page, theme_mode, selector_label="選擇介面主題", option_labels=THEME_OPTION_LABELS)
+    open_sidebar(page)
+    choose_option(page, "縣市", "臺北市")
+    choose_option(page, "測站", "松山測站")
+    choose_option(page, "時間範圍", "自訂日期")
+    page.locator(".st-key-custom_date_range").wait_for()
+    page.get_by_text("下載", exact=True).click()
+    csv_payload = download_payload(page, "下載目前篩選資料 (.csv)", ".csv")
+    report = json.loads(download_payload(page, "下載可靠性摘要 (.json)", ".json"))
+    rows = list(csv.DictReader(StringIO(csv_payload.decode("utf-8-sig"))))
+    if not rows or {row["縣市"] for row in rows} != {"臺北市"} or {row["測站"] for row in rows} != {"松山測站"}:
+        raise RuntimeError("AQI exported CSV does not match selected county/station")
+    selection = report["selection"]
+    if selection["county"] != "臺北市" or selection["station"] != "松山測站":
+        raise RuntimeError("AQI reliability JSON lost filter metadata")
+    start, end = date.fromisoformat(selection["start_date"]), date.fromisoformat(selection["end_date"])
+    if any(not start <= date.fromisoformat(row["時間"][:10].replace("/", "-")) <= end for row in rows):
+        raise RuntimeError("AQI exported CSV contains dates outside the selected range")
+    if report["data_quality"]["rows"] != len(rows) or report["data_quality"]["station_count"] != 1:
+        raise RuntimeError("AQI reliability JSON disagrees with the exported observations")
+
+
 def run_browser_checks(
     base_url: str,
     screenshot_dir: Path,
@@ -436,6 +503,25 @@ def run_browser_checks(
                     pass
             finally:
                 page.close()
+
+        for flow_name, flow_width, flow_height in (
+            ("desktop", 1440, 1000),
+            ("mobile", 320 if extended else 375, 812),
+        ):
+            flow_page = browser.new_page(viewport={"width": flow_width, "height": flow_height}, accept_downloads=True)
+            try:
+                if theme_mode is None:
+                    flow_page.emulate_media(reduced_motion="reduce")
+                else:
+                    flow_page.emulate_media(reduced_motion="reduce", color_scheme=theme_mode)
+                functional_download_smoke(flow_page, base_url, theme_mode)
+                if flow_page.locator(STREAMLIT_EXCEPTION_SELECTOR).count():
+                    failures.append(f"{flow_name}/downloads: Streamlit runtime exception")
+            except (PlaywrightError, RuntimeError, ValueError, OSError) as exc:
+                failures.append(f"{flow_name}/downloads: {exc}")
+                flow_page.screenshot(path=str(screenshot_dir / f"failure-downloads-{flow_name}.png"), full_page=True)
+            finally:
+                flow_page.close()
         browser.close()
     if failures:
         raise RuntimeError("; ".join(failures[:18]))
