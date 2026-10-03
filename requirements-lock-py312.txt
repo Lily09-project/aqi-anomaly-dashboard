@@ -38,7 +38,7 @@ numpy==2.5.0
 packaging==26.2
 pandas==3.0.3
 pillow==12.3.0
-platformdirs==4.11.0
+platformdirs==4.11.9
 plotly==6.8.0
 pluggy==1.6.0
 protobuf==7.35.1
