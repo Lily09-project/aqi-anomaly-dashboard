@@ -12,3 +12,5 @@ python-dotenv
 # Streamlit's transitive dependencies must stay on versions with known fixes.
 GitPython>=3.1.61,<4
 Pillow>=12.3.0,<13
+# Security floor for requests' HTTP transport dependency.
+urllib3>=2.8.0,<3
