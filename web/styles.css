@@ -8,7 +8,7 @@
 
 input:focus,input:focus-within,select:focus,button:focus,a:focus,summary:focus{outline:3px solid var(--ring);outline-offset:3px}
 
-@container(max-width:70em){table,tbody,tr,td{display:block}thead{position:absolute;clip-path:inset(50%);width:1px;height:1px;overflow:hidden}tr{border:1px solid var(--border);border-radius:.65rem;padding:.7rem;margin-bottom:1rem}td{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:1rem;align-items:center;padding:.45rem 0;border:0}td:before{content:attr(data-label);color:var(--muted);overflow-wrap:anywhere}}
+@container(max-width:56em){table,tbody,tr,td{display:block}thead{position:absolute;clip-path:inset(50%);width:1px;height:1px;overflow:hidden}tr{border:1px solid var(--border);border-radius:.65rem;padding:.7rem;margin-bottom:1rem}td{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:1rem;align-items:center;padding:.45rem 0;border:0}td:before{content:attr(data-label);color:var(--muted);overflow-wrap:anywhere}}
 .pick span{min-width:0;overflow-wrap:anywhere}
 
 /* Keep complete desktop data; mobile secondary fields remain in details and exports. */
@@ -20,12 +20,12 @@ input:focus,input:focus-within,select:focus,button:focus,a:focus,summary:focus{o
   .metric{padding:.8rem}.metric strong{font-size:1.4rem}
   .header{padding-top:1rem}.notice{margin-bottom:1rem}
 }
-@container(max-width:70em){.secondary-field{display:none}}
+@container(max-width:56em){.secondary-field{display:none}}
 
 /* Ten-digit public identities need enough room at the desktop table breakpoint. */
 col.action-column{width:6rem}col.identifier-column{width:9rem}
 @media(max-width:760px){colgroup{display:none}}
-@container(max-width:70em){colgroup{display:none}}
+@container(max-width:56em){colgroup{display:none}}
 
 body{font-feature-settings:"tnum";-webkit-font-smoothing:antialiased}
 .shell{width:min(1280px,100%);padding-inline:clamp(1rem,3vw,2rem)}
@@ -89,7 +89,7 @@ tbody tr:has(input:checked){background:var(--tint)}
  td{gap:.75rem;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr)}
  .comparison article{padding:1rem}
 }
-@container(max-width:70em){tr{border-color:var(--divider);padding:1rem;border-radius:.85rem}td{gap:.75rem}}
+@container(max-width:56em){tr{border-color:var(--divider);padding:1rem;border-radius:.85rem}td{gap:.75rem}}
 
 /* Preserve atomic dates and large counts without forcing horizontal overflow. */
 col.date-column{width:7.5rem}col.timestamp-column{width:13rem}col.volume-column{width:8.5rem}
@@ -129,7 +129,7 @@ button,a,input,select,summary{transition:background-color .15s ease,border-color
 h1{font-size:clamp(1.6rem,2.6vw,2.15rem)}
 .observation-layout{display:grid;gap:1.5rem;align-items:start;margin-top:1.5rem}
 .observation-rail{background:var(--raised);padding:1rem;border-radius:1.25rem}
-#views{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));padding:0;margin:0 0 1rem;background:none;gap:.5rem}
+#views{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,120px),1fr));padding:0;margin:0 0 1rem;background:none;gap:.5rem}
 #views a{display:flex;align-items:center;text-align:left;border-radius:.8rem;color:var(--text);background:var(--surface);border:1px solid transparent;padding:.75rem 1rem}
 #views a[aria-current="page"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
 .filter-panel{background:none;border:0;padding:0;box-shadow:none}
@@ -151,4 +151,4 @@ button,input,select{border-radius:.75rem}
 
 /* Keep secondary actions quiet until there is a comparison to manage. */
 .compare-panel:has(#comparison:empty) .actions{display:none}
-@container(min-width:70.01em){th[data-kind="number"],td[data-kind="number"]{text-align:right}}
+@container(min-width:56.01em){th[data-kind="number"],td[data-kind="number"]{text-align:right}}
