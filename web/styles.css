@@ -185,5 +185,5 @@ main.shell{container-type:inline-size}
 @media(max-width:760px){
   :root[data-product="aqi"] .header{align-items:flex-start;flex-direction:column;gap:.75rem}
   :root[data-product="aqi"] .header-actions{width:100%;justify-content:space-between}
-  :root[data-product="aqi"] #metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  :root[data-product="aqi"] #metrics{grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr))}
 }
