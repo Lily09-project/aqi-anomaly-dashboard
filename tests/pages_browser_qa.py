@@ -44,7 +44,11 @@ def layout_check(page):
 
 def keyboard_check(page):
     page.locator("#search").focus()
-    for _ in range(16):
+    expected = page.evaluate("""() => [...document.querySelectorAll('a[href],button,input,select,textarea,summary,[tabindex]')]
+      .filter(node => node.tabIndex >= 0 && !node.disabled && node.checkVisibility()).length""")
+    returned_to_start = False
+    visited = []
+    for _ in range(max(20, expected + 3)):
         page.keyboard.press("Tab")
         result = page.evaluate("""() => {
           const node = document.activeElement;
@@ -57,8 +61,13 @@ def keyboard_check(page):
             outline:style.outlineStyle !== "none" && parseFloat(style.outlineWidth)>=2,
             occluded:!(hit && (node.contains(hit) || hit.contains(node)))};
         }""")
-        if result:
-            assert result["visible"] and result["outline"] and not result["occluded"], result
+        assert result and result["visible"] and result["outline"] and not result["occluded"], result
+        if result["id"] == "search":
+            returned_to_start = True
+            break
+        visited.append((result["tag"], result["id"], result["type"]))
+    assert returned_to_start, "Keyboard focus did not complete a full tab cycle."
+    assert len(visited) >= max(8, expected - 3), (len(visited), expected)
 
 
 def contrast_check(page):
@@ -641,6 +650,11 @@ def main():
             assert failed_page.locator("#json").is_disabled()
             assert failed_page.locator("#table tbody tr").count() == 0
             assert failed_page.locator("#retry").is_enabled() and failed_page.locator("#theme").is_enabled()
+            failed_page.unroute(missing_path)
+            failed_page.locator("#retry").click()
+            failed_page.locator("#status").filter(has_text="筆符合條件").wait_for(timeout=15000)
+            assert not failed_page.locator("#fatal").is_visible()
+            assert failed_page.locator("#json").is_enabled() and failed_page.locator("#table tbody tr").count() > 0
             failed_context.close()
         synthetic_chart_check(browser, args.url, bundle)
         if bundle["kind"] == "cpbl":

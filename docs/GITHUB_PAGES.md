@@ -6,8 +6,8 @@
 
 - 搜尋、分類與日期篩選、排序、深淺主題及手機版。
 - 資料圖表、個別明細、最多三筆比較、CSV／JSON 下載。
-- 篩選、明細與比較清單可以用網址分享；下载反映目前篩選結果。
-- DEMO 使用本專案合成資料，不是即時觀測或行情；模型結果在發布前計算。
+- 篩選、明細與比較清單可以用網址分享；下載反映目前篩選結果。
+- DEMO 使用本專案合成資料，非即時監測或正式預報；模型結果在發布前計算。
 
 公開版不執行即時 API 查詢、Python 模型或訓練，也不載入 joblib。完整分析流程仍使用原本的 Python 版本。
 
@@ -21,8 +21,8 @@ python run_all.py --mode sample
 python -m pytest -q tests/test_pages_export.py
 python scripts/build_pages.py
 python -m http.server 8874 --bind 127.0.0.1
-# 另開終端機；先安裝 Playwright Chromium
-python -m playwright install chromium
+# 另開終端機；安裝此驗收腳本使用的 Chromium、Firefox 與 WebKit
+python -m playwright install chromium firefox webkit
 python tests/pages_browser_qa.py --url http://127.0.0.1:8874/pages-dist/
 ```
 
