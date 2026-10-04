@@ -161,3 +161,7 @@ button:not(:disabled):active{transform:translateY(1px)}
 @media(hover:hover){button:not(:disabled):hover .control-icon{transform:translateY(-1px)}}
 .control-icon{transition:transform .15s ease}
 
+
+/* Native checkboxes have a margin above the 24px minimum, including animated subpixels. */
+input[type="checkbox"]{flex:0 0 28px;width:28px;min-height:28px;height:28px}
+.toggle input[type="checkbox"]{flex:0 0 28px}
