@@ -3,7 +3,7 @@
 [![Quality Gate](https://github.com/Lily09-project/aqi-anomaly-dashboard/actions/workflows/quality.yml/badge.svg?branch=main)](https://github.com/Lily09-project/aqi-anomaly-dashboard/actions/workflows/quality.yml)
 [![Security Audit](https://github.com/Lily09-project/aqi-anomaly-dashboard/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/Lily09-project/aqi-anomaly-dashboard/actions/workflows/security.yml)
 
-以台灣測站資料打造的 AQI 監測、下一小時預測與異常調查工作台。介面支援桌面／行動裝置與深色／淺色主題。
+以台灣測站資料打造的 AQI 監測、下一小時預測與異常調查工作台。Python／Streamlit 介面支援桌面／行動裝置與深色／淺色主題。
 
 > Sample Data 僅供重現與測試，不代表官方警報、醫療建議或污染來源判定。
 
@@ -11,7 +11,7 @@
 
 [開啟互動展示網站](https://lily09-project.github.io/aqi-anomaly-dashboard/) · 不需登入，也不需作者的裝置開機。
 
-搜尋、篩選、圖表、最多三筆比較與 CSV／JSON 下載，支援手機與深淺主題。使用可重現的 DEMO 合成資料，不代表即時監測或正式預報。Python／Streamlit 版本保留完整分析流程；功能邊界與部署方式見 [GitHub Pages](docs/GITHUB_PAGES.md)。
+搜尋、篩選、圖表、最多三筆比較與 CSV／JSON 下載，支援手機並採用固定配色。使用可重現的 DEMO 合成資料，不代表即時監測或正式預報。Python／Streamlit 版本保留完整分析流程；功能邊界與部署方式見 [GitHub Pages](docs/GITHUB_PAGES.md)。
 
 ![GitHub Pages 互動展示版](docs/screenshots/ui-pages.jpg)
 
