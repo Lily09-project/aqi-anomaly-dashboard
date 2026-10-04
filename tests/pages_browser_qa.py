@@ -135,6 +135,9 @@ def product_composition_check(page, bundle, view):
         chart = page.locator("#chart-panel").bounding_box()
         summary = page.locator("#metrics").bounding_box()
         assert chart["x"] + chart["width"] <= summary["x"] + 1
+    if page.viewport_size["width"] >= 1440 and page.locator("html").evaluate("(node) => parseFloat(getComputedStyle(node).fontSize)") == 16:
+        for label in page.locator("#table button .control-label").all():
+            assert label.evaluate("(node) => { const range = document.createRange(); range.selectNodeContents(node); return range.getClientRects().length === 1; }"), "desktop row action must not split its label"
     assert page.locator(".compare-panel .actions").is_visible() == (
         page.locator("#comparison article").count() > 0)
 
