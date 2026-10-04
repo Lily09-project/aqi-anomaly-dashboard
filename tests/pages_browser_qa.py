@@ -361,6 +361,22 @@ def visual_polish_check(page, url, bundle):
             assert "三角形" in page.locator("#legend").inner_text()
 
 
+def text_spacing_check(page, url, bundle):
+    page.goto(url)
+    page.locator("#status").filter(has_text="筆符合條件").wait_for()
+    page.set_viewport_size({"width": 320, "height": 844})
+    page.add_style_tag(content="""* { letter-spacing: .12em !important; word-spacing: .16em !important; line-height: 1.5 !important; }
+      p { margin-block-end: 2em !important; }""")
+    for view in bundle["datasets"]:
+        page.locator('#views a[href="?view=' + view["id"] + '"]').click()
+        layout_check(page)
+    page.emulate_media(forced_colors="active")
+    for view in bundle["datasets"]:
+        page.locator('#views a[href="?view=' + view["id"] + '"]').click()
+        layout_check(page)
+    page.emulate_media(forced_colors="none")
+
+
 def synthetic_chart_check(browser, url, template):
     """Deterministically cover dense extrema, degenerate values and event marker semantics."""
     bundle = copy.deepcopy(template)
@@ -631,6 +647,7 @@ def main():
             functional_check(page, args.url, bundle)
             ux_regression_check(page, args.url, bundle)
             visual_polish_check(page, args.url, bundle)
+            text_spacing_check(page, args.url, bundle)
             context.close()
         for zone in ("UTC", "Asia/Taipei", "America/Los_Angeles"):
             context = browser.new_context(viewport={"width": 390, "height": 844}, timezone_id=zone, reduced_motion="reduce")
