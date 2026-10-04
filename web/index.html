@@ -12,14 +12,16 @@
 </head>
 <body>
 <a class="skip" href="#main">跳到主要內容</a>
-<header class="shell header">
-  <div><p class="eyebrow" id="brand">AIR QUALITY DESK</p><h1 id="title">空氣品質觀測室</h1></div>
-  <div class="header-actions"><a id="repository" href="https://github.com/Lily09-project/aqi-anomaly-dashboard">原始碼</a></div>
-</header>
+<header class="shell header "><div><p class="eyebrow" id="brand"></p><h1 id="title"></h1></div><div class="header-actions"><a id="repository" href="https://github.com/Lily09-project/aqi-anomaly-dashboard">原始碼</a></div></header>
 <main id="main" class="shell" tabindex="-1">
+<nav id="product-nav" aria-label="主要導覽"></nav>
 <div id="provenance" class="provenance"><span id="mode" class="badge">載入中</span><p id="source-date"></p></div>
 <p id="notice" class="notice"></p>
-<div class="air-search"><section class="panel filter-panel" aria-label="篩選條件">
+<p id="status" role="status" aria-live="polite" aria-atomic="true">正在載入資料…</p>
+<div id="product-root"></div><p id="product-feedback" role="status" aria-live="polite"></p>
+<div id="record-browser" hidden>
+<nav id="views" aria-label="完整資料視圖"></nav>
+<section class="panel filter-panel" aria-label="篩選條件">
     <div class="filters">
       <label>搜尋<input id="search" type="search" autocomplete="off" placeholder="搜尋測站、縣市或關鍵字" disabled data-loading-control></label>
       <label id="group-label">分類<select id="group" disabled data-loading-control></select></label>
@@ -32,17 +34,12 @@
       <label id="minimum-label" hidden>最低樣本<input id="minimum" type="number" min="0" max="100000" step="1" disabled data-loading-control></label>
     </div></details>
     <p id="filter-error" class="error" role="alert" hidden></p>
-  </section></div>
-<nav id="views" aria-label="分析頁面"></nav>
-<p id="status" role="status" aria-live="polite" aria-atomic="true">正在載入資料…</p>
-<div class="air-observation">
-<section id="chart-panel" class="panel" hidden>
+  </section>
+<div class="engine-summary"><section id="chart-panel" class="panel" hidden>
     <h2 id="chart-title">趨勢</h2>
     <div id="chart" class="chart"></div>
     <div id="legend" class="legend"></div>
-  </section>
-<section id="metrics" class="metrics" aria-label="篩選結果摘要"></section>
-</div>
+  </section><section id="metrics" class="metrics" aria-label="篩選結果摘要"></section></div>
 <section class="panel results-panel" aria-labelledby="table-title">
     <div class="section-head"><h2 id="table-title" tabindex="-1">資料明細</h2><div class="actions"><button id="csv" type="button" disabled data-loading-control>下載 CSV</button><button id="json" type="button" disabled data-loading-control>下載 JSON</button></div></div>
     <div class="sort"><label>排序<select id="sort" disabled data-loading-control></select></label><button id="compare-jump" type="button" disabled>查看比較 · 0/3</button><button id="direction" type="button" aria-label="切換排序方向" disabled data-loading-control>遞減</button></div>
@@ -64,9 +61,8 @@
     <div id="snapshot-result"></div><button id="snapshot-download" type="button" disabled>下載快照比較</button>
   </section>
 <details class="panel"><summary>資料來源與使用限制</summary><dl id="quality"></dl></details>
+</div>
 <div id="fatal" class="panel error" role="alert" hidden><h2>資料暫時無法載入</h2><p>請重新整理。若問題持續，請稍後再試。</p><button id="retry" type="button">重新載入</button></div>
 <noscript><p class="panel">請啟用 JavaScript，以使用篩選、圖表與下載功能。</p></noscript>
-</main>
-<footer class="shell"><p id="disclaimer"></p><p>GitHub Pages · 公開資料展示</p></footer>
-</body>
-</html>
+</main><footer class="shell"><p id="disclaimer"></p><p>GitHub Pages · 公開資料展示</p></footer>
+</body></html>
