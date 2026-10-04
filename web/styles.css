@@ -109,3 +109,81 @@ main.shell{container-type:inline-size}
  td label.pick{flex-direction:row}
  tr{padding:.75rem}
 }
+
+
+/* Product-specific visual system: AQI observation desk */
+:root[data-product="aqi"]{
+  color-scheme:light;
+  --bg:#F4F7F3;--surface:#FFFFFF;--text:#18302A;--muted:#52645C;
+  --border:#82958B;--divider:#D7E0D9;--raised:#EAF0EB;--shadow:none;
+  --accent:#176B57;--on-accent:#FFFFFF;--tint:#E1F0E8;--error:#A43C37;
+  --chart2:#B45309;--chart3:#356C89;--ring:#176B57
+}
+:root[data-product="aqi"][data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#101B18;--surface:#172823;--text:#EFF5F0;--muted:#BDCBC3;
+  --border:#718279;--divider:#3B4D45;--raised:#21352E;--shadow:none;
+  --accent:#77C8A9;--on-accent:#0B211A;--tint:#254337;--error:#FFA39A;
+  --chart2:#F3C46C;--chart3:#87BDE0;--ring:#A6E5CD
+}
+:root[data-product="aqi"] body{background:var(--bg)}
+:root[data-product="aqi"] .shell{width:min(1360px,100%)}
+:root[data-product="aqi"] .header{
+  align-items:center;flex-direction:row;padding-block:1.25rem .9rem;
+  border-bottom:1px solid var(--divider)
+}
+:root[data-product="aqi"] .eyebrow{color:var(--accent);font-weight:700;letter-spacing:.14em}
+:root[data-product="aqi"] #main{
+  display:grid;grid-template-columns:minmax(0,1fr);column-gap:1.25rem;row-gap:1rem;
+  align-items:start;padding-top:1.25rem
+}
+:root[data-product="aqi"] #main>.provenance,
+:root[data-product="aqi"] #main>.notice,
+:root[data-product="aqi"] #main>#views,
+:root[data-product="aqi"] #main>.panel[aria-label="篩選條件"],
+:root[data-product="aqi"] #main>#status,
+:root[data-product="aqi"] #main>.panel[aria-labelledby="table-title"],
+:root[data-product="aqi"] #main>.panel[aria-labelledby="compare-title"],
+:root[data-product="aqi"] #main>#detail-panel,
+:root[data-product="aqi"] #main>#snapshot-panel,
+:root[data-product="aqi"] #main>details.panel,
+:root[data-product="aqi"] #main>#fatal{grid-column:1/-1;margin-block:0}
+:root[data-product="aqi"] #views{display:flex;flex-wrap:wrap;gap:.5rem;padding-bottom:.35rem;border-bottom:1px solid var(--divider)}
+:root[data-product="aqi"] #views a{
+  display:inline-flex;align-items:center;min-height:44px;padding:.55rem .9rem;
+  border:1px solid transparent;border-radius:999px;text-decoration:none;color:var(--text)
+}
+:root[data-product="aqi"] #views a[aria-current="page"]{background:var(--tint);border-color:var(--border);color:var(--accent);font-weight:700}
+:root[data-product="aqi"] #main>.panel[aria-label="篩選條件"]{
+  background:var(--raised);border:0;border-left:4px solid var(--accent);border-radius:.6rem;padding:1rem 1.15rem
+}
+:root[data-product="aqi"] #advanced-filters{margin-top:.75rem}
+:root[data-product="aqi"] #metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem;align-content:start}
+:root[data-product="aqi"] #metrics>.metric{
+  border:1px solid var(--divider);border-left:4px solid var(--chart3);border-radius:.55rem;
+  background:var(--surface);padding:1rem;box-shadow:none
+}
+:root[data-product="aqi"] #metrics>.metric p{font-size:.9rem;line-height:1.4}
+:root[data-product="aqi"] #metrics>.metric strong{font-size:clamp(1.45rem,2vw,2rem)}
+:root[data-product="aqi"] .panel{
+  border:1px solid var(--divider);border-radius:.65rem;background:var(--surface);
+  box-shadow:none;padding:clamp(1rem,2vw,1.5rem);margin-block:0
+}
+:root[data-product="aqi"] #chart-panel{border-left:4px solid var(--accent);min-width:0}
+:root[data-product="aqi"] .chart .grid{stroke:var(--divider);opacity:1}
+:root[data-product="aqi"] .badge{border-color:var(--border);border-radius:.5rem;background:var(--tint)}
+:root[data-product="aqi"] button,
+:root[data-product="aqi"] input,
+:root[data-product="aqi"] select{border-radius:.5rem}
+:root[data-product="aqi"] .comparison article{border-radius:.55rem;background:var(--raised)}
+:root[data-product="aqi"] .table-wrap{border-top:1px solid var(--divider)}
+@media(min-width:980px){
+  :root[data-product="aqi"] #main:has(>#chart-panel:not([hidden])){grid-template-columns:repeat(12,minmax(0,1fr))}
+  :root[data-product="aqi"] #main:has(>#chart-panel:not([hidden])) #metrics{grid-column:span 4}
+  :root[data-product="aqi"] #main:has(>#chart-panel:not([hidden])) #chart-panel{grid-column:span 8}
+}
+@media(max-width:760px){
+  :root[data-product="aqi"] .header{align-items:flex-start;flex-direction:column;gap:.75rem}
+  :root[data-product="aqi"] .header-actions{width:100%;justify-content:space-between}
+  :root[data-product="aqi"] #metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
