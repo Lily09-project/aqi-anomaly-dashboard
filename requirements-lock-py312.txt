@@ -39,7 +39,7 @@ packaging==26.2
 pandas==3.0.3
 pillow==12.3.0
 platformdirs==4.11.0
-plotly==6.8.0
+plotly==7.1.0
 pluggy==1.6.0
 protobuf==7.35.1
 pyarrow==24.0.0
