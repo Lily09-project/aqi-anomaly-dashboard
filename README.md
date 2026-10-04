@@ -1,60 +1,40 @@
-# Taiwan AQI Monitoring & Forecasting Dashboard
+# Taiwan AQI — 空氣觀測與預測分析
 
-[![Quality Gate](https://github.com/Lily09-project/aqi-anomaly-dashboard/actions/workflows/quality.yml/badge.svg?branch=main)](https://github.com/Lily09-project/aqi-anomaly-dashboard/actions/workflows/quality.yml)
-[![Security Audit](https://github.com/Lily09-project/aqi-anomaly-dashboard/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/Lily09-project/aqi-anomaly-dashboard/actions/workflows/security.yml)
+[![CI](https://github.com/Lily09-project/aqi-anomaly-dashboard/actions/workflows/quality.yml/badge.svg?branch=main)](https://github.com/Lily09-project/aqi-anomaly-dashboard/actions/workflows/quality.yml)
 
-以台灣測站資料打造的 AQI 監測、下一小時預測與異常調查工作台。Python／Streamlit 介面支援桌面／行動裝置與深色／淺色主題。
-
-> Sample Data 僅供重現與測試，不代表官方警報、醫療建議或污染來源判定。
-
-## 公開展示版
+以 Python 建立空品資料管線、異常偵測與歷史預測驗證；公開展示版以測站觀測報告為核心。
 
 [開啟互動展示網站](https://lily09-project.github.io/aqi-anomaly-dashboard/) · 不需登入，也不需作者的裝置開機。
 
-搜尋、篩選、圖表、最多三筆比較與 CSV／JSON 下載，支援手機並採用固定配色。使用可重現的 DEMO 合成資料，不代表即時監測或正式預報。Python／Streamlit 版本保留完整分析流程；功能邊界與部署方式見 [GitHub Pages](docs/GITHUB_PAGES.md)。
+## 展示版重點
 
-![GitHub Pages 互動展示版](docs/screenshots/ui-pages.jpg)
+- 選擇縣市與測站，查看最新示範 AQI、PM2.5 及歷史趨勢。
+- 在同一測站查看異常紀錄與次小時預測核對；最多三站比較。
+- 保留完整紀錄、排序、分頁、最多三筆紀錄比較及 CSV／JSON 匯出。
 
-## Python／Streamlit 介面預覽
+GitHub Pages 使用可重現的合成資料，不是即時監測、正式預報或健康建議。Python／Streamlit 另提供完整分析流程。
 
-![AQI 資料品質與來源狀態](docs/screenshots/ui-data-health.png)
-![預測可信度與模型比較](docs/screenshots/ui-forecast.png)
-![異常事件調查](docs/screenshots/ui-anomaly.png)
+## 介面
 
-## Highlights
+![測站報告：桌面](docs/screenshots/pages-desktop.png)
+![測站報告：手機](docs/screenshots/pages-mobile.png)
 
-- AQI／PM2.5 趨勢、地圖選站與地區比較。
-- Moving Average、Linear Regression、Random Forest 的 next-hour forecast 與 chronological backtest。
-- 80%／95% empirical intervals、coverage、區間寬度與跨級風險。
-- Z-score、Isolation Forest 與事件合併的異常證據。
-- 資料健康度、更新延遲、缺失值、測站可靠性與模型漂移摘要。
-- API 失敗時提供清楚的 fallback／empty state，並支援 CSV、摘要與 reliability JSON 下載。
+## 本機啟動
 
-## Quick start
+需求：Python 3.12；Windows 可使用專案啟動器。
 
 ```powershell
 git clone https://github.com/Lily09-project/aqi-anomaly-dashboard.git
 cd aqi-anomaly-dashboard
-py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe run_all.py --mode sample
-.\.venv\Scripts\python.exe -m streamlit run app.py
-```
-
-Windows 入口與驗證：
-
-```powershell
 .\run_project.bat
-.\run_project.bat --validate
 ```
 
-## Validation
+## 測試與安全
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe quality\run_acceptance.py release
+python -m pytest -q
 ```
 
-## Data & security
+CI 執行品質、安全與 Pages 瀏覽器驗收。公開展示只發布經允許的靜態檔案與欄位；金鑰、個人資料和本機暫存不應提交。SHA-256 用於內容完整性核對，不代表來源身分認證。
 
-API 參數只放在未提交的 `.env` 或部署平台 secrets；repository 不包含金鑰、cache 或本機產物。資料契約與部署方式見 [docs/data-contract.md](docs/data-contract.md) 及 [docs/deployment.md](docs/deployment.md)，安全政策見 [SECURITY.md](SECURITY.md)。
+部署與功能邊界見 [GitHub Pages 指南](docs/GITHUB_PAGES.md)，安全通報見 [SECURITY.md](SECURITY.md)。
