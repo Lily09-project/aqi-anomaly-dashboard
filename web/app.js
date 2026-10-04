@@ -39,7 +39,7 @@ function compactFields() {
   return new Set([dataset.name === "snapshot_id" ? null : dataset.name, dataset.group, dataset.date, dataset.value, ...extra].filter(Boolean));
 }
 function tablePageSize() {
-  return $("table").clientWidth <= 70 * parseFloat(getComputedStyle($("table")).fontSize) ? 8 : 20;
+  return $("table").clientWidth <= 56 * parseFloat(getComputedStyle($("table")).fontSize) ? 8 : 20;
 }
 function focusView() {
   $("main").focus({preventScroll: true});
