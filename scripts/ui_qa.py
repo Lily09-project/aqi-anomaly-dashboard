@@ -31,6 +31,7 @@ EXTENDED_VIEWPORTS = (
 VIEWPORTS = CORE_VIEWPORTS
 STREAMLIT_EXCEPTION_SELECTOR = '[data-testid="stException"]'
 TEXT_SCALE_CSS = ":root { font-size: 200% !important; }"
+THEME_OPTION_LABELS = {"light":"霧白藍（淺色）","dark":"午夜藍"}
 # WCAG-friendly touch target floor for user-facing controls. Streamlit's
 # internal toolbar/header controls are explicitly excluded below.
 MIN_INTERACTIVE_TARGET_PX = 44
@@ -96,10 +97,27 @@ def layout_issues(page) -> list[str]:
     )
 
 
+def wait_for_app_idle(page) -> None:
+    """Synchronize with Streamlit reruns before judging rendered UI or uploading."""
+    # Widgets debounce before starting a rerun; wait for the actual completion
+    # state and removed skeletons, as Streamlit's own browser tests do.
+    page.wait_for_timeout(250)
+    page.locator(
+        '[data-testid="stApp"][data-test-connection-state="CONNECTED"]'
+        '[data-test-script-state="notRunning"]'
+    ).wait_for(state="attached", timeout=60_000)
+    page.wait_for_function(
+        "() => document.querySelectorAll('[data-testid=stSkeleton]').length === 0",
+        timeout=60_000,
+    )
+    page.wait_for_timeout(100)
+
+
 def focus_issues(page) -> list[str]:
     """Traverse real Tab order, validating visible controls and their focused proxies."""
     from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+    wait_for_app_idle(page)
     issues: list[str] = []
     page.evaluate(
         """() => {
@@ -195,6 +213,10 @@ def focus_issues(page) -> list[str]:
                     visibility: style.visibility,
                     position: style.position,
                     transform: style.transform,
+                    occluder: (() => {
+                        const top = document.elementFromPoint(Math.max(1, Math.min(innerWidth - 1, rect.left + rect.width / 2)), Math.max(1, Math.min(innerHeight - 1, rect.top + rect.height / 2)));
+                        return top ? top.outerHTML.slice(0, 500) : null;
+                    })(),
                 });
                 const key = [
                     target.tagName, target.id || '', target.getAttribute('data-testid') || '',
@@ -313,11 +335,115 @@ def check_health(base_url: str) -> None:
         raise RuntimeError(f"Unexpected Streamlit health response: {body[:200]}")
 
 
+def apply_theme_mode(
+    page,
+    theme_mode: str | None,
+    *,
+    selector_label: str | None = None,
+    option_labels: dict[str, str] | None = None,
+) -> None:
+    if theme_mode is None:
+        return
+    if theme_mode not in {"light", "dark"}:
+        raise ValueError("theme_mode must be light or dark")
+    if selector_label is not None:
+        sidebar = page.locator('[data-testid="stSidebar"]')
+        if sidebar.get_attribute("aria-expanded") != "true":
+            expand_control = page.locator('[data-testid="stExpandSidebarButton"]')
+            expand_button = expand_control.locator("button")
+            if expand_button.count():
+                expand_button.click(timeout=15_000)
+            else:
+                expand_control.click(timeout=15_000)
+        option_label = (option_labels or {}).get(theme_mode)
+        if not option_label:
+            raise ValueError(f"missing app theme label for {theme_mode}")
+        page.get_by_role("combobox", name=selector_label).click(timeout=15_000)
+        page.get_by_role("option", name=option_label, exact=True).click(timeout=15_000)
+        collapse_button = page.locator('[data-testid="stSidebarCollapseButton"] button')
+        if sidebar.get_attribute("aria-expanded") == "true" and collapse_button.count():
+            collapse_button.click(timeout=15_000)
+    page.wait_for_function(
+        "expected => getComputedStyle(document.documentElement).colorScheme === expected",
+        arg=theme_mode,
+        timeout=15_000,
+    )
+
+
+def download_payload(page, label: str, suffix: str) -> bytes:
+    """Read the real browser download, not the button's presence or URL."""
+    wait_for_app_idle(page)
+    with page.expect_download(timeout=30_000) as pending:
+        page.get_by_role("button", name=label).click(timeout=30_000)
+    download = pending.value
+    failure = download.failure()
+    if failure or not download.suggested_filename.endswith(suffix):
+        raise RuntimeError(f"download failed or unexpected filename: {label}: {failure}")
+    path = download.path()
+    if path is None:
+        raise RuntimeError(f"download has no readable payload: {label}")
+    payload = Path(path).read_bytes()
+    if not payload:
+        raise RuntimeError(f"download is empty: {label}")
+    return payload
+
+
+def open_sidebar(page) -> None:
+    sidebar = page.locator('[data-testid="stSidebar"]')
+    if sidebar.get_attribute("aria-expanded") != "true":
+        control = page.locator('[data-testid="stExpandSidebarButton"]')
+        button = control.locator("button")
+        (button if button.count() else control).click(timeout=15_000)
+    page.wait_for_function(
+        "() => document.querySelector('[data-testid=stSidebar]')?.getAttribute('aria-expanded') === 'true'",
+        timeout=15_000,
+    )
+
+
+def choose_option(page, label: str, value: str) -> None:
+    selector = page.get_by_role("combobox", name=label)
+    selector.scroll_into_view_if_needed()
+    selector.click()
+    page.get_by_role("option", name=value, exact=True).click()
+    page.keyboard.press("Escape")
+    wait_for_app_idle(page)
+
+
+def functional_download_smoke(page, base_url: str, theme_mode: str | None) -> None:
+    import csv
+    from datetime import date
+    from io import StringIO
+
+    page.goto(base_url, wait_until="domcontentloaded", timeout=60_000)
+    page.get_by_role("heading", name="台灣 AQI 監測與預測", exact=True).wait_for(timeout=60_000)
+    apply_theme_mode(page, theme_mode, selector_label="選擇介面主題", option_labels=THEME_OPTION_LABELS)
+    open_sidebar(page)
+    choose_option(page, "縣市", "臺北市")
+    choose_option(page, "測站", "松山測站")
+    choose_option(page, "時間範圍", "自訂日期")
+    page.locator(".st-key-custom_date_range").wait_for()
+    page.get_by_text("下載", exact=True).click()
+    csv_payload = download_payload(page, "下載目前篩選資料 (.csv)", ".csv")
+    report = json.loads(download_payload(page, "下載可靠性摘要 (.json)", ".json"))
+    rows = list(csv.DictReader(StringIO(csv_payload.decode("utf-8-sig"))))
+    if not rows or {row["縣市"] for row in rows} != {"臺北市"} or {row["測站"] for row in rows} != {"松山測站"}:
+        raise RuntimeError("AQI exported CSV does not match selected county/station")
+    selection = report["selection"]
+    if selection["county"] != "臺北市" or selection["station"] != "松山測站":
+        raise RuntimeError("AQI reliability JSON lost filter metadata")
+    start, end = date.fromisoformat(selection["start_date"]), date.fromisoformat(selection["end_date"])
+    if any(not start <= date.fromisoformat(row["時間"][:10].replace("/", "-")) <= end for row in rows):
+        raise RuntimeError("AQI exported CSV contains dates outside the selected range")
+    if report["data_quality"]["rows"] != len(rows) or report["data_quality"]["station_count"] != 1:
+        raise RuntimeError("AQI reliability JSON disagrees with the exported observations")
+
+
 def run_browser_checks(
     base_url: str,
     screenshot_dir: Path,
     extended: bool = False,
     text_scale: bool = False,
+    theme_mode: str | None = None,
 ) -> str:
     try:
         from playwright.sync_api import Error as PlaywrightError
@@ -341,10 +467,19 @@ def run_browser_checks(
             )
             page.on("pageerror", lambda error, errors=console_errors: errors.append(str(error)))
             try:
-                page.emulate_media(reduced_motion="reduce")
+                if theme_mode is None:
+                    page.emulate_media(reduced_motion="reduce")
+                else:
+                    page.emulate_media(reduced_motion="reduce", color_scheme=theme_mode)
                 page.goto(base_url, wait_until="domcontentloaded", timeout=60_000)
                 page.get_by_role("heading", name="台灣 AQI 監測與預測", exact=True).wait_for(
                     timeout=60_000
+                )
+                apply_theme_mode(
+                    page,
+                    theme_mode,
+                    selector_label="選擇介面主題",
+                    option_labels=THEME_OPTION_LABELS,
                 )
                 if text_scale:
                     page.add_style_tag(content=TEXT_SCALE_CSS)
@@ -391,6 +526,26 @@ def run_browser_checks(
                     pass
             finally:
                 page.close()
+
+        for flow_name, flow_width, flow_height in (
+            ("desktop", 1440, 1000),
+            ("mobile", 320 if extended else 375, 812),
+        ):
+            flow_page = browser.new_page(viewport={"width": flow_width, "height": flow_height}, accept_downloads=True)
+            try:
+                if theme_mode is None:
+                    flow_page.emulate_media(reduced_motion="reduce")
+                else:
+                    flow_page.emulate_media(reduced_motion="reduce", color_scheme=theme_mode)
+                functional_download_smoke(flow_page, base_url, theme_mode)
+                if flow_page.locator(STREAMLIT_EXCEPTION_SELECTOR).count():
+                    failures.append(f"{flow_name}/downloads: Streamlit runtime exception")
+            except (PlaywrightError, RuntimeError, ValueError, OSError) as exc:
+                failures.append(f"{flow_name}/downloads: {exc}")
+                print(f"DOWNLOAD FAILURE DOM ({flow_name}): {flow_page.locator('body').inner_text()[-8000:]}")
+                flow_page.screenshot(path=str(screenshot_dir / f"failure-downloads-{flow_name}.png"), full_page=True)
+            finally:
+                flow_page.close()
         browser.close()
     if failures:
         raise RuntimeError("; ".join(failures[:18]))
@@ -412,6 +567,7 @@ def main() -> int:
         action="store_true",
         help="apply 200% root text scaling and rerun reflow checks",
     )
+    parser.add_argument("--theme-mode", choices=("light", "dark"))
     args = parser.parse_args()
     screenshot_dir = Path(args.screenshots)
     (screenshot_dir / "failure-evidence.json").unlink(missing_ok=True)
@@ -424,6 +580,7 @@ def main() -> int:
             screenshot_dir,
             extended=args.extended,
             text_scale=args.text_scale,
+            theme_mode=args.theme_mode,
         )
     except (OSError, urllib.error.URLError, RuntimeError, ValueError) as exc:
         evidence = write_failure_evidence(args.url, screenshot_dir, str(exc))
