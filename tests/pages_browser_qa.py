@@ -665,6 +665,12 @@ def native_keyboard_check(page):
       document.body.append(end);
       return document.querySelectorAll('a[href],button,input,select,textarea,summary,[tabindex="0"]').length*3+20;
     }""")
+    evidence = ROOT / "reports/pages-qa"
+    evidence.mkdir(parents=True, exist_ok=True)
+    engine = page.context.browser.browser_type.name
+    name = f"keyboard-{engine}-{page.viewport_size['width']}"
+    page.context.tracing.start(screenshots=True, snapshots=True, sources=False)
+    failed = False
     visited = []
     reached_boundary = False
     try:
@@ -677,17 +683,29 @@ def native_keyboard_check(page):
               const motionStable=!n.closest("#product-root")||document.getElementById("product-root").getAnimations().every(a=>a.playState!=="running");
               const r=n.getBoundingClientRect(),s=getComputedStyle(n);
               const hit=document.elementFromPoint(Math.max(1,Math.min(innerWidth-1,r.x+r.width/2)),Math.max(1,Math.min(innerHeight-1,r.y+r.height/2)));
-              return {boundary:false,motionStable,tag:n.tagName,id:n.id,text:n.textContent.slice(0,40),visible:r.width>0&&r.height>0,outline:s.outlineStyle!=="none"&&parseFloat(s.outlineWidth)>=2,occluded:!(hit&&(n.contains(hit)||hit.contains(n)))};
+              return {rect:{x:r.x,y:r.y,width:r.width,height:r.height},viewport:{width:innerWidth,height:innerHeight},scroll:{x:scrollX,y:scrollY},hit:hit?{tag:hit.tagName,id:hit.id,className:typeof hit.className==="string"?hit.className:""}:null,boundary:false,motionStable,tag:n.tagName,id:n.id,text:n.textContent.slice(0,40),visible:r.width>0&&r.height>0,outline:s.outlineStyle!=="none"&&parseFloat(s.outlineWidth)>=2,occluded:!(hit&&(n.contains(hit)||hit.contains(n)))};
             }""")
             if result["boundary"]:
                 reached_boundary = True
                 break
-            assert result["motionStable"] and result["visible"] and result["outline"] and not result["occluded"], result
             visited.append(result)
+            assert result["motionStable"] and result["visible"] and result["outline"] and not result["occluded"], result
         assert reached_boundary, (page.context.browser.browser_type.name, visited)
         assert len(visited) >= 3, visited
+    except Exception:
+        failed = True
+        (evidence / f"{name}.json").write_text(json.dumps({
+            "browser": engine, "version": page.context.browser.version,
+            "url": page.url, "visited": visited,
+        }, ensure_ascii=False, indent=2), encoding="utf-8")
+        page.screenshot(path=str(evidence / f"{name}.png"), full_page=True)
+        raise
     finally:
         page.locator("#qa-focus-boundary").evaluate("(node) => node.remove()")
+        if failed:
+            page.context.tracing.stop(path=str(evidence / f"{name}.zip"))
+        else:
+            page.context.tracing.stop()
 
 
 def native_product_check(browser, url, bundle, evidence):
