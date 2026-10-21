@@ -140,8 +140,15 @@ def _plot_fallback_figures(features: pd.DataFrame, predictions: pd.DataFrame, an
     _fallback_chart(recent, None, "aqi", figures_dir / "anomaly_cases.png", scatter=True, color_col="is_anomaly")
 
 
+def _clear_report_figures(figures_dir) -> None:
+    # These three files are owned report outputs, not arbitrary user files.
+    for name in ("aqi_trend.png", "prediction_vs_actual.png", "anomaly_cases.png"):
+        (figures_dir / name).unlink(missing_ok=True)
+
+
 def _plot_figures(features: pd.DataFrame, predictions: pd.DataFrame, anomalies: pd.DataFrame, figures_dir) -> None:
     figures_dir.mkdir(parents=True, exist_ok=True)
+    _clear_report_figures(figures_dir)
     try:
         import matplotlib.pyplot as plt  # type: ignore
 
@@ -184,6 +191,7 @@ def _plot_figures(features: pd.DataFrame, predictions: pd.DataFrame, anomalies: 
         try:
             _plot_fallback_figures(features, predictions, anomalies, figures_dir)
         except Exception as exc:
+            _clear_report_figures(figures_dir)
             raise RuntimeError("Chart rendering failed in both renderers; no placeholder report was generated.") from exc
 
 
@@ -268,6 +276,8 @@ def evaluate(source_metadata: dict[str, object] | None = None) -> dict[str, obje
         ],
     }
 
+    # Do not retain an earlier success summary if this render fails.
+    (metrics_dir / "evaluation_summary.json").unlink(missing_ok=True)
     _plot_figures(features, predictions, anomalies, figures_dir)
     write_json(metrics_dir / "data_health.json", data_health)
     monitoring_path = resolve_path(config, "reports.monitoring_file") if "monitoring_file" in config.get("reports", {}) else metrics_dir / "monitoring.json"

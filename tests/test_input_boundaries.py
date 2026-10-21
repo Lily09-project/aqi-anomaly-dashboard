@@ -64,10 +64,18 @@ def test_hour_named_features_restart_after_missing_hour(monkeypatch, tmp_path):
 
 
 def test_double_renderer_failure_is_reported(monkeypatch, tmp_path):
-    # Empty frames make the primary renderer fail before writing any figure.
+    # Empty frames fail primary rendering; fallback also leaves a partial file.
+    names = ("aqi_trend.png", "prediction_vs_actual.png", "anomaly_cases.png")
+    for name in names:
+        (tmp_path / name).write_bytes(b"previous-run")
+    unrelated = tmp_path / "user-notes.txt"
+    unrelated.write_text("keep", encoding="utf-8")
+
     def fail(*args, **kwargs):
+        (tmp_path / "aqi_trend.png").write_bytes(b"partial-new-run")
         raise ValueError("forced fallback failure")
     monkeypatch.setattr(evaluate, "_plot_fallback_figures", fail)
     with pytest.raises(RuntimeError, match="both renderers"):
         evaluate._plot_figures(pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), tmp_path)
     assert not list(tmp_path.glob("*.png"))
+    assert unrelated.read_text(encoding="utf-8") == "keep"
