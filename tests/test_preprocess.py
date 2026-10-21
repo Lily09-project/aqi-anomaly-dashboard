@@ -104,4 +104,4 @@ def test_preprocess_does_not_fill_from_future_values(tmp_path):
     cleaned = preprocess(mode="api", input_path=csv_path)
 
     assert cleaned["datetime"].min() == pd.Timestamp("2026-06-01 01:00")
-    assert cleaned["data_source"].eq("API Data").all()
+    assert cleaned["data_source"].eq("Sample Data").all()
