@@ -5,7 +5,6 @@ import pytest
 
 from src import evaluate, features, preprocess
 from src.source_metadata import file_sha256
-from src.utils import load_config, resolve_path
 
 
 def input_frame():
@@ -45,18 +44,23 @@ def test_missing_identity_and_long_gap_are_not_silently_filled(monkeypatch, tmp_
     assert a["datetime"].max() == pd.Timestamp("2026-01-01 12:00")
 
 
-def test_hour_named_features_restart_after_missing_hour(monkeypatch):
+def test_hour_named_features_restart_after_missing_hour(monkeypatch, tmp_path):
     frame = input_frame()
     frame = frame.loc[~(frame["site_name"].eq("A") & frame["datetime"].eq("2026-01-01 08:00"))]
-    original_read = pd.read_csv
-    cleaned_path = resolve_path(load_config(), "data.cleaned_file")
-    monkeypatch.setattr(features.pd, "read_csv", lambda path, **kwargs: frame.copy() if path == cleaned_path else original_read(path, **kwargs))
-    monkeypatch.setattr(features.Path if hasattr(features, "Path") else __import__("pathlib").Path, "exists", lambda path: True)
-    monkeypatch.setattr(features, "write_csv", lambda *args, **kwargs: None)
+    cleaned_path = tmp_path / "cleaned.csv"
+    output_path = tmp_path / "features.csv"
+    frame.to_csv(cleaned_path, index=False)
+    original_resolve = features.resolve_path
+
+    def resolve_test_path(config, key):
+        return {"data.cleaned_file": cleaned_path, "data.features_file": output_path}.get(key) or original_resolve(config, key)
+
+    monkeypatch.setattr(features, "resolve_path", resolve_test_path)
     result = features.build_features()
     a = result.loc[result["site_name"].eq("A")]
     assert not a["datetime"].isin(pd.to_datetime(["2026-01-01 09:00", "2026-01-01 10:00", "2026-01-01 11:00"])).any()
     assert a.loc[a["datetime"].eq("2026-01-01 12:00"), "lag_3_aqi"].tolist() == [49.]
+    assert output_path.exists()
 
 
 def test_double_renderer_failure_is_reported(monkeypatch, tmp_path):

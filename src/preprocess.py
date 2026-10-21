@@ -9,6 +9,7 @@ import pandas as pd
 from src.app_helpers import add_display_columns
 from src.fetch_aqi_data import ALIASES
 from src.source_metadata import load_source_metadata, resolve_effective_run_mode
+from src.time_segments import hourly_segments
 from src.utils import latest_csv, load_config, project_path, resolve_path, write_csv
 
 
@@ -76,9 +77,7 @@ def preprocess(
 
     df = df.dropna(subset=["datetime", "site_name", "county"]).sort_values(["site_name", "datetime"])
     # Only short consecutive hourly gaps may borrow an earlier measurement.
-    previous_time = df.groupby("site_name", sort=False)["datetime"].shift(1)
-    segments = (df["site_name"].ne(df["site_name"].shift(1)) |
-                df["datetime"].sub(previous_time).ne(pd.Timedelta(hours=1))).cumsum()
+    segments = hourly_segments(df)
     for col in NUMERIC_COLUMNS:
         df[col] = df.groupby(segments, sort=False)[col].ffill(limit=3)
 
