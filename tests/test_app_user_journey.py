@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import subprocess
 import sys
 
@@ -30,7 +32,7 @@ def prepare_sample_artifacts() -> None:
 
 
 def _app() -> AppTest:
-    app = AppTest.from_file("app.py", default_timeout=30).run()
+    app = AppTest.from_file(Path(__file__).resolve().parents[1] / "app.py", default_timeout=30).run()
     errors = [str(item.value) for item in app.exception]
     assert not errors, f"dashboard startup failed: {errors}"
     return app
