@@ -92,6 +92,20 @@ def layout_issues(page) -> list[str]:
                     break;
                 }
             }
+            for (const value of document.querySelectorAll('.signal-value')) {
+                if (!visible(value) || !/^[+-]?[\\d,]+(?:\\.\\d+)?%?$/.test(value.textContent.trim())) continue;
+                const range = document.createRange();
+                range.selectNodeContents(value);
+                const lines = new Set(Array.from(range.getClientRects())
+                    .filter(rect => rect.width > 0 && rect.height > 0)
+                    .map(rect => Math.round(rect.top)));
+                if (lines.size > 1) {
+                    issues.push('numeric signal is split across lines: ' + value.textContent.trim());
+                }
+                if (value.scrollWidth > value.clientWidth + 3) {
+                    issues.push('numeric signal overflows its card: ' + value.textContent.trim());
+                }
+            }
             return issues;
         }"""
     )

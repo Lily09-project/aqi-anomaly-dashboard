@@ -152,3 +152,10 @@ def test_layout_audit_covers_native_navigation_targets_and_labels() -> None:
     assert ".st-key-dashboard_view label, .st-key-dashboard_view label p" in layout
     assert "interactive label is clipped" in layout
     assert "small interactive target" in layout
+
+def test_dashboard_panels_are_not_limited_to_prose_width() -> None:
+    styles = (ROOT / "src/dashboard/styles.py").read_text(encoding="utf-8")
+    assert 'p, li, label, [data-testid="stMarkdownContainer"]' not in styles
+    assert "p, li, label {{" in styles
+    assert "clamp(1.75rem, 3vw, 3rem)" in styles
+    assert "numeric signal is split across lines" in (ROOT / "scripts/ui_qa.py").read_text(encoding="utf-8")

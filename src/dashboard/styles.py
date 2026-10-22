@@ -1391,7 +1391,8 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             font-size: clamp(1.05rem, 0.98rem + 0.35vw, 1.25rem) !important;
             line-height: 1.35 !important;
         }}
-        p, li, label, [data-testid="stMarkdownContainer"] {{
+        /* Limit prose line length, never the dashboard's HTML container. */
+        p, li, label {{
             max-width: 75ch;
             overflow-wrap: anywhere;
         }}
@@ -1621,7 +1622,8 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             font-variant-numeric: tabular-nums;
             letter-spacing: 0;
         }}
-        .signal-value {{ font-size: clamp(2.65rem, 2.1rem + 2vw, 4rem) !important; }}
+        .signal-value {{ font-size: clamp(1.75rem, 3vw, 3rem) !important; }}
+        .signal-primary .signal-value {{ font-size: clamp(2rem, 4vw, 4rem) !important; }}
         .signal-card {{ min-height: 118px !important; padding: 1rem !important; }}
         .guidance-panel {{ padding: 1.2rem 1.25rem !important; }}
         .guidance-grid > div {{ border-radius: var(--ui-radius-md) !important; padding: 1rem !important; }}
