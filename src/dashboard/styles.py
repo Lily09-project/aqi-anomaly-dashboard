@@ -1622,6 +1622,10 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             font-variant-numeric: tabular-nums;
             letter-spacing: 0;
         }}
+        @media (max-width: 1100px) and (min-width: 641px) {{
+            .signal-deck {{ grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }}
+            .signal-primary {{ grid-column: 1 / -1 !important; grid-row: auto !important; }}
+        }}
         .signal-value {{ font-size: clamp(1.75rem, 3vw, 3rem) !important; }}
         .signal-primary .signal-value {{ font-size: clamp(2rem, 4vw, 4rem) !important; }}
         .signal-card {{ min-height: 118px !important; padding: 1rem !important; }}

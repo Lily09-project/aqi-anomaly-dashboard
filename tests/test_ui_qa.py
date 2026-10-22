@@ -159,3 +159,9 @@ def test_dashboard_panels_are_not_limited_to_prose_width() -> None:
     assert "p, li, label {{" in styles
     assert "clamp(1.75rem, 3vw, 3rem)" in styles
     assert "numeric signal is split across lines" in (ROOT / "scripts/ui_qa.py").read_text(encoding="utf-8")
+
+def test_tablet_signal_grid_overrides_the_desktop_minimum_tracks() -> None:
+    styles = (ROOT / "src/dashboard/styles.py").read_text(encoding="utf-8")
+    assert "@media (max-width: 1100px) and (min-width: 641px)" in styles
+    assert ".signal-deck {{ grid-template-columns: repeat(2, minmax(0, 1fr)) !important;" in styles
+    assert ".signal-primary {{ grid-column: 1 / -1 !important; grid-row: auto !important;" in styles
