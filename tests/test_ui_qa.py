@@ -127,3 +127,11 @@ def test_browser_ci_retains_candidate_visual_evidence() -> None:
     assert "docs/screenshots/ui-qa/*.png" in evidence
     assert "docs/screenshots/ui-qa/failure-evidence.json" in evidence
     assert "github.run_attempt" in evidence
+
+def test_segmented_navigation_reflows_current_framework_labels() -> None:
+    styles = (ROOT / "src/dashboard/styles.py").read_text(encoding="utf-8")
+    assert '.st-key-dashboard_view [role="radiogroup"]' in styles
+    assert "repeat(auto-fit, minmax(min(100%, 8rem), 1fr))" in styles
+    assert '.st-key-dashboard_view button[data-variant="segmented_control"]' in styles
+    assert "min-height: max(48px, 3rem) !important;" in styles
+    assert '.st-key-dashboard_view button[aria-checked="true"]' in styles

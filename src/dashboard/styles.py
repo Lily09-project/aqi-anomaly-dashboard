@@ -1755,6 +1755,39 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             visibility: hidden !important;
             pointer-events: none !important;
         }}
+
+        /* React Aria segmented navigation: preserve labels at 200% text size. */
+        .st-key-dashboard_view [role="radiogroup"] {{
+            display: grid !important;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr)) !important;
+            gap: .5rem !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0;
+        }}
+        .st-key-dashboard_view button[data-variant="segmented_control"] {{
+            height: auto !important;
+            min-height: max(48px, 3rem) !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            padding: .65rem .9rem !important;
+            white-space: normal !important;
+            overflow: visible !important;
+            overflow-wrap: anywhere;
+            line-height: 1.4 !important;
+        }}
+        .st-key-dashboard_view button[data-variant="segmented_control"] :is(div, span, p) {{
+            max-height: none !important;
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+        }}
+        .st-key-dashboard_view button[aria-checked="true"] {{
+            background: var(--card) !important;
+            color: var(--text) !important;
+            border-color: var(--accent) !important;
+            box-shadow: inset 0 -2px 0 var(--accent);
+        }}
         </style>
         """,
         unsafe_allow_html=True,
