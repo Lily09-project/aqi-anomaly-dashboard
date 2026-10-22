@@ -67,7 +67,7 @@ def layout_issues(page) -> list[str]:
                     }
                 }
             }
-            for (const control of document.querySelectorAll('button[data-testid^="stBaseButton"], [data-testid="stButton"] button, select, textarea')) {
+            for (const control of document.querySelectorAll('button[data-testid^="stBaseButton"], [data-testid="stButton"] button, select, textarea, .st-key-dashboard_view label')) {
                 if (!visible(control)) continue;
                 const rect = control.getBoundingClientRect();
                 const inViewport = rect.right > 0 && rect.left < window.innerWidth
@@ -81,7 +81,7 @@ def layout_issues(page) -> list[str]:
                     break;
                 }
             }
-            for (const element of document.querySelectorAll('button, [role="button"]')) {
+            for (const element of document.querySelectorAll('button, [role="button"], .st-key-dashboard_view label, .st-key-dashboard_view label p')) {
                 if (!visible(element)) continue;
                 const style = getComputedStyle(element);
                 if ((style.overflow === 'hidden' || style.overflowX === 'hidden' || style.overflowY === 'hidden')

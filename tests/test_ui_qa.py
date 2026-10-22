@@ -144,3 +144,11 @@ def test_view_navigation_keeps_a_native_required_single_selection() -> None:
     assert "index=0" in navigation
     assert "horizontal=True" in navigation
     assert 'key="dashboard_view"' in navigation
+
+def test_layout_audit_covers_native_navigation_targets_and_labels() -> None:
+    source = (ROOT / "scripts/ui_qa.py").read_text(encoding="utf-8")
+    layout = source.split("def layout_issues(page)", 1)[1].split("def wait_for_app_idle", 1)[0]
+    assert "textarea, .st-key-dashboard_view label" in layout
+    assert ".st-key-dashboard_view label, .st-key-dashboard_view label p" in layout
+    assert "interactive label is clipped" in layout
+    assert "small interactive target" in layout
