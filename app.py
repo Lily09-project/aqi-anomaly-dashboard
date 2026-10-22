@@ -453,6 +453,9 @@ def main() -> None:
         "Dashboard view",
         options=VIEW_LABELS,
         default=VIEW_LABELS[0],
+        required=True,
+        wrap=True,
+        width="stretch",
         label_visibility="collapsed",
         key="dashboard_view",
     )

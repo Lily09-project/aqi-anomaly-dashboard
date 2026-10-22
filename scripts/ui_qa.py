@@ -496,9 +496,19 @@ def run_browser_checks(
                     )
                     if option.get_attribute("aria-checked") != "true":
                         option.click(timeout=15_000)
-                    wait_for_app_idle(page)
-                    if option.get_attribute("aria-checked") != "true":
+                    try:
+                        page.wait_for_function(
+                            """label => Array.from(document.querySelectorAll(
+                                '.st-key-dashboard_view [role="radio"]'
+                            )).some(option => option.textContent.trim() === label
+                                && option.getAttribute('aria-checked') === 'true')""",
+                            arg=view,
+                            timeout=15_000,
+                        )
+                    except PlaywrightError:
                         failures.append(f"{viewport_name}/{view}: navigation selection was not retained")
+                        print("NAVIGATION STATE: " + str(page.locator(".st-key-dashboard_view").inner_text()))
+                    wait_for_app_idle(page)
                     try:
                         page.get_by_text(required_text, exact=True).first.wait_for(timeout=30_000)
                     except PlaywrightError:

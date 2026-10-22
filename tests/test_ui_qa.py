@@ -135,3 +135,12 @@ def test_segmented_navigation_reflows_current_framework_labels() -> None:
     assert '.st-key-dashboard_view button[data-variant="segmented_control"]' in styles
     assert "min-height: max(48px, 3rem) !important;" in styles
     assert '.st-key-dashboard_view button[aria-checked="true"]' in styles
+
+def test_view_navigation_requires_a_selection_and_explicit_wrap() -> None:
+    app = (ROOT / "app.py").read_text(encoding="utf-8")
+    navigation = app.split('selected_view = st.segmented_control(', 1)[1].split(
+        "render_active_view(", 1
+    )[0]
+    assert "required=True" in navigation
+    assert "wrap=True" in navigation
+    assert 'width="stretch"' in navigation
