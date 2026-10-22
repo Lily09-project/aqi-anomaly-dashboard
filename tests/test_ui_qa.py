@@ -241,3 +241,13 @@ def test_scroll_evidence_restores_scrollport_when_screenshot_fails(tmp_path: Pat
     assert page.top == 170
     assert page.behavior == "smooth"
     assert json.loads((tmp_path / "failure-scroll.json").read_text())["complete"] is False
+
+
+def test_download_labels_keep_palette_and_contrast_in_both_theme_modes() -> None:
+    styles = (ROOT / "src/dashboard/styles.py").read_text(encoding="utf-8")
+    qa = (ROOT / "scripts/ui_qa.py").read_text(encoding="utf-8")
+    assert '[data-testid="stDownloadButton"] button {{\n            background-color: var(--surface) !important;\n            color: var(--text) !important;' in styles
+    assert '[data-testid="stDownloadButton"] button p {{\n            color: inherit !important;' in styles
+    assert "download label contrast below 4.5:1" in qa
+    assert "button.disabled" in qa
+    assert "0.2126, 0.7152, 0.0722" in qa

@@ -653,6 +653,15 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
         button[data-testid^="stBaseButton-"] {{
             min-height: 44px !important;
         }}
+        /* Keep download actions readable when the app palette changes. */
+        [data-testid="stDownloadButton"] button {{
+            background-color: var(--surface) !important;
+            color: var(--text) !important;
+            border-color: var(--border) !important;
+        }}
+        [data-testid="stDownloadButton"] button p {{
+            color: inherit !important;
+        }}
         [data-testid="stBaseButton-headerNoPadding"],
         [data-testid="stExpandSidebarButton"] {{
             min-width: 44px !important;

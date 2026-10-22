@@ -106,6 +106,37 @@ def layout_issues(page) -> list[str]:
                     issues.push('numeric signal overflows its card: ' + value.textContent.trim());
                 }
             }
+
+            const rgb = color => (color.match(/[\\d.]+/g) || []).map(Number);
+            const luminance = color => color.slice(0, 3).map(channel => {
+                const value = channel / 255;
+                return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+            }).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
+            const backdrop = element => {
+                const layers = [];
+                for (let node = element; node instanceof Element; node = node.parentElement) {
+                    const layer = rgb(getComputedStyle(node).backgroundColor);
+                    if (layer.length >= 3) layers.push(layer);
+                    if ((layer[3] ?? 1) >= 1) break;
+                }
+                return layers.reverse().reduce((base, layer) => {
+                    const alpha = layer[3] ?? 1;
+                    return layer.slice(0, 3).map((value, index) =>
+                        value * alpha + base[index] * (1 - alpha));
+                }, [255, 255, 255]);
+            };
+            for (const button of document.querySelectorAll('[data-testid="stDownloadButton"] button')) {
+                if (!visible(button) || button.disabled) continue;
+                const text = button.querySelector('p') || button;
+                const foreground = rgb(getComputedStyle(text).color);
+                const background = backdrop(button);
+                const first = luminance(foreground), second = luminance(background);
+                const contrast = (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
+                if (!Number.isFinite(contrast) || contrast < 4.5) {
+                    issues.push('download label contrast below 4.5:1: '
+                        + button.textContent.trim() + ' (' + contrast.toFixed(2) + ')');
+                }
+            }
             return issues;
         }"""
     )
