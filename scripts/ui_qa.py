@@ -348,7 +348,7 @@ def apply_theme_mode(
         raise ValueError("theme_mode must be light or dark")
     if selector_label is not None:
         sidebar = page.locator('[data-testid="stSidebar"]')
-        if sidebar.get_attribute("aria-expanded") != "true":
+        if sidebar.get_attribute("data-collapsed") != "false":
             expand_control = page.locator('[data-testid="stExpandSidebarButton"]')
             expand_button = expand_control.locator("button")
             if expand_button.count():
@@ -361,7 +361,7 @@ def apply_theme_mode(
         page.get_by_role("combobox", name=selector_label).click(timeout=15_000)
         page.get_by_role("option", name=option_label, exact=True).click(timeout=15_000)
         collapse_button = page.locator('[data-testid="stSidebarCollapseButton"] button')
-        if sidebar.get_attribute("aria-expanded") == "true" and collapse_button.count():
+        if sidebar.get_attribute("data-collapsed") == "false" and collapse_button.count():
             collapse_button.click(timeout=15_000)
     page.wait_for_function(
         "expected => getComputedStyle(document.documentElement).colorScheme === expected",
@@ -390,12 +390,12 @@ def download_payload(page, label: str, suffix: str) -> bytes:
 
 def open_sidebar(page) -> None:
     sidebar = page.locator('[data-testid="stSidebar"]')
-    if sidebar.get_attribute("aria-expanded") != "true":
+    if sidebar.get_attribute("data-collapsed") != "false":
         control = page.locator('[data-testid="stExpandSidebarButton"]')
         button = control.locator("button")
         (button if button.count() else control).click(timeout=15_000)
     page.wait_for_function(
-        "() => document.querySelector('[data-testid=stSidebar]')?.getAttribute('aria-expanded') === 'true'",
+        "() => document.querySelector('[data-testid=stSidebar]')?.getAttribute('data-collapsed') === 'false'",
         timeout=15_000,
     )
 
@@ -491,7 +491,14 @@ def run_browser_checks(
 
                 for view, required_text in VIEW_CONTRACTS.items():
                     active_view = view
-                    page.get_by_role("button", name=view, exact=True).click(timeout=15_000)
+                    option = page.get_by_role("radiogroup", name="Dashboard view").get_by_role(
+                        "radio", name=view, exact=True
+                    )
+                    if option.get_attribute("aria-checked") != "true":
+                        option.click(timeout=15_000)
+                    wait_for_app_idle(page)
+                    if option.get_attribute("aria-checked") != "true":
+                        failures.append(f"{viewport_name}/{view}: navigation selection was not retained")
                     try:
                         page.get_by_text(required_text, exact=True).first.wait_for(timeout=30_000)
                     except PlaywrightError:

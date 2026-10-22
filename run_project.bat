@@ -24,13 +24,13 @@ echo [1/10] Checking Python...
 set "BASE_PY_EXE="
 set "BASE_PY_ARGS="
 
-python -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>&1
+python -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>&1
 if not errorlevel 1 (
     set "BASE_PY_EXE=python"
 )
 
 if not defined BASE_PY_EXE (
-    py -3 -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>&1
+    py -3 -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>&1
     if not errorlevel 1 (
         set "BASE_PY_EXE=py"
         set "BASE_PY_ARGS=-3"
@@ -41,10 +41,9 @@ if not defined BASE_PY_EXE (
     for %%P in (
         "%LocalAppData%\Programs\Python\Python312\python.exe"
         "%LocalAppData%\Programs\Python\Python311\python.exe"
-        "%LocalAppData%\Programs\Python\Python310\python.exe"
     ) do (
         if exist "%%~fP" (
-            "%%~fP" -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>&1
+            "%%~fP" -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>&1
             if not errorlevel 1 (
                 set "BASE_PY_EXE=%%~fP"
                 set "BASE_PY_ARGS="
@@ -56,7 +55,7 @@ if not defined BASE_PY_EXE (
 
 :python_found
 if not defined BASE_PY_EXE (
-    echo [ERROR] Python 3.10 or newer was not found.
+    echo [ERROR] Python 3.11 or newer was not found.
     echo Install a supported Python version and enable Add Python to PATH.
     if /I not "%~1"=="--validate" pause
     exit /b 1
@@ -64,15 +63,17 @@ if not defined BASE_PY_EXE (
 
 echo [2/10] Preparing virtual environment...
 if exist ".venv\Scripts\python.exe" (
-    ".venv\Scripts\python.exe" -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>&1
+    ".venv\Scripts\python.exe" -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>&1
     if errorlevel 1 (
-        echo [INFO] Existing .venv uses unsupported Python. Recreating it...
-        rmdir /s /q ".venv"
+        echo [ERROR] Existing .venv uses unsupported Python. Preserve or move it before creating a new environment.
+        if /I not "%~1"=="--validate" pause
+        exit /b 1
     ) else (
         ".venv\Scripts\python.exe" -m pip --version >nul 2>&1
         if errorlevel 1 (
-            echo [INFO] Existing .venv is broken. Recreating it...
-            rmdir /s /q ".venv"
+            echo [ERROR] Existing .venv is broken. Preserve or move it before creating a new environment.
+            if /I not "%~1"=="--validate" pause
+            exit /b 1
         )
     )
 )

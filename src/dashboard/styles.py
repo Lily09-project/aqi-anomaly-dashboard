@@ -74,7 +74,7 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
         a {{
             color: var(--primary) !important;
         }}
-        [data-testid="stSidebar"][aria-expanded="false"] {{
+        [data-testid="stSidebar"][data-collapsed="true"] {{
             visibility: hidden !important;
         }}
         @media (max-width: 1024px) {{
@@ -1687,20 +1687,20 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             border-radius: .6rem !important;
         }}
         /* Do not leave invisible sidebar controls in the keyboard sequence. */
-        [data-testid="stSidebar"][aria-expanded="false"] {{
+        [data-testid="stSidebar"][data-collapsed="true"] {{
             visibility: hidden !important;
             pointer-events: none !important;
         }}
-        [data-testid="stSidebar"][aria-expanded="true"] {{
+        [data-testid="stSidebar"][data-collapsed="false"] {{
             visibility: visible !important;
             pointer-events: auto !important;
         }}
-        body:has([data-testid="stSidebar"][aria-expanded="false"]) [data-testid="stSidebarCollapseButton"] {{
+        body:has([data-testid="stSidebar"][data-collapsed="true"]) [data-testid="stSidebarCollapseButton"] {{
             display: none !important;
             visibility: hidden !important;
             pointer-events: none !important;
         }}
-        body:has([data-testid="stSidebar"][aria-expanded="true"]) [data-testid="stExpandSidebarButton"] {{
+        body:has([data-testid="stSidebar"][data-collapsed="false"]) [data-testid="stExpandSidebarButton"] {{
             display: none !important;
             visibility: hidden !important;
             pointer-events: none !important;
@@ -1725,7 +1725,7 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
                 min-height: 44px !important;
                 height: 44px !important;
             }}
-            body:has([data-testid="stSidebar"][aria-expanded="true"]) [data-testid="stSidebarCollapseButton"] {{
+            body:has([data-testid="stSidebar"][data-collapsed="false"]) [data-testid="stSidebarCollapseButton"] {{
                 position: fixed !important;
                 top: 0 !important;
                 left: 0 !important;
@@ -1738,7 +1738,7 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
                 z-index: 1000002 !important;
                 pointer-events: auto !important;
             }}
-            body:has([data-testid="stSidebar"][aria-expanded="true"]) [data-testid="stSidebarCollapseButton"] [data-testid="stBaseButton-headerNoPadding"] {{
+            body:has([data-testid="stSidebar"][data-collapsed="false"]) [data-testid="stSidebarCollapseButton"] [data-testid="stBaseButton-headerNoPadding"] {{
                 position: fixed !important;
                 top: max(.75rem, env(safe-area-inset-top, 0px)) !important;
                 left: max(0px, min(17.25rem, calc(100vw - 44px))) !important;
@@ -1751,7 +1751,7 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             }}
         }}
         /* Keep hidden sidebar descendants out of the keyboard sequence. */
-        [data-testid="stSidebar"][aria-expanded="false"] * {{
+        [data-testid="stSidebar"][data-collapsed="true"] * {{
             visibility: hidden !important;
             pointer-events: none !important;
         }}
