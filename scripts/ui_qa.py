@@ -452,6 +452,58 @@ def functional_download_smoke(page, base_url: str, theme_mode: str | None) -> No
         raise RuntimeError("AQI reliability JSON disagrees with the exported observations")
 
 
+
+SCROLL_EVIDENCE_VIEWPORTS = {"desktop", "small-mobile"}
+SCROLL_EVIDENCE_MAX_SEGMENTS = 80
+
+
+def capture_scroll_evidence(page, screenshot_dir: Path, stem: str) -> list[str]:
+    """Capture the actual Streamlit scrollport, not just the document viewport."""
+    script = """({action, top, behavior}) => {
+        const root = document.querySelector('[data-testid="stMain"]')
+            || document.scrollingElement;
+        if (!root || root.clientHeight <= 0) throw new Error('Missing visible scrollport');
+        const previousBehavior = root.style.scrollBehavior;
+        if (action === 'start') root.style.scrollBehavior = 'auto';
+        if (action === 'move' || action === 'restore') root.scrollTop = top;
+        if (action === 'restore') root.style.scrollBehavior = behavior;
+        return {top: root.scrollTop, height: root.clientHeight,
+            total: root.scrollHeight, behavior: previousBehavior};
+    }"""
+    original = page.evaluate(script, {"action": "start", "top": 0, "behavior": ""})
+    screenshots = []
+    issues = []
+    complete = False
+    target = 0
+    try:
+        for index in range(SCROLL_EVIDENCE_MAX_SEGMENTS):
+            page.evaluate(script, {"action": "move", "top": target, "behavior": ""})
+            page.wait_for_timeout(150)
+            state = page.evaluate(script, {"action": "read", "top": 0, "behavior": ""})
+            filename = f"{stem}-scroll-{index:02d}.png"
+            page.screenshot(path=str(screenshot_dir / filename), full_page=False)
+            screenshots.append({"file": filename, "top": state["top"],
+                                "height": state["height"], "total": state["total"]})
+            if abs(state["top"] - target) > 3 and target < state["total"] - state["height"]:
+                issues.append("scrollport did not reach the requested evidence position")
+                break
+            if state["top"] + state["height"] >= state["total"] - 2:
+                complete = True
+                break
+            target = min(state["total"] - state["height"],
+                         state["top"] + max(1, int(state["height"] * 0.8)))
+        if not complete and not issues:
+            issues.append("scroll evidence limit reached before the page bottom")
+    finally:
+        page.evaluate(script, {"action": "restore", "top": original["top"],
+                               "behavior": original["behavior"]})
+        (screenshot_dir / f"{stem}-scroll.json").write_text(json.dumps({
+            "schema_version": 1, "complete": complete, "segments": screenshots,
+            "manual_visual_acceptance": "pending",
+        }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return issues
+
+
 def run_browser_checks(
     base_url: str,
     screenshot_dir: Path,
@@ -543,6 +595,11 @@ def run_browser_checks(
                         path=str(screenshot_dir / f"{view}-{viewport_name}{suffix}.png"),
                         full_page=True,
                     )
+                    if viewport_name in SCROLL_EVIDENCE_VIEWPORTS:
+                        for issue in capture_scroll_evidence(
+                            page, screenshot_dir, f"{view}-{viewport_name}{suffix}"
+                        ):
+                            failures.append(f"{viewport_name}/{view}: {issue}")
                 if console_errors:
                     failures.append(f"{viewport_name}: console errors {console_errors[:3]}")
             except PlaywrightError as exc:
