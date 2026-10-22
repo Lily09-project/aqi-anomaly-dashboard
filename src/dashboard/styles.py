@@ -1756,7 +1756,7 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             pointer-events: none !important;
         }}
 
-        /* React Aria segmented navigation: preserve labels at 200% text size. */
+        /* Native single-choice navigation with text-size-aware reflow. */
         .st-key-dashboard_view [role="radiogroup"] {{
             display: grid !important;
             grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr)) !important;
@@ -1765,24 +1765,27 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             max-width: 100% !important;
             min-width: 0;
         }}
-        .st-key-dashboard_view button[data-variant="segmented_control"] {{
+        .st-key-dashboard_view label {{
             height: auto !important;
             min-height: max(48px, 3rem) !important;
             min-width: 0 !important;
             max-width: 100% !important;
+            margin: 0 !important;
             padding: .65rem .9rem !important;
+            border: 1px solid var(--border);
+            border-radius: 10px;
             white-space: normal !important;
-            overflow: visible !important;
             overflow-wrap: anywhere;
             line-height: 1.4 !important;
+            cursor: pointer;
         }}
-        .st-key-dashboard_view button[data-variant="segmented_control"] :is(div, span, p) {{
+        .st-key-dashboard_view label p {{
             max-height: none !important;
             white-space: normal !important;
             overflow: visible !important;
             text-overflow: clip !important;
         }}
-        .st-key-dashboard_view button[aria-checked="true"] {{
+        .st-key-dashboard_view label:has(input:checked) {{
             background: var(--card) !important;
             color: var(--text) !important;
             border-color: var(--accent) !important;

@@ -42,7 +42,7 @@ def test_reviewer_can_open_every_dashboard_page_without_runtime_errors() -> None
     app = _app()
 
     for page, marker in PAGE_MARKERS.items():
-        navigation = app.get("button_group")[0]
+        navigation = app.radio(key="dashboard_view")
         navigation.set_value(page)
         app.run()
 
@@ -76,7 +76,7 @@ def test_user_can_change_theme_filters_and_custom_date_range() -> None:
 
 def test_reviewer_can_inspect_monitoring_history_and_decision_state() -> None:
     app = _app()
-    navigation = app.get("button_group")[0]
+    navigation = app.radio(key="dashboard_view")
     navigation.set_value("模型指標")
     app.run()
 
@@ -86,3 +86,12 @@ def test_reviewer_can_inspect_monitoring_history_and_decision_state() -> None:
     assert "監控批次" in metric_labels
     assert "最新狀態" in metric_labels
     assert "建議行動" in metric_labels
+
+def test_active_navigation_selection_is_stable_on_repeated_selection() -> None:
+    app = _app()
+    for _attempt in range(2):
+        app.radio(key="dashboard_view").set_value("模型指標")
+        app.run()
+        assert not app.exception
+        assert app.radio(key="dashboard_view").value == "模型指標"
+        assert "模型健康度與漂移" in [element.value for element in app.subheader]

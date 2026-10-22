@@ -128,19 +128,19 @@ def test_browser_ci_retains_candidate_visual_evidence() -> None:
     assert "docs/screenshots/ui-qa/failure-evidence.json" in evidence
     assert "github.run_attempt" in evidence
 
-def test_segmented_navigation_reflows_current_framework_labels() -> None:
+def test_native_navigation_reflows_current_framework_labels() -> None:
     styles = (ROOT / "src/dashboard/styles.py").read_text(encoding="utf-8")
     assert '.st-key-dashboard_view [role="radiogroup"]' in styles
     assert "repeat(auto-fit, minmax(min(100%, 8rem), 1fr))" in styles
-    assert '.st-key-dashboard_view button[data-variant="segmented_control"]' in styles
+    assert '.st-key-dashboard_view label' in styles
     assert "min-height: max(48px, 3rem) !important;" in styles
-    assert '.st-key-dashboard_view button[aria-checked="true"]' in styles
+    assert '.st-key-dashboard_view label:has(input:checked)' in styles
 
-def test_view_navigation_requires_a_selection_and_explicit_wrap() -> None:
+def test_view_navigation_keeps_a_native_required_single_selection() -> None:
     app = (ROOT / "app.py").read_text(encoding="utf-8")
-    navigation = app.split('selected_view = st.segmented_control(', 1)[1].split(
+    navigation = app.split('selected_view = st.radio(', 1)[1].split(
         "render_active_view(", 1
     )[0]
-    assert "required=True" in navigation
-    assert "wrap=True" in navigation
-    assert 'width="stretch"' in navigation
+    assert "index=0" in navigation
+    assert "horizontal=True" in navigation
+    assert 'key="dashboard_view"' in navigation
