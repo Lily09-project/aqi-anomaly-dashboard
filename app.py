@@ -449,10 +449,11 @@ def main() -> None:
         source_code=source_code,
         data_source=data_source,
     )
-    selected_view = st.segmented_control(
+    selected_view = st.radio(
         "Dashboard view",
         options=VIEW_LABELS,
-        default=VIEW_LABELS[0],
+        index=0,
+        horizontal=True,
         label_visibility="collapsed",
         key="dashboard_view",
     )

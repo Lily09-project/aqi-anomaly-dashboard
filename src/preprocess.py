@@ -8,6 +8,8 @@ import pandas as pd
 
 from src.app_helpers import add_display_columns
 from src.fetch_aqi_data import ALIASES
+from src.source_metadata import load_source_metadata, resolve_effective_run_mode
+from src.time_segments import hourly_segments
 from src.utils import latest_csv, load_config, project_path, resolve_path, write_csv
 
 
@@ -41,7 +43,7 @@ def _is_verified_api_source(mode: str, source_metadata: Mapping[str, Any] | None
     if mode != "api":
         return False
     if source_metadata is None:
-        return True
+        return False
     return (
         source_metadata.get("status") == "success"
         and source_metadata.get("data_source") == "API Data"
@@ -66,19 +68,24 @@ def preprocess(
 
     df = df[REQUIRED_COLUMNS].copy()
     df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce")
-    df["site_name"] = df["site_name"].astype(str).str.strip()
-    df["county"] = df["county"].astype(str).str.strip()
+    for column in ("site_name", "county"):
+        df[column] = df[column].astype("string").str.strip()
+        df[column] = df[column].mask(df[column].eq(""), pd.NA)
 
     for col in NUMERIC_COLUMNS:
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    df = df.dropna(subset=["datetime", "site_name"]).sort_values(["site_name", "datetime"])
+    df = df.dropna(subset=["datetime", "site_name", "county"]).sort_values(["site_name", "datetime"])
+    # Only short consecutive hourly gaps may borrow an earlier measurement.
+    segments = hourly_segments(df)
     for col in NUMERIC_COLUMNS:
-        df[col] = df.groupby("site_name", sort=False)[col].ffill()
+        df[col] = df.groupby(segments, sort=False)[col].ffill(limit=3)
 
     df = df.dropna(subset=NUMERIC_COLUMNS)
     df = df.drop_duplicates(["site_name", "datetime"]).reset_index(drop=True)
-    df["data_source"] = "API Data" if _is_verified_api_source(mode, source_metadata) else "Sample Data"
+    metadata = source_metadata if source_metadata is not None else load_source_metadata(config)
+    effective_mode = resolve_effective_run_mode(mode, metadata, src)
+    df["data_source"] = "API Data" if _is_verified_api_source(effective_mode, metadata) else "Sample Data"
     df = add_display_columns(df)
     out = resolve_path(config, "data.cleaned_file")
     write_csv(df, out, index=False, encoding="utf-8")

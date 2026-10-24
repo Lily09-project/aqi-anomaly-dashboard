@@ -6,6 +6,7 @@ from statistics import median
 
 import pandas as pd
 
+from src.time_segments import hourly_segments
 from src.utils import load_config, resolve_path, write_csv
 
 
@@ -71,7 +72,9 @@ def build_features() -> pd.DataFrame:
     df["is_weekend"] = (df["day_of_week"] >= 5).astype(int)
     df["station_hour_baseline_aqi"] = historical_station_hour_baseline(df)
 
-    grouped = df.groupby("site_name", group_keys=False)
+    # Hour-named features must not bridge missing hours as though rows were contiguous.
+    segments = hourly_segments(df)
+    grouped = df.groupby(segments, group_keys=False)
     df["lag_1_aqi"] = grouped["aqi"].shift(1)
     df["lag_3_aqi"] = grouped["aqi"].shift(3)
     df["rolling_3h_aqi"] = grouped["aqi"].transform(lambda s: s.shift(1).rolling(3, min_periods=1).mean())

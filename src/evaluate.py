@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import base64
 import json
 import struct
 import zlib
@@ -14,17 +13,6 @@ from src.monitoring_history import build_monitoring_snapshot, update_monitoring_
 from src.source_metadata import load_source_metadata
 from src.theme import THEME
 from src.utils import ensure_parent, load_config, resolve_path, write_json
-
-
-_TINY_PNG = base64.b64decode(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="
-)
-
-
-def _write_placeholder_png(path) -> None:
-    p = ensure_parent(path)
-    with p.open("wb") as f:
-        f.write(_TINY_PNG)
 
 
 def _hex_to_rgb(color: str) -> tuple[int, int, int]:
@@ -152,8 +140,15 @@ def _plot_fallback_figures(features: pd.DataFrame, predictions: pd.DataFrame, an
     _fallback_chart(recent, None, "aqi", figures_dir / "anomaly_cases.png", scatter=True, color_col="is_anomaly")
 
 
+def _clear_report_figures(figures_dir) -> None:
+    # These three files are owned report outputs, not arbitrary user files.
+    for name in ("aqi_trend.png", "prediction_vs_actual.png", "anomaly_cases.png"):
+        (figures_dir / name).unlink(missing_ok=True)
+
+
 def _plot_figures(features: pd.DataFrame, predictions: pd.DataFrame, anomalies: pd.DataFrame, figures_dir) -> None:
     figures_dir.mkdir(parents=True, exist_ok=True)
+    _clear_report_figures(figures_dir)
     try:
         import matplotlib.pyplot as plt  # type: ignore
 
@@ -195,9 +190,9 @@ def _plot_figures(features: pd.DataFrame, predictions: pd.DataFrame, anomalies: 
     except Exception:
         try:
             _plot_fallback_figures(features, predictions, anomalies, figures_dir)
-        except Exception:
-            for name in ["aqi_trend.png", "prediction_vs_actual.png", "anomaly_cases.png"]:
-                _write_placeholder_png(figures_dir / name)
+        except Exception as exc:
+            _clear_report_figures(figures_dir)
+            raise RuntimeError("Chart rendering failed in both renderers; no placeholder report was generated.") from exc
 
 
 def evaluate(source_metadata: dict[str, object] | None = None) -> dict[str, object]:
@@ -281,6 +276,8 @@ def evaluate(source_metadata: dict[str, object] | None = None) -> dict[str, obje
         ],
     }
 
+    # Do not retain an earlier success summary if this render fails.
+    (metrics_dir / "evaluation_summary.json").unlink(missing_ok=True)
     _plot_figures(features, predictions, anomalies, figures_dir)
     write_json(metrics_dir / "data_health.json", data_health)
     monitoring_path = resolve_path(config, "reports.monitoring_file") if "monitoring_file" in config.get("reports", {}) else metrics_dir / "monitoring.json"

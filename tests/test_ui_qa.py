@@ -5,6 +5,8 @@ from pathlib import Path
 
 from scripts.ui_qa import (
     focus_issues,
+    capture_scroll_evidence,
+    SCROLL_EVIDENCE_MAX_SEGMENTS,
     CORE_VIEWPORTS,
     EXTENDED_VIEWPORTS,
     MIN_INTERACTIVE_TARGET_PX,
@@ -104,7 +106,7 @@ def test_focus_audit_validates_radio_proxy_and_mobile_controls() -> None:
     assert 'data-testid="stExpandSidebarButton"' in styles
     assert 'data-testid="stSidebarCollapseButton"' in styles
     assert 'visibility: hidden !important;' in styles
-    assert '[data-testid="stSidebar"][aria-expanded="false"] *' in styles
+    assert '[data-testid="stSidebar"][data-collapsed="true"] *' in styles
 
 
 def test_browser_failure_evidence_is_structured_and_atomic(tmp_path: Path) -> None:
@@ -118,3 +120,134 @@ def test_browser_failure_evidence_is_structured_and_atomic(tmp_path: Path) -> No
     assert "mobile/route" in payload["error"]
     assert payload["screenshots"] == ["failure-route-mobile.png", "route-mobile.png"]
     assert not (tmp_path / "failure-evidence.json.tmp").exists()
+
+def test_browser_ci_retains_candidate_visual_evidence() -> None:
+    workflow = Path(".github/workflows/quality.yml").read_text(encoding="utf-8")
+    evidence = workflow.split("name: Retain browser visual acceptance evidence", 1)[1]
+    assert "if: always()" in evidence
+    assert "actions/upload-artifact@" in evidence
+    assert "docs/screenshots/ui-qa/*.png" in evidence
+    assert "docs/screenshots/ui-qa/failure-evidence.json" in evidence
+    assert "github.run_attempt" in evidence
+
+def test_native_navigation_reflows_current_framework_labels() -> None:
+    styles = (ROOT / "src/dashboard/styles.py").read_text(encoding="utf-8")
+    assert '.st-key-dashboard_view [role="radiogroup"]' in styles
+    assert "repeat(auto-fit, minmax(min(100%, 8rem), 1fr))" in styles
+    assert '.st-key-dashboard_view label' in styles
+    assert "min-height: max(48px, 3rem) !important;" in styles
+    assert '.st-key-dashboard_view label:has(input:checked)' in styles
+
+def test_view_navigation_keeps_a_native_required_single_selection() -> None:
+    app = (ROOT / "app.py").read_text(encoding="utf-8")
+    navigation = app.split('selected_view = st.radio(', 1)[1].split(
+        "render_active_view(", 1
+    )[0]
+    assert "index=0" in navigation
+    assert "horizontal=True" in navigation
+    assert 'key="dashboard_view"' in navigation
+
+def test_layout_audit_covers_native_navigation_targets_and_labels() -> None:
+    source = (ROOT / "scripts/ui_qa.py").read_text(encoding="utf-8")
+    layout = source.split("def layout_issues(page)", 1)[1].split("def wait_for_app_idle", 1)[0]
+    assert "textarea, .st-key-dashboard_view label" in layout
+    assert ".st-key-dashboard_view label, .st-key-dashboard_view label p" in layout
+    assert "interactive label is clipped" in layout
+    assert "small interactive target" in layout
+
+def test_dashboard_panels_are_not_limited_to_prose_width() -> None:
+    styles = (ROOT / "src/dashboard/styles.py").read_text(encoding="utf-8")
+    assert 'p, li, label, [data-testid="stMarkdownContainer"]' not in styles
+    assert "p, li, label {{" in styles
+    assert "clamp(1.75rem, 3vw, 3rem)" in styles
+    assert "numeric signal is split across lines" in (ROOT / "scripts/ui_qa.py").read_text(encoding="utf-8")
+
+def test_tablet_signal_grid_overrides_the_desktop_minimum_tracks() -> None:
+    styles = (ROOT / "src/dashboard/styles.py").read_text(encoding="utf-8")
+    assert "@media (max-width: 1100px) and (min-width: 641px)" in styles
+    assert ".signal-deck {{ grid-template-columns: repeat(2, minmax(0, 1fr)) !important;" in styles
+    assert ".signal-primary {{ grid-column: 1 / -1 !important; grid-row: auto !important;" in styles
+
+
+class _ScrollPage:
+    def __init__(self, total: int = 2100, top: int = 170) -> None:
+        self.total = total
+        self.top = top
+        self.behavior = "smooth"
+        self.shots = []
+
+    def evaluate(self, script, command):
+        assert '[data-testid="stMain"]' in script
+        previous = self.behavior
+        if command["action"] == "start":
+            self.behavior = "auto"
+        elif command["action"] in {"move", "restore"}:
+            self.top = min(command["top"], max(0, self.total - 1000))
+        if command["action"] == "restore":
+            self.behavior = command["behavior"]
+        return {"top": self.top, "height": 1000, "total": self.total,
+                "behavior": previous}
+
+    def wait_for_timeout(self, duration):
+        assert duration == 150
+
+    def screenshot(self, *, path, full_page):
+        assert full_page is False
+        self.shots.append(path)
+
+
+def test_scroll_evidence_reaches_bottom_and_restores_original_position(tmp_path: Path) -> None:
+    workflow = (ROOT / ".github/workflows/quality.yml").read_text(encoding="utf-8")
+    assert "docs/screenshots/ui-qa/*-scroll.json" in workflow
+    page = _ScrollPage()
+    assert capture_scroll_evidence(page, tmp_path, "route-desktop") == []
+    report = json.loads((tmp_path / "route-desktop-scroll.json").read_text())
+    assert report["complete"] is True
+    assert report["manual_visual_acceptance"] == "pending"
+    assert [part["top"] for part in report["segments"]] == [0, 800, 1100]
+    assert page.top == 170
+    assert page.behavior == "smooth"
+    assert len(page.shots) == 3
+
+
+def test_scroll_evidence_handles_pages_shorter_than_the_viewport(tmp_path: Path) -> None:
+    page = _ScrollPage(total=600, top=0)
+    assert capture_scroll_evidence(page, tmp_path, "short") == []
+    assert len(page.shots) == 1
+    assert json.loads((tmp_path / "short-scroll.json").read_text())["complete"] is True
+
+
+def test_scroll_evidence_limit_is_an_explicit_failure_not_silent_truncation(tmp_path: Path) -> None:
+    page = _ScrollPage(total=1_000_000)
+    issues = capture_scroll_evidence(page, tmp_path, "long")
+    assert issues == ["scroll evidence limit reached before the page bottom"]
+    assert len(page.shots) == SCROLL_EVIDENCE_MAX_SEGMENTS
+    assert json.loads((tmp_path / "long-scroll.json").read_text())["complete"] is False
+    assert page.top == 170
+    assert page.behavior == "smooth"
+
+
+def test_scroll_evidence_restores_scrollport_when_screenshot_fails(tmp_path: Path) -> None:
+    import pytest
+
+    page = _ScrollPage()
+
+    def fail(**kwargs):
+        raise RuntimeError("Screenshot failed")
+
+    page.screenshot = fail
+    with pytest.raises(RuntimeError, match="Screenshot failed"):
+        capture_scroll_evidence(page, tmp_path, "failure")
+    assert page.top == 170
+    assert page.behavior == "smooth"
+    assert json.loads((tmp_path / "failure-scroll.json").read_text())["complete"] is False
+
+
+def test_download_labels_keep_palette_and_contrast_in_both_theme_modes() -> None:
+    styles = (ROOT / "src/dashboard/styles.py").read_text(encoding="utf-8")
+    qa = (ROOT / "scripts/ui_qa.py").read_text(encoding="utf-8")
+    assert '[data-testid="stDownloadButton"] button {{\n            background-color: var(--surface) !important;\n            color: var(--text) !important;' in styles
+    assert '[data-testid="stDownloadButton"] button p {{\n            color: inherit !important;' in styles
+    assert "download label contrast below 4.5:1" in qa
+    assert "button.disabled" in qa
+    assert "0.2126, 0.7152, 0.0722" in qa

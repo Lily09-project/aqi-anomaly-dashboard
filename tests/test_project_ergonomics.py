@@ -62,15 +62,15 @@ def test_streamlit_runtime_contract_matches_dashboard_api() -> None:
     requirements = (ROOT / "requirements.txt").read_text(encoding="utf-8")
     constraints = (ROOT / "requirements-lock-py312.txt").read_text(encoding="utf-8")
 
-    assert "streamlit>=1.58,<2" in requirements
-    assert "streamlit==1.58.0" in constraints
+    assert "streamlit>=1.66.1,<2" in requirements
+    assert "streamlit==1.66.1" in constraints
 
 
 def test_launcher_rejects_unsupported_python_versions() -> None:
     launcher_source = (ROOT / "run_project.bat").read_text(encoding="utf-8")
 
-    assert launcher_source.count("sys.version_info >= (3, 10)") >= 3
-    assert "Python 3.10 or newer was not found" in launcher_source
+    assert launcher_source.count("sys.version_info >= (3, 11)") >= 3
+    assert "Python 3.11 or newer was not found" in launcher_source
 
 
 def test_security_audit_checks_the_locked_dependency_graph() -> None:
@@ -92,3 +92,9 @@ def test_quality_gate_executes_windows_launcher() -> None:
     assert "windows-launcher:" in workflow
     assert "runs-on: windows-latest" in workflow
     assert "run: run_project.bat --validate" in workflow
+
+def test_launcher_preserves_existing_environments_on_validation_failure() -> None:
+    launcher = (ROOT / "run_project.bat").read_text(encoding="utf-8")
+    assert 'rmdir /s /q ".venv"' not in launcher
+    assert "Existing .venv uses unsupported Python. Preserve or move it" in launcher
+    assert "Existing .venv is broken. Preserve or move it" in launcher

@@ -74,7 +74,7 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
         a {{
             color: var(--primary) !important;
         }}
-        [data-testid="stSidebar"][aria-expanded="false"] {{
+        [data-testid="stSidebar"][data-collapsed="true"] {{
             visibility: hidden !important;
         }}
         @media (max-width: 1024px) {{
@@ -652,6 +652,15 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
         [data-testid="stDownloadButton"] button,
         button[data-testid^="stBaseButton-"] {{
             min-height: 44px !important;
+        }}
+        /* Keep download actions readable when the app palette changes. */
+        [data-testid="stDownloadButton"] button {{
+            background-color: var(--surface) !important;
+            color: var(--text) !important;
+            border-color: var(--border) !important;
+        }}
+        [data-testid="stDownloadButton"] button p {{
+            color: inherit !important;
         }}
         [data-testid="stBaseButton-headerNoPadding"],
         [data-testid="stExpandSidebarButton"] {{
@@ -1391,7 +1400,8 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             font-size: clamp(1.05rem, 0.98rem + 0.35vw, 1.25rem) !important;
             line-height: 1.35 !important;
         }}
-        p, li, label, [data-testid="stMarkdownContainer"] {{
+        /* Limit prose line length, never the dashboard's HTML container. */
+        p, li, label {{
             max-width: 75ch;
             overflow-wrap: anywhere;
         }}
@@ -1621,7 +1631,12 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             font-variant-numeric: tabular-nums;
             letter-spacing: 0;
         }}
-        .signal-value {{ font-size: clamp(2.65rem, 2.1rem + 2vw, 4rem) !important; }}
+        @media (max-width: 1100px) and (min-width: 641px) {{
+            .signal-deck {{ grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }}
+            .signal-primary {{ grid-column: 1 / -1 !important; grid-row: auto !important; }}
+        }}
+        .signal-value {{ font-size: clamp(1.75rem, 3vw, 3rem) !important; }}
+        .signal-primary .signal-value {{ font-size: clamp(2rem, 4vw, 4rem) !important; }}
         .signal-card {{ min-height: 118px !important; padding: 1rem !important; }}
         .guidance-panel {{ padding: 1.2rem 1.25rem !important; }}
         .guidance-grid > div {{ border-radius: var(--ui-radius-md) !important; padding: 1rem !important; }}
@@ -1687,20 +1702,20 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             border-radius: .6rem !important;
         }}
         /* Do not leave invisible sidebar controls in the keyboard sequence. */
-        [data-testid="stSidebar"][aria-expanded="false"] {{
+        [data-testid="stSidebar"][data-collapsed="true"] {{
             visibility: hidden !important;
             pointer-events: none !important;
         }}
-        [data-testid="stSidebar"][aria-expanded="true"] {{
+        [data-testid="stSidebar"][data-collapsed="false"] {{
             visibility: visible !important;
             pointer-events: auto !important;
         }}
-        body:has([data-testid="stSidebar"][aria-expanded="false"]) [data-testid="stSidebarCollapseButton"] {{
+        body:has([data-testid="stSidebar"][data-collapsed="true"]) [data-testid="stSidebarCollapseButton"] {{
             display: none !important;
             visibility: hidden !important;
             pointer-events: none !important;
         }}
-        body:has([data-testid="stSidebar"][aria-expanded="true"]) [data-testid="stExpandSidebarButton"] {{
+        body:has([data-testid="stSidebar"][data-collapsed="false"]) [data-testid="stExpandSidebarButton"] {{
             display: none !important;
             visibility: hidden !important;
             pointer-events: none !important;
@@ -1725,7 +1740,7 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
                 min-height: 44px !important;
                 height: 44px !important;
             }}
-            body:has([data-testid="stSidebar"][aria-expanded="true"]) [data-testid="stSidebarCollapseButton"] {{
+            body:has([data-testid="stSidebar"][data-collapsed="false"]) [data-testid="stSidebarCollapseButton"] {{
                 position: fixed !important;
                 top: 0 !important;
                 left: 0 !important;
@@ -1738,7 +1753,7 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
                 z-index: 1000002 !important;
                 pointer-events: auto !important;
             }}
-            body:has([data-testid="stSidebar"][aria-expanded="true"]) [data-testid="stSidebarCollapseButton"] [data-testid="stBaseButton-headerNoPadding"] {{
+            body:has([data-testid="stSidebar"][data-collapsed="false"]) [data-testid="stSidebarCollapseButton"] [data-testid="stBaseButton-headerNoPadding"] {{
                 position: fixed !important;
                 top: max(.75rem, env(safe-area-inset-top, 0px)) !important;
                 left: max(0px, min(17.25rem, calc(100vw - 44px))) !important;
@@ -1751,9 +1766,45 @@ def inject_global_css(st_api: Any, theme: dict[str, str] | None = None) -> None:
             }}
         }}
         /* Keep hidden sidebar descendants out of the keyboard sequence. */
-        [data-testid="stSidebar"][aria-expanded="false"] * {{
+        [data-testid="stSidebar"][data-collapsed="true"] * {{
             visibility: hidden !important;
             pointer-events: none !important;
+        }}
+
+        /* Native single-choice navigation with text-size-aware reflow. */
+        .st-key-dashboard_view [role="radiogroup"] {{
+            display: grid !important;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr)) !important;
+            gap: .5rem !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0;
+        }}
+        .st-key-dashboard_view label {{
+            height: auto !important;
+            min-height: max(48px, 3rem) !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: .65rem .9rem !important;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            white-space: normal !important;
+            overflow-wrap: anywhere;
+            line-height: 1.4 !important;
+            cursor: pointer;
+        }}
+        .st-key-dashboard_view label p {{
+            max-height: none !important;
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+        }}
+        .st-key-dashboard_view label:has(input:checked) {{
+            background: var(--card) !important;
+            color: var(--text) !important;
+            border-color: var(--accent) !important;
+            box-shadow: inset 0 -2px 0 var(--accent);
         }}
         </style>
         """,

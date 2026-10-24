@@ -67,7 +67,7 @@ def layout_issues(page) -> list[str]:
                     }
                 }
             }
-            for (const control of document.querySelectorAll('button[data-testid^="stBaseButton"], [data-testid="stButton"] button, select, textarea')) {
+            for (const control of document.querySelectorAll('button[data-testid^="stBaseButton"], [data-testid="stButton"] button, select, textarea, .st-key-dashboard_view label')) {
                 if (!visible(control)) continue;
                 const rect = control.getBoundingClientRect();
                 const inViewport = rect.right > 0 && rect.left < window.innerWidth
@@ -81,7 +81,7 @@ def layout_issues(page) -> list[str]:
                     break;
                 }
             }
-            for (const element of document.querySelectorAll('button, [role="button"]')) {
+            for (const element of document.querySelectorAll('button, [role="button"], .st-key-dashboard_view label, .st-key-dashboard_view label p')) {
                 if (!visible(element)) continue;
                 const style = getComputedStyle(element);
                 if ((style.overflow === 'hidden' || style.overflowX === 'hidden' || style.overflowY === 'hidden')
@@ -90,6 +90,51 @@ def layout_issues(page) -> list[str]:
                     const testId = element.getAttribute('data-testid') || '';
                     issues.push(`interactive label is clipped: ${testId || element.tagName} ${label}`.trim());
                     break;
+                }
+            }
+            for (const value of document.querySelectorAll('.signal-value')) {
+                if (!visible(value) || !/^[+-]?[\\d,]+(?:\\.\\d+)?%?$/.test(value.textContent.trim())) continue;
+                const range = document.createRange();
+                range.selectNodeContents(value);
+                const lines = new Set(Array.from(range.getClientRects())
+                    .filter(rect => rect.width > 0 && rect.height > 0)
+                    .map(rect => Math.round(rect.top)));
+                if (lines.size > 1) {
+                    issues.push('numeric signal is split across lines: ' + value.textContent.trim());
+                }
+                if (value.scrollWidth > value.clientWidth + 3) {
+                    issues.push('numeric signal overflows its card: ' + value.textContent.trim());
+                }
+            }
+
+            const rgb = color => (color.match(/[\\d.]+/g) || []).map(Number);
+            const luminance = color => color.slice(0, 3).map(channel => {
+                const value = channel / 255;
+                return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+            }).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
+            const backdrop = element => {
+                const layers = [];
+                for (let node = element; node instanceof Element; node = node.parentElement) {
+                    const layer = rgb(getComputedStyle(node).backgroundColor);
+                    if (layer.length >= 3) layers.push(layer);
+                    if ((layer[3] ?? 1) >= 1) break;
+                }
+                return layers.reverse().reduce((base, layer) => {
+                    const alpha = layer[3] ?? 1;
+                    return layer.slice(0, 3).map((value, index) =>
+                        value * alpha + base[index] * (1 - alpha));
+                }, [255, 255, 255]);
+            };
+            for (const button of document.querySelectorAll('[data-testid="stDownloadButton"] button')) {
+                if (!visible(button) || button.disabled) continue;
+                const text = button.querySelector('p') || button;
+                const foreground = rgb(getComputedStyle(text).color);
+                const background = backdrop(button);
+                const first = luminance(foreground), second = luminance(background);
+                const contrast = (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
+                if (!Number.isFinite(contrast) || contrast < 4.5) {
+                    issues.push('download label contrast below 4.5:1: '
+                        + button.textContent.trim() + ' (' + contrast.toFixed(2) + ')');
                 }
             }
             return issues;
@@ -348,7 +393,7 @@ def apply_theme_mode(
         raise ValueError("theme_mode must be light or dark")
     if selector_label is not None:
         sidebar = page.locator('[data-testid="stSidebar"]')
-        if sidebar.get_attribute("aria-expanded") != "true":
+        if sidebar.get_attribute("data-collapsed") != "false":
             expand_control = page.locator('[data-testid="stExpandSidebarButton"]')
             expand_button = expand_control.locator("button")
             if expand_button.count():
@@ -361,7 +406,7 @@ def apply_theme_mode(
         page.get_by_role("combobox", name=selector_label).click(timeout=15_000)
         page.get_by_role("option", name=option_label, exact=True).click(timeout=15_000)
         collapse_button = page.locator('[data-testid="stSidebarCollapseButton"] button')
-        if sidebar.get_attribute("aria-expanded") == "true" and collapse_button.count():
+        if sidebar.get_attribute("data-collapsed") == "false" and collapse_button.count():
             collapse_button.click(timeout=15_000)
     page.wait_for_function(
         "expected => getComputedStyle(document.documentElement).colorScheme === expected",
@@ -390,12 +435,12 @@ def download_payload(page, label: str, suffix: str) -> bytes:
 
 def open_sidebar(page) -> None:
     sidebar = page.locator('[data-testid="stSidebar"]')
-    if sidebar.get_attribute("aria-expanded") != "true":
+    if sidebar.get_attribute("data-collapsed") != "false":
         control = page.locator('[data-testid="stExpandSidebarButton"]')
         button = control.locator("button")
         (button if button.count() else control).click(timeout=15_000)
     page.wait_for_function(
-        "() => document.querySelector('[data-testid=stSidebar]')?.getAttribute('aria-expanded') === 'true'",
+        "() => document.querySelector('[data-testid=stSidebar]')?.getAttribute('data-collapsed') === 'false'",
         timeout=15_000,
     )
 
@@ -436,6 +481,58 @@ def functional_download_smoke(page, base_url: str, theme_mode: str | None) -> No
         raise RuntimeError("AQI exported CSV contains dates outside the selected range")
     if report["data_quality"]["rows"] != len(rows) or report["data_quality"]["station_count"] != 1:
         raise RuntimeError("AQI reliability JSON disagrees with the exported observations")
+
+
+
+SCROLL_EVIDENCE_VIEWPORTS = {"desktop", "small-mobile"}
+SCROLL_EVIDENCE_MAX_SEGMENTS = 80
+
+
+def capture_scroll_evidence(page, screenshot_dir: Path, stem: str) -> list[str]:
+    """Capture the actual Streamlit scrollport, not just the document viewport."""
+    script = """({action, top, behavior}) => {
+        const root = document.querySelector('[data-testid="stMain"]')
+            || document.scrollingElement;
+        if (!root || root.clientHeight <= 0) throw new Error('Missing visible scrollport');
+        const previousBehavior = root.style.scrollBehavior;
+        if (action === 'start') root.style.scrollBehavior = 'auto';
+        if (action === 'move' || action === 'restore') root.scrollTop = top;
+        if (action === 'restore') root.style.scrollBehavior = behavior;
+        return {top: root.scrollTop, height: root.clientHeight,
+            total: root.scrollHeight, behavior: previousBehavior};
+    }"""
+    original = page.evaluate(script, {"action": "start", "top": 0, "behavior": ""})
+    screenshots = []
+    issues = []
+    complete = False
+    target = 0
+    try:
+        for index in range(SCROLL_EVIDENCE_MAX_SEGMENTS):
+            page.evaluate(script, {"action": "move", "top": target, "behavior": ""})
+            page.wait_for_timeout(150)
+            state = page.evaluate(script, {"action": "read", "top": 0, "behavior": ""})
+            filename = f"{stem}-scroll-{index:02d}.png"
+            page.screenshot(path=str(screenshot_dir / filename), full_page=False)
+            screenshots.append({"file": filename, "top": state["top"],
+                                "height": state["height"], "total": state["total"]})
+            if abs(state["top"] - target) > 3 and target < state["total"] - state["height"]:
+                issues.append("scrollport did not reach the requested evidence position")
+                break
+            if state["top"] + state["height"] >= state["total"] - 2:
+                complete = True
+                break
+            target = min(state["total"] - state["height"],
+                         state["top"] + max(1, int(state["height"] * 0.8)))
+        if not complete and not issues:
+            issues.append("scroll evidence limit reached before the page bottom")
+    finally:
+        page.evaluate(script, {"action": "restore", "top": original["top"],
+                               "behavior": original["behavior"]})
+        (screenshot_dir / f"{stem}-scroll.json").write_text(json.dumps({
+            "schema_version": 1, "complete": complete, "segments": screenshots,
+            "manual_visual_acceptance": "pending",
+        }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return issues
 
 
 def run_browser_checks(
@@ -491,7 +588,23 @@ def run_browser_checks(
 
                 for view, required_text in VIEW_CONTRACTS.items():
                     active_view = view
-                    page.get_by_role("button", name=view, exact=True).click(timeout=15_000)
+                    navigation = page.locator(".st-key-dashboard_view")
+                    option = navigation.get_by_role("radio", name=view, exact=True)
+                    if not option.is_checked():
+                        navigation.locator("label").filter(has_text=view).click(timeout=15_000)
+                    try:
+                        page.wait_for_function(
+                            """label => Array.from(document.querySelectorAll(
+                                '.st-key-dashboard_view label'
+                            )).some(option => option.textContent.trim() === label
+                                && option.querySelector('input[type="radio"]')?.checked)""",
+                            arg=view,
+                            timeout=15_000,
+                        )
+                    except PlaywrightError:
+                        failures.append(f"{viewport_name}/{view}: navigation selection was not retained")
+                        print("NAVIGATION STATE: " + str(navigation.inner_text()))
+                    wait_for_app_idle(page)
                     try:
                         page.get_by_text(required_text, exact=True).first.wait_for(timeout=30_000)
                     except PlaywrightError:
@@ -513,6 +626,11 @@ def run_browser_checks(
                         path=str(screenshot_dir / f"{view}-{viewport_name}{suffix}.png"),
                         full_page=True,
                     )
+                    if viewport_name in SCROLL_EVIDENCE_VIEWPORTS:
+                        for issue in capture_scroll_evidence(
+                            page, screenshot_dir, f"{view}-{viewport_name}{suffix}"
+                        ):
+                            failures.append(f"{viewport_name}/{view}: {issue}")
                 if console_errors:
                     failures.append(f"{viewport_name}: console errors {console_errors[:3]}")
             except PlaywrightError as exc:
