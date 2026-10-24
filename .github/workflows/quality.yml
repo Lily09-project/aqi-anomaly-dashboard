@@ -42,9 +42,20 @@ jobs:
       - name: Compile Python sources
         run: python -m compileall -q run_all.py src scripts tests
       - name: Run tests with analytics coverage gate (Q1 ≥ 90%)
-        run: >-
-          python -W error -m pytest -q --color=no --tb=short
-          --cov=src.analytics --cov=src.export_web --cov-report=term-missing --cov-fail-under=90
+        shell: bash
+        run: |
+          set -o pipefail
+          python -W error -m pytest -q --color=no --tb=short \
+            --cov=src.analytics --cov=src.export_web --cov-report=term-missing --cov-fail-under=90 2>&1 | tee pytest.log
+      - name: Surface the pytest failure as an annotation
+        if: failure()
+        shell: python
+        run: |
+          from pathlib import Path
+          log = Path("pytest.log")
+          tail = log.read_text(encoding="utf-8", errors="replace").splitlines()[-80:] if log.exists() else ["pytest.log missing"]
+          body = "%0A".join(line.replace("%", "%25") for line in tail)
+          print(f"::error title=pytest failed::{body}")
       - name: Prove the pipeline and export are reproducible (Q7)
         shell: bash
         run: |

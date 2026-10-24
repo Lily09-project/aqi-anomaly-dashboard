@@ -16,6 +16,8 @@ import pandas as pd
 from src.analytics.forecast import split_times
 from src.analytics.ridge import RidgeModel, fit_ridge
 
+PARAM_DIGITS = 9
+
 INPUTS: tuple[tuple[str, str, str], ...] = (
     ("aqi_now", "目前 AQI", ""),
     ("pm25_now", "目前 PM2.5", "µg/m³"),
@@ -66,25 +68,27 @@ def fit_whatif(panels: dict[str, pd.DataFrame], alpha: float = 1.0) -> tuple[Rid
         if name != "hour"
     }
     ranges["hour"] = {"min": 0, "max": 23, "default": 8}
+    # Parameters are rounded so the export is identical across platforms (BLAS
+    # results differ in the last bits); the parity cases are then computed from
+    # the rounded payload with the same arithmetic the browser uses.
+    payload: dict[str, Any] = {
+        "inputs": [{"key": k, "label": label, "unit": unit, **ranges[k]} for k, label, unit in INPUTS],
+        "feature_order": [name for name, _, _ in INPUTS if name != "hour"] + ["hour_sin", "hour_cos"],
+        "means": [round(float(v), PARAM_DIGITS) for v in model.means],
+        "scales": [round(float(v), PARAM_DIGITS) for v in model.scales],
+        "coefficients": [round(float(v), PARAM_DIGITS) for v in model.coefficients],
+        "intercept": round(float(model.intercept), PARAM_DIGITS),
+        "residual_p10": round(float(np.quantile(residuals, 0.1)), PARAM_DIGITS),
+        "residual_p90": round(float(np.quantile(residuals, 0.9)), PARAM_DIGITS),
+        "calibration_size": int(len(calibration)),
+    }
     cases = []
     rng = np.random.default_rng(7)
     for _ in range(12):
         case = {name: round(float(rng.uniform(r["min"], r["max"])), 1) for name, r in ranges.items()}
         case["hour"] = int(round(case["hour"]))
-        prediction = float(model.predict(_features(pd.DataFrame([case])))[0])
-        cases.append({"inputs": case, "expected": prediction})
-    payload = {
-        "inputs": [{"key": k, "label": label, "unit": unit, **ranges[k]} for k, label, unit in INPUTS],
-        "feature_order": [name for name, _, _ in INPUTS if name != "hour"] + ["hour_sin", "hour_cos"],
-        "means": [float(v) for v in model.means],
-        "scales": [float(v) for v in model.scales],
-        "coefficients": [float(v) for v in model.coefficients],
-        "intercept": model.intercept,
-        "residual_p10": float(np.quantile(residuals, 0.1)),
-        "residual_p90": float(np.quantile(residuals, 0.9)),
-        "calibration_size": int(len(calibration)),
-        "parity_cases": cases,
-    }
+        cases.append({"inputs": case, "expected": round(predict_from_payload(payload, case), PARAM_DIGITS)})
+    payload["parity_cases"] = cases
     return model, payload
 
 
