@@ -1,0 +1,57 @@
+.whatif-layout {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+}
+
+@media (max-width: 900px) {
+  .whatif-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.whatif-inputs {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.whatif-inputs h2,
+.whatif-result h2 {
+  margin: 0;
+}
+
+.slider {
+  display: grid;
+  gap: 2px;
+}
+
+.slider label {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-weight: 650;
+}
+
+.slider output {
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+.slider input[type="range"] {
+  width: 100%;
+  min-height: 44px;
+  accent-color: var(--accent);
+}
+
+.slider-range {
+  display: flex;
+  justify-content: space-between;
+}
+
+.whatif-result {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+
+.whatif-result p {
+  margin: 0;
+}

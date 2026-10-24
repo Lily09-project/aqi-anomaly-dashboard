@@ -1,18 +1,5 @@
-pandas
-numpy
-requests
-scikit-learn
-streamlit>=1.66.1,<2
-plotly
-matplotlib
-joblib
-pyyaml
-pytest
-python-dotenv
-# Streamlit's transitive dependencies must stay on versions with known fixes.
-GitPython>=3.2.1,<4
-Pillow>=13.0.0,<14
-# Security floor for requests' HTTP transport dependency.
-urllib3>=2.8.0,<3
-
-certifi>=2026.10.19
+pandas>=3.0.5
+numpy>=2.5.2
+pyyaml>=6.0.3
+pytest>=9.1.1
+pytest-cov>=7.1.0
