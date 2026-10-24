@@ -1,26 +1,23 @@
 # GitHub Pages
 
-[開啟展示網站](https://lily09-project.github.io/aqi-anomaly-dashboard/)
+[開啟 Taiwan Air Lab](https://lily09-project.github.io/aqi-anomaly-dashboard/)
 
-GitHub Pages 使用可重現的合成資料，不是即時監測、正式預報或健康建議。Python／Streamlit 另提供完整分析流程。
+## 發布流程
 
-## 操作
+`.github/workflows/pages.yml`：
 
-- 選擇縣市與測站，查看最新示範 AQI、PM2.5 及歷史趨勢。
-- 在同一測站查看異常紀錄與次小時預測核對；最多三站比較。
-- 保留完整紀錄、排序、分頁、最多三筆紀錄比較及 CSV／JSON 匯出。
+1. 安裝鎖定版本的 Python 依賴，執行 `scripts/validate_public_release.py`。
+2. `python run_all.py --mode sample` 產生合成資料、分析並寫出 `web/public/data/`。
+3. `npm ci && npm run build && npm run size` 建置靜態網站並檢查效能預算。
+4. 只上傳 `web/dist/`（不發布儲存庫根目錄）。
+5. 合併到 `main` 後部署，並以 `curl` 對線上網址做冒煙測試（首頁標題與 `manifest.json` 的 schema 版本）。
 
-完整資料入口保留搜尋、分類、日期或最低樣本、排序、分頁、原始欄位及下載。既有 `?view=` 分享網址繼續提供紀錄視圖；新版主要頁面使用獨立的 `screen` 參數，不占用原本的分頁 `page`。
+PR 只建置不部署。網站使用相對路徑（Vite `base: "./"`）與 Hash 路由，因此可放在任何子路徑下。
 
-## 發布
+## 網站邊界
 
-Pages 只部署 `scripts/build_pages.py` 產生的 `pages-dist/`，不發布儲存庫根目錄。公開資產清單、欄位 allowlist、CSP、完整性檢查及 CSV 公式注入防護均保留。上傳快照僅在本地瀏覽器處理，不傳送到伺服器。
-
-PR 先通過建置、安全與瀏覽器檢查；合併至 `main` 後，由 Static Pages 工作流程部署。GitHub Pages 提供靜態網站，作者電腦或手機不必保持執行，但它不會執行 Python／Streamlit 後端。
-
-## 邊界
-
-- 網站各自採固定配色，沒有深淺主題切換。
-- 圖示保留文字標籤；動畫短暫、可中斷，不使用持續閃動或自動播放。
-- 目前不依作業系統的 reduced-motion 偏好停用動畫，因此不宣稱完整動態無障礙合規。
-- 自動化瀏覽器與字級放大測試不等同真人使用者、實機或螢幕閱讀器驗收。
+- 純靜態：作者的電腦不需要開機，也沒有後端；預報與情境模擬在瀏覽器計算。
+- 執行期不呼叫任何第三方服務；CSP 只允許同源資源。
+- 每個資料檔載入時以 SHA-256 與 manifest 比對，不符就顯示錯誤，不用不完整的資料計算。
+- 支援淺色／深色主題（跟隨系統或手動選擇並記住）、`prefers-reduced-motion`、純鍵盤操作；所有圖表都有等價資料表。
+- 自動化測試（axe、Playwright）不等同真人螢幕閱讀器或實機驗收。

@@ -11,23 +11,27 @@ REQUIRED_PUBLIC_PATHS = (
     ".env.example",
     ".gitignore",
     "README.md",
-    "app.py",
     "config.yaml",
     "config/stations.yaml",
+    "docs/ACCEPTANCE.md",
     "docs/data-contract.md",
     "docs/deployment.md",
     "docs/operations-checklist.md",
     "requirements.txt",
+    "run_all.py",
     "run_project.bat",
+    "web/index.html",
+    "web/package.json",
+    "web/package-lock.json",
 )
 
 GENERATED_TRACKING_PATTERNS = (
     "data/raw/*.csv",
     "data/sample/*.csv",
     "data/processed/*.csv",
-    "models/*.joblib",
-    "reports/figures/*.png",
     "reports/metrics/*.json",
+    "web/public/data/*.json",
+    "web/dist/*",
 )
 
 CREDENTIAL_PATTERNS = (

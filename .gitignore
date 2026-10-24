@@ -30,10 +30,6 @@ data/sample/*
 !data/sample/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
-models/*
-!models/.gitkeep
-reports/figures/*
-!reports/figures/.gitkeep
 reports/metrics/*
 !reports/metrics/.gitkeep
 docs/screenshots/ui-qa/
@@ -44,3 +40,12 @@ reports/performance/
 pages-dist/
 reports/pages-qa/
 first-build.sha256
+
+# Web app: dependencies, builds, test output and exported data are generated.
+web/node_modules/
+web/dist/
+web/public/data/
+web/coverage/
+web/playwright-report/
+web/test-results/
+.coverage
