@@ -6,7 +6,7 @@ from typing import Any, Mapping
 
 import pandas as pd
 
-from src.app_helpers import add_display_columns
+from src.display_names import add_display_columns
 from src.fetch_aqi_data import ALIASES
 from src.source_metadata import load_source_metadata, resolve_effective_run_mode
 from src.time_segments import hourly_segments

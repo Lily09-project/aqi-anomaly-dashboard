@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.app_helpers import to_chinese_location_name
+from src.display_names import to_chinese_location_name
 from src.generate_sample_data import generate_sample_aqi
 from src.preprocess import normalize_columns, preprocess
 from src.utils import load_config, resolve_path
