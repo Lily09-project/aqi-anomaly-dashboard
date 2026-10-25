@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sys
-from datetime import date, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -38,12 +37,14 @@ def test_sample_data_can_be_generated():
     assert not {"Taipei City", "Kaohsiung City", "Taichung City"}.intersection(set(df["county"].astype(str)))
 
 
-def test_sample_data_defaults_to_recent_30_days():
+def test_sample_data_defaults_to_a_fixed_reproducible_window():
+    config = load_config()
     df = generate_sample_aqi()
     dates = pd.to_datetime(df["datetime"])
-    expected_start = date.today() - timedelta(days=29)
-    assert dates.min().date() == expected_start
-    assert dates.max().date() == date.today()
+    end = pd.Timestamp(config["sample"]["end_date"])
+    assert dates.max() == end + pd.Timedelta(hours=23)
+    assert dates.min() == end - pd.Timedelta(days=config["sample"]["days"] - 1)
+    assert df["site_name"].nunique() == 8
 
 
 @pytest.mark.parametrize("days", [0, -1, MAX_SAMPLE_DAYS + 1])

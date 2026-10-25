@@ -1,6 +1,6 @@
 # 資料來源與 Provenance Contract
 
-本文件定義 Taiwan AQI Dashboard 如何區分 Sample Data、成功 API Data、API fallback、過期資料與未知來源。Dashboard 不會把「有本機 CSV」直接當成即時資料；所有來源判定都以 `reports/metrics/source_metadata.json` 為準。
+本文件定義 Taiwan Air Lab 如何區分 Sample Data、成功 API Data、API fallback、過期資料與未知來源。管線不會把「有本機 CSV」直接當成即時資料；所有來源判定都以 `reports/metrics/source_metadata.json` 為準。
 
 ## 來源狀態
 
@@ -25,7 +25,7 @@
 - `source_url`：只保留 scheme 與 host；path、query、fragment、username、password 一律移除。
 - `fallback_reason`、`error_type`、`http_status`：可判讀的失敗摘要，不保存完整 exception message 或 response body。
 
-API key 只從 `AQI_API_KEY` 環境變數讀取，request 時以 query parameter 傳給上游，但永遠不寫入 metadata、manifest、log、Dashboard 或 Git。正式環境應使用 secret store；本地 Demo 可以維持空 key 並執行 Sample mode。
+API key 只從 `AQI_API_KEY` 環境變數讀取，request 時以 query parameter 傳給上游，但永遠不寫入 metadata、manifest、log、網站匯出檔或 Git。正式環境應使用 secret store；本地 Demo 可以維持空 key 並執行 Sample mode。
 
 ## Freshness boundaries
 
@@ -33,25 +33,21 @@ API key 只從 `AQI_API_KEY` 環境變數讀取，request 時以 query parameter
 
 1. `fetched_at_utc` 表示本機成功取得並解析來源的時間。
 2. `datetime_range.max` 表示資料內最新觀測時間。
-3. `data.stale_after_hours` 只用於判斷來源或觀測是否落後，不會修改原始時間。
-
-Sample Data 的日期由 sample generator 以目前日期往前產生，仍然必須在 UI 顯示 Sample Data（模擬資料）。
+Sample Data 的期間由 `config.yaml` 的 `sample.end_date` 與 `sample.days` 固定（不讀系統時間），因此每次產生的資料位元組完全相同；網站頁首與資料可信度頁一律標示「模擬資料」。
 
 ## 官方資料欄位
 
-本 adapter 對環境部 AQX API 常見欄位做 canonical alias mapping：`SiteName`、`County`、`AQI`、`PM2.5`、`PM10`、`O3`、`CO`、`WIND_SPEED`、`WIND_DIREC` 與 `publishtime` 等欄位會標準化為 pipeline 使用的英文欄位。schema 不完整時不進入模型流程，而是記錄 fallback。
+本 adapter 對環境部 AQX API 常見欄位做 canonical alias mapping：`SiteName`、`County`、`AQI`、`PM2.5`、`PM10`、`O3`、`CO`、`WIND_SPEED`、`WIND_DIREC` 與 `publishtime` 等欄位會標準化為 pipeline 使用的英文欄位。schema 不完整時不進入分析流程，而是記錄 fallback。
 
 官方資料集與 API 說明：
 
 - 資料集：<https://data.moenv.gov.tw/dataset/detail/aqx_p_432>
 - API endpoint：`https://data.moenv.gov.tw/api/v2/AQX_P_432`
 
-本專案不在 Dashboard render 階段直接呼叫上游 API；API 取得、schema 驗證、fallback 與 provenance metadata 都由 pipeline 處理，前端只讀取已驗證的本地 artifacts。成功的 API metadata 會保存輸入資料檔 SHA-256；若 metadata 與目前輸入檔不一致，pipeline 會 fail closed，不把舊 API 狀態套到新檔案。
+網站執行期間不呼叫任何外部 API；API 取得、schema 驗證、fallback 與 provenance metadata 都由 pipeline 處理，前端只讀取 `src/export_web.py` 產生、並在瀏覽器以 SHA-256 驗證的 JSON。成功的 API metadata 會保存輸入資料檔 SHA-256；若 metadata 與目前輸入檔不一致，pipeline 會 fail closed，不把舊 API 狀態套到新檔案。
 
-## 監控報表
+## 網站匯出
 
-`data/processed/aqi_monitoring_predictions.csv` 保存兩種已評分資料：`rolling_origin_oof` 是每個 walk-forward fold 的 out-of-fold 預測，`final_test` 是最後測試窗口。每筆資料都保存 `training_cutoff`，且必須早於預測時間；這個檔案不取代只代表 final test 的 `aqi_predictions.csv`。
+`python run_all.py` 最後一步由 `src/export_web.py` 寫出 `web/public/data/`：`overview`、`propagation`、`anomalies`、`whatif`、`model`、`provenance` 六個 JSON 與 `manifest.json`（各檔 SHA-256）。匯出是確定性的：鍵排序、浮點固定位數、時間戳取自資料本身。網站載入每個檔案時都重新計算 SHA-256，與 manifest 不符就拒絕顯示。
 
-`reports/metrics/monitoring.json` 比較兩個不重疊的時間窗口：預設為最近 7 天（current window）與其之前 14 天（reference window）。報表會整理 AQI／PM2.5 分布偏移、預測 MAE 變化與 80%／95% 預測區間 coverage。`warning` 或 `critical` 只代表需要人工檢查的診斷訊號，不會自動替換模型或發送官方警報；資料不足時會明確標記 `insufficient_data`。單次短資料流程若沒有足夠 OOF rows，會保留 final-test 結果並明確降級，不會製造假的 reference window。
-
-`reports/metrics/monitoring_history.json` 保存跨次 pipeline 的扁平決策快照，不保存 raw rows。`snapshot_id` 由資料截止時間、資料來源、模型、monitoring version 與 canonical policy hash 產生；相同批次、相同 policy 的重跑會更新原紀錄，若 window 或 threshold 改變則保留為新的可追溯紀錄。歷史依 `recorded_at_utc` 排序，預設只保留最近 90 筆，並以 atomic write 更新。建議行動只有 `observe`、`investigate`、`review_retraining` 與 `collect_more_data` 四種；它們是人工審查輸入，不是自動部署命令。Dashboard 只呈現本地化摘要、MAE 趨勢與表格，不直接顯示 raw JSON。
+合成資料另外寫出 `data/sample/injected_events.csv`（注入的局部事件）與每個測站相對污染源的傳播延遲；這些「已知答案」只用來評分偵測器，分析程式本身不讀取它們。

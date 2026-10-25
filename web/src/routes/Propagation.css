@@ -1,0 +1,35 @@
+.replay {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.replay h2 {
+  margin: 0;
+}
+
+.replay p {
+  margin: 0;
+}
+
+.replay-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  align-items: end;
+}
+
+.replay-slider {
+  flex: 1 1 240px;
+}
+
+.replay-slider input[type="range"] {
+  width: 100%;
+  min-height: 44px;
+  accent-color: var(--accent);
+}
+
+.replay-slider output {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--ink);
+}

@@ -1,0 +1,249 @@
+.chart-frame {
+  margin: 0;
+  min-width: 0;
+}
+
+.chart-title {
+  font-weight: 700;
+  margin-bottom: var(--space-2);
+}
+
+.chart .row-label {
+  fill: var(--ink-soft);
+  font-size: 14px;
+}
+
+.chart .value-label {
+  fill: var(--ink);
+  font-weight: 700;
+}
+
+/* AQI category fills, shared by the map, chips and swatches. */
+[data-category="good"] {
+  --cat: var(--aqi-good);
+  --cat-ink: var(--aqi-good-ink);
+}
+[data-category="moderate"] {
+  --cat: var(--aqi-moderate);
+  --cat-ink: var(--aqi-moderate-ink);
+}
+[data-category="sensitive"] {
+  --cat: var(--aqi-sensitive);
+  --cat-ink: var(--aqi-sensitive-ink);
+}
+[data-category="unhealthy"] {
+  --cat: var(--aqi-unhealthy);
+  --cat-ink: var(--aqi-unhealthy-ink);
+}
+[data-category="very-unhealthy"] {
+  --cat: var(--aqi-very-unhealthy);
+  --cat-ink: var(--aqi-very-unhealthy-ink);
+}
+[data-category="hazardous"] {
+  --cat: var(--aqi-hazardous);
+  --cat-ink: var(--aqi-hazardous-ink);
+}
+
+/* Map */
+.taiwan-map {
+  max-width: 460px;
+  margin-inline: auto;
+}
+
+.taiwan-map .map-land {
+  fill: var(--bg-sunken);
+  stroke: var(--line-strong);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.taiwan-map .map-dot {
+  fill: var(--cat, var(--bg-raised));
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  transition: fill var(--duration) var(--ease);
+}
+
+.taiwan-map .map-hit {
+  fill: transparent;
+}
+
+.taiwan-map a:hover .map-dot,
+.taiwan-map a:focus-visible .map-dot {
+  stroke-width: 3.5;
+}
+
+.taiwan-map a:focus-visible {
+  outline: none;
+}
+
+.taiwan-map a:focus-visible .map-hit {
+  stroke: var(--focus);
+  stroke-width: 3;
+}
+
+.taiwan-map .is-emphasis .map-dot {
+  stroke-width: 3;
+}
+
+.taiwan-map .map-label {
+  fill: var(--ink);
+  font-size: 13px;
+  font-weight: 650;
+  paint-order: stroke;
+  stroke: var(--bg-raised);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+.taiwan-map .map-link path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.taiwan-map .map-arrow-head {
+  fill: var(--accent);
+}
+
+.taiwan-map .map-link-label {
+  fill: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: var(--bg-raised);
+  stroke-width: 4px;
+}
+
+/* Forecast band */
+.forecast-band .band {
+  fill: var(--chart-1);
+  opacity: 0.2;
+}
+
+.forecast-band .history-line,
+.multi-line .series {
+  fill: none;
+  stroke-width: 2.25;
+  stroke-linejoin: round;
+}
+
+.forecast-band .history-line {
+  stroke: var(--ink-soft);
+}
+
+.forecast-band .median-line {
+  fill: none;
+  stroke: var(--chart-1);
+  stroke-width: 2.5;
+  stroke-dasharray: 6 3;
+}
+
+.forecast-band .best-window {
+  fill: var(--good);
+  opacity: 0.16;
+  stroke: var(--good);
+  stroke-dasharray: 3 3;
+}
+
+.chart .now-line {
+  stroke: var(--muted);
+  stroke-dasharray: 2 3;
+}
+
+.chart .now-label {
+  font-size: 12px;
+}
+
+.chart .threshold-line {
+  stroke: var(--bad);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+
+.chart .threshold-label {
+  fill: var(--bad);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* Series: colour and dash differ, so lines stay distinguishable without colour. */
+.series-1 {
+  stroke: var(--chart-1);
+}
+.series-2 {
+  stroke: var(--chart-2);
+  stroke-dasharray: 7 4;
+}
+.series-3 {
+  stroke: var(--chart-3);
+  stroke-dasharray: 2 3;
+}
+.series-4 {
+  stroke: var(--chart-4);
+  stroke-dasharray: 10 3 2 3;
+}
+
+.multi-line .span {
+  fill: var(--bad);
+  opacity: 0.12;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}
+
+.legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.legend line {
+  fill: none;
+  stroke-width: 2.5;
+}
+
+/* Arrival strips */
+.arrival-strips .strip {
+  fill: var(--chart-1);
+  opacity: 0.28;
+}
+
+.arrival-strips .strip-edge {
+  fill: none;
+  stroke: var(--chart-1);
+  stroke-width: 1.5;
+}
+
+.arrival-strips .strip-peak {
+  fill: var(--chart-2);
+  stroke: var(--bg-raised);
+  stroke-width: 1.5;
+}
+
+/* Diverging bars */
+.diverging .zero {
+  stroke: var(--line-strong);
+  stroke-dasharray: 4 4;
+}
+
+.diverging .pos {
+  fill: var(--chart-2);
+}
+
+.diverging .neg {
+  fill: var(--chart-1);
+}
+
+.chart-box {
+  width: 100%;
+  min-width: 0;
+}

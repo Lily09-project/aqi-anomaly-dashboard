@@ -48,9 +48,9 @@ jobs:
       - name: Validate public release contents
         run: python scripts/validate_public_release.py
       - name: Run high-severity static security scan
-        run: python -m bandit -q --severity-level high --confidence-level high -r app.py src scripts
+        run: python -m bandit -q --severity-level high --confidence-level high -r src scripts run_all.py
       - name: Run Ruff correctness gate
-        run: python -m ruff check app.py src scripts tests
+        run: python -m ruff check src scripts tests run_all.py
       - name: Block generated data and model artifacts from Git
         shell: bash
         run: |
@@ -59,8 +59,7 @@ jobs:
             'data/raw/*.csv' \
             'data/sample/*.csv' \
             'data/processed/*.csv' \
-            'models/*.joblib' \
-            'reports/figures/*.png' \
+            'web/public/data/*.json' \
             'reports/metrics/*.json')
           if [[ -n "$tracked" ]]; then
             echo "Generated artifacts must not be tracked:"
@@ -87,3 +86,19 @@ jobs:
           python -m pip install -r requirements-security.txt
       - name: Audit locked dependencies
         run: python -m pip_audit -r requirements-lock-py312.txt --no-deps
+
+  web-dependency-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+      - name: Audit locked web dependencies
+        working-directory: web
+        run: npm audit --audit-level=high

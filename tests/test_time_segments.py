@@ -6,7 +6,7 @@ import pytest
 from src.time_segments import hourly_segments
 
 
-@pytest.mark.parametrize("dtype", ["object", "string[python]", "string[pyarrow]"])
+@pytest.mark.parametrize("dtype", ["object", "string[python]", "str"])
 def test_segments_are_portable_and_do_not_bridge_station_or_elapsed_gaps(dtype):
     frame = pd.DataFrame({
         "site_name": pd.Series(["A", "A", "A", "A", "A", "B", "B"], dtype=dtype),
@@ -20,7 +20,7 @@ def test_segments_are_portable_and_do_not_bridge_station_or_elapsed_gaps(dtype):
     assert str(hourly_segments(frame).dtype) == "int64"
 
 
-@pytest.mark.parametrize("dtype", ["object", "string[python]", "string[pyarrow]"])
+@pytest.mark.parametrize("dtype", ["object", "string[python]", "str"])
 def test_missing_identity_timestamp_and_duplicate_hour_are_boundaries(dtype):
     frame = pd.DataFrame({
         "site_name": pd.Series(["A", None, "A", "A", "A", "A"], dtype=dtype),
@@ -32,7 +32,7 @@ def test_missing_identity_timestamp_and_duplicate_hour_are_boundaries(dtype):
     assert hourly_segments(frame).tolist() == [1, 2, 3, 4, 5, 6]
 
 
-@pytest.mark.parametrize("dtype", ["object", "string[python]", "string[pyarrow]"])
+@pytest.mark.parametrize("dtype", ["object", "string[python]", "str"])
 def test_empty_single_row_and_nondefault_index(dtype):
     empty = pd.DataFrame({
         "site_name": pd.Series([], dtype=dtype),

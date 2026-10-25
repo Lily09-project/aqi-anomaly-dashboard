@@ -2,8 +2,9 @@ name: Quality Gate
 
 on:
   push:
-  pull_request:
     branches: [main]
+  pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -14,14 +15,14 @@ permissions:
 
 env:
   PYTHONUTF8: "1"
-  AQI_CONSTRAINTS_APPLIED: "1"
   PIP_DEFAULT_TIMEOUT: "60"
   PIP_RETRIES: "10"
 
 jobs:
-  test:
+  python:
+    name: Python pipeline and analytics
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -29,99 +30,124 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-      - name: Install dependencies
+          cache: pip
+          cache-dependency-path: requirements-lock-py312.txt
+      - name: Install locked dependencies
         run: |
           python -m pip install --upgrade "pip>=26.2"
           python -m pip install -r requirements.txt -c requirements-lock-py312.txt
+          python -m pip check
       - name: Validate public release contents
         run: python scripts/validate_public_release.py
-      - name: Run reproducible sample pipeline
-        run: python run_all.py --mode sample
-      - name: Run tests
-        run: |
-          set -o pipefail
-          python -m pytest -q --color=no --tb=short 2>&1 | tee pytest-output.txt
-      - name: Publish test diagnostics
-        if: always()
-        run: |
-          {
-            echo "## Pytest output"
-            echo '```text'
-            if [ -f pytest-output.txt ]; then
-              tail -n 200 pytest-output.txt
-            else
-              echo "pytest-output.txt was not created."
-            fi
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-      - name: Annotate test failure
-        if: failure()
-        run: |
-          if [ -s pytest-output.txt ]; then
-            details=$(tail -n 60 pytest-output.txt | tr '\n' ' ' | cut -c1-900)
-            echo "::error title=Pytest failure::$details"
-          fi
-  windows-launcher:
-    runs-on: windows-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.12"
-      - name: Validate Windows one-click launcher
-        shell: cmd
-        run: run_project.bat --validate
-
-  browser-ui:
-    name: Browser UI (${{ matrix.theme }})
-    strategy:
-      fail-fast: false
-      matrix:
-        theme: [light, dark]
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      UI_THEME: ${{ matrix.theme }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.12"
-      - name: Install browser QA dependencies
-        run: |
-          python -m pip install -r requirements-e2e.txt -c requirements-lock-py312.txt
-          python -m playwright install --with-deps chromium
-      - name: Prepare deterministic sample artifacts
-        run: python run_all.py --mode sample
-      - name: Start Streamlit
+      - name: Compile Python sources
+        run: python -m compileall -q run_all.py src scripts tests
+      - name: Run tests with analytics coverage gate (Q1 ≥ 90%)
         shell: bash
         run: |
-          nohup python -m streamlit run app.py --server.address 127.0.0.1 --server.port 8851 --theme.base "$UI_THEME" > streamlit-ui-qa.log 2>&1 &
-          for attempt in {1..30}; do
-            if curl --fail --silent http://127.0.0.1:8851/_stcore/health | grep --quiet ok; then
-              exit 0
-            fi
-            sleep 2
-          done
-          cat streamlit-ui-qa.log
-          exit 1
-      - name: Run responsive browser QA
-        run: python scripts/ui_qa.py --url http://127.0.0.1:8851 --theme-mode "$UI_THEME"
-      - name: Run extended 200% text browser QA
-        run: python scripts/ui_qa.py --url http://127.0.0.1:8851 --extended --text-scale --theme-mode "$UI_THEME"
-      - name: Retain browser visual acceptance evidence
+          set -o pipefail
+          python -W error -m pytest -q --color=no --tb=short \
+            --cov=src.analytics --cov=src.export_web --cov-report=term-missing --cov-fail-under=90 2>&1 | tee pytest.log
+      - name: Surface the pytest failure as an annotation
+        if: failure()
+        shell: python
+        run: |
+          from pathlib import Path
+          log = Path("pytest.log")
+          tail = log.read_text(encoding="utf-8", errors="replace").splitlines()[-80:] if log.exists() else ["pytest.log missing"]
+          body = "%0A".join(line.replace("%", "%25") for line in tail)
+          print(f"::error title=pytest failed::{body}")
+      - name: Prove the pipeline and export are reproducible (Q7)
+        shell: bash
+        run: |
+          python -c "from pathlib import Path; from run_all import run; run('sample', Path('${RUNNER_TEMP}/export-a'))"
+          python -c "from pathlib import Path; from run_all import run; run('sample', Path('${RUNNER_TEMP}/export-b'))"
+          diff -r "${RUNNER_TEMP}/export-a" "${RUNNER_TEMP}/export-b"
+          cat "${RUNNER_TEMP}/export-a/manifest.json"
+
+  web:
+    name: Web app (types, lint, unit, build, budget, E2E)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-lock-py312.txt
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Generate data and export it for the web app
+        working-directory: .
+        run: |
+          python -m pip install --upgrade "pip>=26.2"
+          python -m pip install -r requirements.txt -c requirements-lock-py312.txt
+          python run_all.py --mode sample
+      - name: Install locked web dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Type check (Q2)
+        run: npm run typecheck
+      - name: Lint (Q2)
+        run: npm run lint
+      - name: Unit tests with coverage gate (Q3 ≥ 85%)
+        run: npm run coverage
+      - name: Build
+        run: npm run build
+      - name: Performance budget (Q6)
+        run: npm run size
+      - name: Install Chromium for E2E
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end journeys, accessibility and security (Q4, Q5, Q8)
+        env:
+          CI: "1"
+        run: npm run e2e
+      - name: Upload E2E report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: streamlit-ui-${{ matrix.theme }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: playwright-report
           path: |
-            docs/screenshots/ui-qa/*.png
-            docs/screenshots/ui-qa/failure-evidence.json
-            docs/screenshots/ui-qa/*-scroll.json
-          if-no-files-found: warn
-          retention-days: 14
+            web/playwright-report
+            web/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  windows-launcher:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+      - name: Validate Windows one-click launcher
+        shell: cmd
+        run: |
+          call run_project.bat --validate > launcher.log 2>&1
+          set "LAUNCHER_EXIT=%ERRORLEVEL%"
+          type launcher.log
+          exit /b %LAUNCHER_EXIT%
+      - name: Surface the launcher failure as an annotation
+        if: failure()
+        shell: python
+        env:
+          PYTHONUTF8: "1"
+          PYTHONIOENCODING: utf-8
+        run: |
+          from pathlib import Path
+          tail = Path("launcher.log").read_text(encoding="utf-8", errors="replace").splitlines()[-80:]
+          body = "%0A".join(line.replace("%", "%25").replace("\r", "") for line in tail)
+          print(f"::error title=run_project.bat --validate failed::{body}")
