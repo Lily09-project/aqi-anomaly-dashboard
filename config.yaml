@@ -7,10 +7,10 @@ sample:
   end_date: "2026-10-20"
   days: 60
 api:
-  provider: moenv_aqx_p_432
-  url: ""
-  timeout_seconds: 20
-  limit: 1000
+  # CAMS global model estimates are public without registration or an API key.
+  provider: open_meteo_cams_global
+  past_days: 60
+  minimum_history_days: 30
 data:
   raw_dir: data/raw
   sample_file: data/sample/sample_aqi.csv

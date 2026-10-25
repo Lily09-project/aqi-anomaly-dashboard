@@ -17,7 +17,7 @@ test.describe("F1 測站總覽地圖", () => {
     const worst = [...overview.stations].sort((a, b) => b.aqi - a.aqi)[0]!;
     await expect(page.locator(".station-card").first()).toContainText(worst.station);
     await expect(page.locator(".station-card").first()).toContainText(worst.category_label);
-    await expect(page.getByTestId("data-badge")).toHaveText("模擬資料");
+    await expect(page.getByTestId("data-badge")).toHaveText("測試資料");
 
     await page.locator(".taiwan-map a", { hasText: worst.station.replace("測站", "") }).click();
     await expect(page).toHaveURL(new RegExp(`#/station/${encodeURIComponent(worst.station)}`));
@@ -116,7 +116,7 @@ test.describe("F5 情境模擬", () => {
     for (let i = 0; i < 40; i += 1) await page.keyboard.press("ArrowRight");
     await expect(prediction).not.toHaveText(String(before));
     expect(Number(await prediction.innerText())).toBeGreaterThan(before);
-    await page.getByLabel("從測站目前狀態載入").selectOption("前金測站");
+    await page.getByLabel("從地點目前狀態載入").selectOption("前金測站");
     await expect(page.getByTestId("value-aqi_now")).not.toHaveText("55.7");
     await page.getByRole("button", { name: "重設為典型值" }).click();
     await expect(page.getByTestId("value-aqi_now")).toHaveText(/55\.7/);
@@ -151,6 +151,6 @@ test.describe("F7 資料可信度", () => {
       await expect(rows.filter({ hasText: file })).toContainText("相符");
     }
     await expect(page.getByTestId("truth-table").locator("tbody tr")).toHaveCount(6);
-    await expect(page.getByTestId("data-source")).toHaveText("模擬資料");
+    await expect(page.getByTestId("data-source")).toHaveText("測試資料");
   });
 });

@@ -101,3 +101,18 @@ def test_missing_source_metadata_is_explicitly_unknown(tmp_path: Path) -> None:
 
     assert loaded["status"] == "unknown"
     assert loaded["fallback_reason"] == "metadata_missing_or_invalid"
+
+
+def test_model_estimate_is_real_api_data_and_digest_verified(tmp_path: Path) -> None:
+    target = tmp_path / "model.csv"
+    target.write_text("datetime,aqi\n2026-08-20T00:00:00+08:00,42\n", encoding="utf-8")
+    payload = build_source_metadata(
+        provider="open_meteo_cams_global", mode="api", status="success",
+        data_source="Model Estimate", is_simulated_data=False,
+        data_file_sha256=file_sha256(target),
+    )
+    assert payload["data_source"] == "Model Estimate"
+    assert payload["is_simulated_data"] is False
+    assert resolve_effective_run_mode("api", payload, target) == "api"
+    target.write_text("datetime,aqi\n2026-08-20T00:00:00+08:00,99\n", encoding="utf-8")
+    assert resolve_effective_run_mode("api", payload, target) == "sample"

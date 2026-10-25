@@ -5,10 +5,10 @@ import { Gate } from "../components/States";
 import { categoryOf } from "../lib/air";
 import { formatHour, formatNumber, formatSigned } from "../lib/format";
 import { routeToHash } from "../lib/router";
-import type { Overview, Propagation, Station } from "../lib/types";
+import type { Overview, Propagation, Provenance, Station } from "../lib/types";
 import "./Home.css";
 
-const shortName = (name: string) => name.replace(/測站$/, "");
+const shortName = (name: string) => name.replace(/(?:測站|網格)$/, "");
 
 /** Highest P90 in the next six hours: the "how bad could it get" number. */
 function nextSixWorst(station: Station): number {
@@ -20,7 +20,7 @@ function nextSixMedian(station: Station): number {
   return Math.max(...station.forecast.slice(0, 6).map((f) => f.p50));
 }
 
-function Dashboard({ overview, propagation }: { overview: Overview; propagation: Propagation }) {
+function Dashboard({ overview, propagation, provenance }: { overview: Overview; propagation: Propagation; provenance: Provenance }) {
   const stations = [...overview.stations].sort((a, b) => b.aqi - a.aqi);
   const worst = stations[0];
   const rise = (s: Station) => nextSixMedian(s) - s.aqi;
@@ -34,7 +34,9 @@ function Dashboard({ overview, propagation }: { overview: Overview; propagation:
         <span className="eyebrow">空氣品質實驗室 · 資料時間 {formatHour(overview.latest)}</span>
         <h1>空氣會移動，預報也該告訴你不確定性。</h1>
         <p className="lede">
-          八個測站的機率預報、污染從哪裡來、哪些異常是局部事件，以及「如果風變大會怎樣」——每個數字都附方法與驗證。
+          {provenance.is_model_estimate
+            ? overview.stations.length + " 個 CAMS 區域模型格點，提供風險趨勢、時序關聯與情境分析；不代表測站實測或污染來源判定。"
+            : provenance.is_simulated ? "使用固定種子測試資料驗證預報、時序關聯與情境分析。" : "整理公開空品資料，查看風險趨勢、時序關聯與情境分析。"}
         </p>
       </header>
 
@@ -77,13 +79,13 @@ function Dashboard({ overview, propagation }: { overview: Overview; propagation:
         <div className="card">
           <ChartFrame
             interactive
-            title="測站分布與目前 AQI"
+            title={provenance.is_model_estimate ? "區域模型格點分布與目前 AQI" : "測站分布與目前 AQI"}
             summary={stations.map((s) => `${s.station} ${formatNumber(s.aqi)}（${s.category_label}）`).join("、")}
             table={
               <table>
                 <thead>
                   <tr>
-                    <th scope="col">測站</th>
+                    <th scope="col">{provenance.is_model_estimate ? "模型格點" : "測站"}</th>
                     <th scope="col">縣市</th>
                     <th scope="col">AQI</th>
                     <th scope="col">分級</th>
@@ -122,7 +124,7 @@ function Dashboard({ overview, propagation }: { overview: Overview; propagation:
         </div>
 
         <section aria-labelledby="station-list-title">
-          <h2 id="station-list-title">測站</h2>
+          <h2 id="station-list-title">{provenance.is_model_estimate ? "模型格點" : "測站"}</h2>
           <ul className="station-list">
             {stations.map((s) => {
               const peak = nextSixWorst(s);
@@ -152,9 +154,10 @@ export default function Home() {
   useDocumentTitle("");
   const overview = useDataset("overview.json");
   const propagation = useDataset("propagation.json");
+  const provenance = useDataset("provenance.json");
   return (
     <div className="page">
-      <Gate<[Overview, Propagation]> states={[overview, propagation]}>{(o, p) => <Dashboard overview={o} propagation={p} />}</Gate>
+      <Gate<[Overview, Propagation, Provenance]> states={[overview, propagation, provenance]}>{(o, p, d) => <Dashboard overview={o} propagation={p} provenance={d} />}</Gate>
     </div>
   );
 }

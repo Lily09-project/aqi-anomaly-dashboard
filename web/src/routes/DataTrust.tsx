@@ -2,7 +2,7 @@ import { useContext, useEffect, useState } from "react";
 import { LoaderContext, useDataset, useDocumentTitle } from "../app/hooks";
 import { ScrollRegion } from "../components/ScrollRegion";
 import { Gate } from "../components/States";
-import { formatDay, formatHour, formatPercent } from "../lib/format";
+import { formatDay, formatPercent } from "../lib/format";
 import type { Anomalies, DataFiles, Manifest, Propagation, Provenance } from "../lib/types";
 import "./DataTrust.css";
 
@@ -44,7 +44,9 @@ function Trust({ provenance, anomalies, propagation }: { provenance: Provenance;
         <p className="lede">
           {provenance.is_simulated
             ? "展示站使用可重現的合成資料：每次重跑都得到位元組完全相同的結果，而且我們知道「正確答案」，所以能檢查每個分析方法是否真的找得到它。"
-            : "這份資料來自環境部開放資料的快照，以下是它的來源與指紋。"}
+            : provenance.is_model_estimate
+              ? "資料來自免註冊 Open-Meteo API 的 CAMS Global 模型估算；以下列出模型格點、解析度與檔案指紋。不是測站實測。"
+              : "這份資料來自環境部開放資料的快照，以下是它的來源與指紋。"}
         </p>
       </header>
 
@@ -52,17 +54,17 @@ function Trust({ provenance, anomalies, propagation }: { provenance: Provenance;
         <div className="card">
           <span className="stat-label">資料來源</span>
           <p className="stat-value" data-testid="data-source">
-            {provenance.is_simulated ? "模擬資料" : provenance.data_source}
+            {provenance.is_model_estimate ? "Open-Meteo · CAMS Global" : provenance.is_simulated ? "測試資料" : provenance.data_source}
           </p>
           <span className="muted small">
-            {provenance.provider ?? "—"} · 種子 {provenance.seed}
+            {provenance.is_model_estimate ? provenance.model_name : provenance.is_simulated ? "測試種子 " + provenance.seed : provenance.provider ?? "—"}
           </span>
         </div>
         <div className="card">
           <span className="stat-label">涵蓋範圍</span>
-          <p className="stat-value">{provenance.stations} 站</p>
+          <p className="stat-value">{provenance.stations} {provenance.is_model_estimate ? "個模型格點" : "站"}</p>
           <span className="muted small">
-            {formatDay(provenance.range.start)} 至 {formatDay(provenance.range.end)} · {provenance.rows.toLocaleString("zh-TW")} 筆逐時觀測 · 完整度{" "}
+            {formatDay(provenance.range.start)} 至 {formatDay(provenance.range.end)} · {provenance.rows.toLocaleString("zh-TW")} 筆{provenance.is_model_estimate ? "API 逐時輸出（底層模型原生約每 " + (provenance.native_temporal_resolution_hours ?? 3) + " 小時）" : "逐時資料"} · 完整度{" "}
             {formatPercent(provenance.completeness, 2)}
           </span>
         </div>
@@ -167,21 +169,21 @@ function Trust({ provenance, anomalies, propagation }: { provenance: Provenance;
 
       <section className="card method" id="methods">
         <h2>方法與限制</h2>
-        <h3>AQI 換算</h3>
-        <p>依環境部 PM2.5、PM10、臭氧分段濃度換算子指標並取最大值。為簡化，以逐時濃度代替官方的移動平均，因此數值會與環境部公告略有差異。</p>
+        <h3>AQI 標準</h3>
+        <p>{provenance.is_model_estimate ? "採用 API 提供的美國 EPA AQI 與 PM2.5、PM10、臭氧模型濃度；臭氧單位為 " + (provenance.ozone_unit ?? "μg/m³") + "。數值與環境部測站公告不可直接視為相同。" : "依環境部 PM2.5、PM10、臭氧分段濃度換算子指標並取最大值；以逐時濃度代替官方移動平均，數值可能與公告不同。"}</p>
         <h3>機率預報</h3>
         <p>
           每個預報時距（1–24 小時）各一個 ridge 迴歸（直接多步預測），以時間順序切出的校準期殘差分位數決定 80% 區間（分割式保形預測），在測試期檢查實際覆蓋率。
         </p>
         <h3>傳播追蹤</h3>
-        <p>對每個測站的 PM2.5 扣除「測站 × 時段」的典型值後，計算 1–{propagation.max_lag} 小時的落後互相關；必須同時超過門檻且優於同時相關，才視為領先關係。</p>
+        <p>對各地點的 PM2.5 扣除「地點 × 時段」的典型值後，計算 1–{propagation.max_lag} 小時的落後互相關。這只呈現資料的時序相關，不能證明污染傳播或因果。</p>
         <h3>異常歸因</h3>
         <p>以每個測站、每個時段的中位數與 MAD 計算穩健 z 分數，連續超過門檻的時段合併為事件；以高峰時各因子的 z 分數排序作為解釋，並以同一組 z 分數找出最相似的歷史事件。</p>
         <h3>不應該怎麼用</h3>
         <ul>
-          <li>不是即時監測，也不是官方預報；健康決策請以環境部即時資訊為準。</li>
+          <li>{provenance.is_model_estimate ? "模型格點不是地面測站，解析度約 45 公里；CAMS 原生約 3 小時，API 逐時輸出含插值。健康決策請查環境部即時資訊。" : "不是即時監測，也不是官方預報；健康決策請以環境部即時資訊為準。"}</li>
           <li>情境模擬是條件相關的線性模型，不代表因果；調整滑桿不會真的改變大氣。</li>
-          <li>合成資料讓方法可以被驗證，但真實資料的雜訊、缺值與測站維修會讓表現變差。</li>
+          <li>合成資料只用於測試與 PR 預覽；正式頁面不以合成數據替代上游來源。</li>
         </ul>
       </section>
 
@@ -198,7 +200,7 @@ function Trust({ provenance, anomalies, propagation }: { provenance: Provenance;
           ))}
         </ul>
         <p>
-          在專案根目錄執行 <code>python run_all.py --mode sample</code> 會重新產生資料與全部匯出檔，雜湊應與上表完全相同（資料截至 {formatHour(provenance.range.end)}）。
+          <code>python run_all.py --mode sample</code> 只產生測試資料；正式網站僅在公開 API 來源與檔案雜湊通過驗證後發布。
         </p>
       </section>
     </div>

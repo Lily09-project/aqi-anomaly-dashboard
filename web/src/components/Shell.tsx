@@ -6,7 +6,7 @@ import "./Shell.css";
 
 const NAV: { route: Route; label: string; match: Route["name"][] }[] = [
   { route: { name: "home" }, label: "空品總覽", match: ["home", "station"] },
-  { route: { name: "propagation" }, label: "傳播追蹤", match: ["propagation"] },
+  { route: { name: "propagation" }, label: "時序關聯", match: ["propagation"] },
   { route: { name: "anomalies" }, label: "異常事件", match: ["anomalies"] },
   { route: { name: "whatif" }, label: "情境模擬", match: ["whatif"] },
   { route: { name: "model" }, label: "模型監控", match: ["model"] },
@@ -17,6 +17,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const [route] = useRoute();
   const provenance = useDataset("provenance.json");
   const simulated = provenance.status === "ready" ? provenance.data.is_simulated : null;
+  const modelled = provenance.status === "ready" && provenance.data.is_model_estimate === true;
 
   return (
     <>
@@ -46,7 +47,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <div className="site-tools">
             {simulated !== null && (
               <a className="data-badge" href={routeToHash({ name: "data" })} data-simulated={simulated} data-testid="data-badge">
-                {simulated ? "模擬資料" : "環境部快照"}
+                {modelled ? "CAMS 模型估算" : simulated ? "測試資料" : "資料快照"}
               </a>
             )}
           </div>
@@ -61,7 +62,9 @@ export function Shell({ children }: { children: ReactNode }) {
             {provenance.status === "ready" && (
               <>
                 資料期間 {formatDay(provenance.data.range.start)} 至 {formatDay(provenance.data.range.end)}
-                {provenance.data.is_simulated ? "（可重現的模擬資料，含已知答案供驗證）" : "（環境部開放資料快照）"}。
+                {modelled
+                  ? "（約 " + (provenance.data.native_temporal_resolution_hours ?? 3) + " 小時、" + (provenance.data.spatial_resolution_km ?? 45) + " 公里網格；非測站實測）"
+                  : provenance.data.is_simulated ? "（可重現的測試資料）" : "（公開資料快照）"}。
               </>
             )}
             本站不是即時空品服務，也不是官方預報；所有預測與機率皆為分析示範，健康決策請以環境部即時資訊為準。

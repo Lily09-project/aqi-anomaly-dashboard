@@ -51,7 +51,7 @@ function Simulator({ model, overview }: { model: WhatIf; overview: Overview }) {
       <section className="card whatif-inputs" aria-labelledby="inputs-title">
         <h2 id="inputs-title">設定條件</h2>
         <label className="field">
-          <span className="label">從測站目前狀態載入</span>
+          <span className="label">從地點目前狀態載入</span>
           <select
             className="input"
             value={preset}
@@ -110,7 +110,7 @@ function Simulator({ model, overview }: { model: WhatIf; overview: Overview }) {
         >
           重設為典型值
         </button>
-        <p className="muted small">滑桿範圍是訓練資料中實際觀測到的 1%–99% 區間；超出範圍的組合模型沒有見過，所以不開放。</p>
+        <p className="muted small">滑桿範圍涵蓋訓練資料的 1%–99% 區間；模型未見過的範圍不提供預測。</p>
       </section>
 
       <div className="stack">
@@ -214,7 +214,7 @@ export default function WhatIfPage() {
         <span className="eyebrow">瀏覽器端模型</span>
         <h1>情境模擬：哪些條件推動下一小時的 AQI？</h1>
         <p className="lede">
-          一個刻意保持簡單、可解釋的線性模型：拖動滑桿，立刻看到下一小時 AQI 與不確定性，以及每個條件各貢獻了多少。這是「條件相關」的模擬，不代表因果——改變風速不會真的改變其他污染物。你會發現目前 AQI 幾乎決定了一切，這本身就是重要結論：一小時內空氣品質的慣性極強。
+          拖動條件滑桿，查看下一小時 AQI 預測與各項輸入的影響。模型資料包含三小時模型時點間的逐時插值；結果反映資料關聯，不代表因果。
         </p>
       </header>
       <Gate<[WhatIf, Overview]> states={[model, overview]}>{(m, o) => <Simulator model={m} overview={o} />}</Gate>

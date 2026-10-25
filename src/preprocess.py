@@ -46,7 +46,7 @@ def _is_verified_api_source(mode: str, source_metadata: Mapping[str, Any] | None
         return False
     return (
         source_metadata.get("status") == "success"
-        and source_metadata.get("data_source") == "API Data"
+        and source_metadata.get("data_source") in {"API Data", "Model Estimate"}
         and source_metadata.get("is_simulated_data") is False
     )
 
@@ -66,7 +66,11 @@ def preprocess(
     if missing:
         raise ValueError(f"Missing required columns after alias mapping: {missing}")
 
-    df = df[REQUIRED_COLUMNS].copy()
+    optional_columns = [column for column in ("latitude", "longitude", "coordinate_source") if column in df.columns]
+    df = df[REQUIRED_COLUMNS + optional_columns].copy()
+    for column in ("latitude", "longitude"):
+        if column in df.columns:
+            df[column] = pd.to_numeric(df[column], errors="coerce")
     df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce")
     for column in ("site_name", "county"):
         df[column] = df[column].astype("string").str.strip()
@@ -85,7 +89,10 @@ def preprocess(
     df = df.drop_duplicates(["site_name", "datetime"]).reset_index(drop=True)
     metadata = source_metadata if source_metadata is not None else load_source_metadata(config)
     effective_mode = resolve_effective_run_mode(mode, metadata, src)
-    df["data_source"] = "API Data" if _is_verified_api_source(effective_mode, metadata) else "Sample Data"
+    if _is_verified_api_source(effective_mode, metadata):
+        df["data_source"] = str(metadata.get("data_source", "API Data"))
+    else:
+        df["data_source"] = "Sample Data"
     df = add_display_columns(df)
     out = resolve_path(config, "data.cleaned_file")
     write_csv(df, out, index=False, encoding="utf-8")

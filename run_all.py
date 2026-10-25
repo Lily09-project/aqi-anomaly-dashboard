@@ -1,7 +1,7 @@
-"""Run the Taiwan Air Lab pipeline: data → cleaning → analytics → web export.
+"""Run the Taiwan Air Lab pipeline: source data → cleaning → analytics → web export.
 
-    python run_all.py --mode sample   # reproducible synthetic data (default)
-    python run_all.py --mode api      # Ministry of Environment API, falls back to sample data
+    python run_all.py --mode sample                    # test-only synthetic fixture
+    python run_all.py --mode api --require-api         # verified Open-Meteo model data
 """
 from __future__ import annotations
 
@@ -33,7 +33,9 @@ def _step(name: str, fn: Callable[[], object]) -> object:
     return result
 
 
-def run(mode: str = "sample", out_dir: Path | None = None) -> dict[str, str]:
+def run(mode: str = "sample", out_dir: Path | None = None, *, require_api: bool = False) -> dict[str, str]:
+    if require_api and mode != "api":
+        raise ValueError("--require-api can only be used with --mode api")
     config = load_config()
     for key in ("data.raw_dir", "data.sample_file", "data.cleaned_file"):
         target = resolve_path(config, key)
@@ -42,7 +44,7 @@ def run(mode: str = "sample", out_dir: Path | None = None) -> dict[str, str]:
     input_path: Path | None = None
     if mode == "api":
         input_path = _step("Fetch API data", fetch_aqi_data)  # type: ignore[assignment]
-        if input_path is None:
+        if input_path is None and not require_api:
             input_path = latest_csv(resolve_path(config, "data.raw_dir"))
             if input_path is None:
                 print("Falling back to sample data because the API and local raw data are unavailable.")
@@ -50,12 +52,16 @@ def run(mode: str = "sample", out_dir: Path | None = None) -> dict[str, str]:
                 input_path = resolve_path(config, "data.sample_file")
             else:
                 print(f"Using local raw fallback with unverified source metadata: {input_path}")
+        elif input_path is None:
+            raise RuntimeError("Required public model data is unavailable; refusing to publish a sample-data build.")
     else:
         _step("Generate sample data", generate_sample_aqi)
         input_path = resolve_path(config, "data.sample_file")
 
     source_metadata = load_source_metadata(config, root=ROOT)
     effective_mode = resolve_effective_run_mode(mode, source_metadata, input_path)
+    if require_api and effective_mode != "api":
+        raise RuntimeError("Public source metadata or input digest is not verified; refusing to publish.")
     if effective_mode != mode:
         print(f"Effective source mode: {effective_mode} (requested: {mode})")
     _step("Preprocess data", lambda: preprocess(mode=effective_mode, input_path=input_path, source_metadata=source_metadata))
@@ -68,8 +74,9 @@ def run(mode: str = "sample", out_dir: Path | None = None) -> dict[str, str]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=["sample", "api"], default="sample")
+    parser.add_argument("--require-api", action="store_true", help="fail instead of using cached or sample data")
     args = parser.parse_args()
-    run(args.mode)
+    run(args.mode, require_api=args.require_api)
 
 
 if __name__ == "__main__":

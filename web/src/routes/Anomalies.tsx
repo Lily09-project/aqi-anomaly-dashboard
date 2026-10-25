@@ -23,8 +23,8 @@ function EventDetail({ event, all, filter, windowHours }: { event: AnomalyEvent;
   const endIndex = event.context.findIndex((c) => c.t > event.end);
   const span: [number, number] = [Math.max(startIndex, 0), endIndex < 0 ? event.context.length - 1 : Math.max(endIndex - 1, 0)];
   const series: Series[] = [
-    { key: "pm25", label: "PM2.5 觀測", values: event.context.map((c) => c.pm25), tone: 1 },
-    { key: "baseline", label: "同測站同時段的典型值（中位數）", values: event.context.map((c) => c.baseline), tone: 4 },
+    { key: "pm25", label: "PM2.5 資料", values: event.context.map((c) => c.pm25), tone: 1 },
+    { key: "baseline", label: "同地點同時段的典型值（中位數）", values: event.context.map((c) => c.baseline), tone: 4 },
   ];
   const top = event.drivers[0];
   return (
@@ -41,14 +41,14 @@ function EventDetail({ event, all, filter, windowHours }: { event: AnomalyEvent;
         </h2>
         <p className="muted">
           {event.kind === "local"
-            ? `其他測站在高峰前後 ${windowHours} 小時內沒有異常高峰，較可能是附近的局部排放（施工、焚燒、交通事故等）。`
-            : `其他測站在高峰前後 ${windowHours} 小時內（最大傳播延遲）也出現異常高峰，較可能是大範圍的污染團或天氣條件造成。`}
+            ? `其他地點在高峰前後 ${windowHours} 小時內沒有異常高峰，呈現單一地點高峰；僅憑模型資料無法判斷排放來源。`
+            : `其他地點在高峰前後 ${windowHours} 小時內（最大時序落後窗口）也出現異常高峰，呈現多個地點同步高峰；不能據此判定污染來源。`}
           高峰 AQI {formatNumber(event.peak_aqi)}、PM2.5 {formatNumber(event.peak_pm25, 1)} µg/m³（{formatHour(event.peak)}）。
         </p>
       </header>
 
       <ChartFrame
-        title="為什麼異常：各因子偏離典型值的程度"
+        title="事件期間各因子的偏離程度"
         summary={event.drivers.map((d) => `${d.label} z=${formatSigned(d.z, 1)}`).join("、")}
         table={
           <table data-testid="drivers-table">
@@ -75,13 +75,13 @@ function EventDetail({ event, all, filter, windowHours }: { event: AnomalyEvent;
       </ChartFrame>
       {top && (
         <p className="callout">
-          主要驅動因子是 <strong>{top.label}</strong>：高峰時比這個測站同時段的典型值高出 {formatNumber(Math.abs(top.z), 1)} 個穩健標準差（以中位數與 MAD 計算，不受其他極端值影響）。
+          高峰時同步偏離最多的因子是 <strong>{top.label}</strong>：高峰時比這個地點同時段的典型值高出 {formatNumber(Math.abs(top.z), 1)} 個穩健標準差（以中位數與 MAD 計算，不受其他極端值影響）。
         </p>
       )}
 
       <ChartFrame
         title="事件前後的 PM2.5"
-        summary={`紅色區塊是偵測到的事件期間；觀測值在事件期間明顯高於典型值。`}
+        summary={`紅色區塊是偵測到的事件期間；來源數值高於同時段典型值。`}
         table={
           <table>
             <thead>
@@ -147,10 +147,10 @@ function AnomaliesView({ data, id, station, kind }: Props & { data: Anomalies })
   return (
     <div className="stack">
       <header>
-        <span className="eyebrow">異常偵測 · 歸因</span>
-        <h1>異常事件與歸因</h1>
+        <span className="eyebrow">異常偵測 · 相關因子</span>
+        <h1>異常事件與相關因子</h1>
         <p className="lede">
-          每個測站、每個時段各自的「正常範圍」不同。我們用中位數與 MAD 算出 PM2.5 的穩健 z 分數，超過 {data.threshold} 就標記為異常，再看其他測站有沒有在傳播延遲範圍內同時異常，區分局部與區域事件。
+          每個地點、每個時段各自的「正常範圍」不同。我們用中位數與 MAD 算出 PM2.5 的穩健 z 分數，超過 {data.threshold} 就標記為異常，再看其他地點有沒有在傳播延遲範圍內同時異常，區分局部與區域事件。
         </p>
       </header>
 
@@ -178,9 +178,9 @@ function AnomaliesView({ data, id, station, kind }: Props & { data: Anomalies })
 
       <section className="card filters" aria-label="篩選">
         <label className="field">
-          <span className="label">測站</span>
+          <span className="label">地點</span>
           <select className="input" value={station ?? ""} onChange={(e) => update({ station: e.target.value || undefined })}>
-            <option value="">全部測站</option>
+            <option value="">全部地點</option>
             {stations.map((s) => (
               <option key={s} value={s}>
                 {s}
@@ -215,7 +215,7 @@ function AnomaliesView({ data, id, station, kind }: Props & { data: Anomalies })
 
       {filtered.length === 0 ? (
         <EmptyState title="沒有符合條件的事件">
-          <p>換一個測站或類型試試。</p>
+          <p>換一個地點或類型試試。</p>
         </EmptyState>
       ) : (
         <div className="split anomalies-layout">
@@ -254,7 +254,7 @@ function AnomaliesView({ data, id, station, kind }: Props & { data: Anomalies })
 }
 
 export default function AnomaliesPage(props: Props) {
-  useDocumentTitle("異常事件與歸因");
+  useDocumentTitle("異常事件與相關因子");
   const data = useDataset("anomalies.json");
   return (
     <div className="page">

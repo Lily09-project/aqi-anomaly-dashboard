@@ -9,7 +9,7 @@ import { formatHour, formatNumber } from "../lib/format";
 import type { Overview, Propagation } from "../lib/types";
 import "./Propagation.css";
 
-const shortName = (name: string) => name.replace(/測站$/, "");
+const shortName = (name: string) => name.replace(/(?:測站|網格)$/, "");
 
 function Replay({ overview, propagation, initialFrame }: { overview: Overview; propagation: Propagation; initialFrame: number }) {
   const [, navigate] = useRoute();
@@ -43,9 +43,9 @@ function Replay({ overview, propagation, initialFrame }: { overview: Overview; p
 
   return (
     <section className="card replay" aria-labelledby="replay-title">
-      <h2 id="replay-title">事件重播：污染團怎麼走</h2>
+      <h2 id="replay-title">資料時序回放</h2>
       <p className="muted">
-        {formatHour(episode.start)} 至 {formatHour(episode.end)}，傳播訊號最強的一段。每一列是一個測站，由上游排到下游；高峰（橘點）一列一列往右移，就是污染團抵達的順序。
+        {formatHour(episode.start)} 至 {formatHour(episode.end)}。各地點依峰值時間排序；模型原始資料每 3 小時一次，中間時點為插值，不代表污染實際移動。
       </p>
       <div className="replay-controls" role="group" aria-label="重播控制">
         <button
@@ -89,13 +89,13 @@ function Replay({ overview, propagation, initialFrame }: { overview: Overview; p
       {reducedMotion && <p className="muted small">已偵測到「減少動態效果」設定：播放速度放慢且不使用轉場動畫。</p>}
       <div className="split">
         <ChartFrame
-          title={`${formatHour(time)} 各測站 AQI`}
+          title={`${formatHour(time)} 各地點 AQI`}
           summary={overview.stations.map((s) => `${s.station} ${formatNumber(values[s.station] ?? null)}`).join("、")}
           table={
             <table>
               <thead>
                 <tr>
-                  <th scope="col">測站</th>
+                  <th scope="col">地點</th>
                   <th scope="col">AQI</th>
                 </tr>
               </thead>
@@ -124,13 +124,13 @@ function Replay({ overview, propagation, initialFrame }: { overview: Overview; p
           />
         </ChartFrame>
         <ChartFrame
-          title="各測站 AQI 隨時間變化（上游 → 下游）"
+          title="各地點 AQI 時序（依峰值時間排序）"
           summary={plume.map((p) => `${p.station} 在 ${formatHour(episode.times[p.frame] ?? "")} 達高峰 ${formatNumber(p.aqi)}`).join("；")}
           table={
             <table data-testid="arrival-table">
               <thead>
                 <tr>
-                  <th scope="col">測站</th>
+                  <th scope="col">地點</th>
                   <th scope="col">高峰時間</th>
                   <th scope="col">高峰 AQI</th>
                 </tr>
@@ -156,6 +156,7 @@ function Replay({ overview, propagation, initialFrame }: { overview: Overview; p
 
 function PropagationView({ overview, propagation, frame }: { overview: Overview; propagation: Propagation; frame: number }) {
   const agreement = lagAgreement(propagation.links);
+  const hasTruth = propagation.ground_truth !== null;
   const linked = new Set(propagation.links.flatMap((l) => [l.upstream, l.downstream]));
   const isolated = overview.stations.filter((s) => !linked.has(s.station));
   const chain = Object.entries(propagation.nearest_upstream).map(([downstream, u]) => ({
@@ -169,9 +170,9 @@ function PropagationView({ overview, propagation, frame }: { overview: Overview;
     <div className="stack">
       <header>
         <span className="eyebrow">空間分析</span>
-        <h1>污染傳播追蹤</h1>
+        <h1>空品時序關聯</h1>
         <p className="lede">
-          把每個測站的 PM2.5 先扣掉「每天這個時段本來就會有的量」，再看哪個測站的變化固定比另一個早幾小時出現。領先的那一站，就是下游的預警哨。
+          比較扣除時段基準後的 PM2.5 變化順序。模型原始資料每 3 小時一次，中間時點為插值；相關不代表污染路徑或預警。
         </p>
       </header>
 
@@ -181,33 +182,35 @@ function PropagationView({ overview, propagation, frame }: { overview: Overview;
           <span className="stat-value">{propagation.links.length}</span>
           <span className="muted small">落後 1–{propagation.max_lag} 小時、相關係數 ≥ {propagation.min_correlation}，且優於同時相關</span>
         </div>
+        {hasTruth && (
+          <div className="card kpi">
+            <span className="stat-label">已知延遲比對</span>
+            <span className="stat-value" data-testid="lag-agreement">
+              {agreement.matched}/{agreement.total}
+            </span>
+            <span className="muted small">偵測延遲落在測試值 ±1 小時內的關係數</span>
+          </div>
+        )}
         <div className="card kpi">
-          <span className="stat-label">與注入的真實延遲比對</span>
-          <span className="stat-value" data-testid="lag-agreement">
-            {agreement.matched}/{agreement.total}
-          </span>
-          <span className="muted small">偵測延遲落在真實值 ±1 小時內的關係數</span>
-        </div>
-        <div className="card kpi">
-          <span className="stat-label">沒有上游關係的測站</span>
+          <span className="stat-label">未形成顯著關聯的地點</span>
           <span className="stat-value" data-testid="isolated">
             {isolated.length ? isolated.map((s) => shortName(s.station)).join("、") : "無"}
           </span>
-          <span className="muted small">中央山脈另一側不受西部污染團影響，沒有被誤判為相關</span>
+          <span className="muted small">部分地點未達關聯門檻</span>
         </div>
       </section>
 
       <section className="split">
         <div className="card">
           <ChartFrame
-            title="最近上游與延遲時間"
-            summary={chain.map((c) => `${c.from} 領先 ${c.to} ${c.label}`).join("、")}
+            title="較早關聯地點與時間差"
+            summary={chain.map((c) => `${c.from} 的變化早於 ${c.to} ${c.label}`).join("、")}
             table={
               <table>
                 <thead>
                   <tr>
-                    <th scope="col">下游測站</th>
-                    <th scope="col">最近上游</th>
+                    <th scope="col">較晚變化地點</th>
+                    <th scope="col">較早關聯地點</th>
                     <th scope="col">延遲（小時）</th>
                   </tr>
                 </thead>
@@ -237,13 +240,13 @@ function PropagationView({ overview, propagation, frame }: { overview: Overview;
         </div>
         <div className="card">
           <h2>所有顯著關係</h2>
-          <ScrollRegion label="測站領先落後關係">
+          <ScrollRegion label="地點領先落後關係">
             <table data-testid="links-table">
               <thead>
                 <tr>
-                  <th scope="col">上游 → 下游</th>
+                  <th scope="col">較早變化 → 較晚變化</th>
                   <th scope="col">偵測延遲</th>
-                  <th scope="col">真實延遲</th>
+                  {hasTruth && <th scope="col">測試延遲</th>}
                   <th scope="col">r（落後）</th>
                   <th scope="col">r（同時）</th>
                 </tr>
@@ -257,14 +260,16 @@ function PropagationView({ overview, propagation, frame }: { overview: Overview;
                         {shortName(l.upstream)} → {shortName(l.downstream)}
                       </th>
                       <td className="num">{l.lag_hours} h</td>
-                      <td className="num">
-                        {l.truth_lag === null ? "—" : `${l.truth_lag} h`}{" "}
-                        {l.truth_lag !== null && (
-                          <span className="tag" data-tone={ok ? "good" : "bad"}>
-                            {ok ? "吻合" : "誤差 > 1h"}
-                          </span>
-                        )}
-                      </td>
+                      {hasTruth && (
+                        <td className="num">
+                          {l.truth_lag === null ? "—" : `${l.truth_lag} h`}{" "}
+                          {l.truth_lag !== null && (
+                            <span className="tag" data-tone={ok ? "good" : "bad"}>
+                              {ok ? "吻合" : "誤差 > 1h"}
+                            </span>
+                          )}
+                        </td>
+                      )}
                       <td className="num">{l.r.toFixed(2)}</td>
                       <td className="num">{l.r_synchronous.toFixed(2)}</td>
                     </tr>
@@ -273,7 +278,7 @@ function PropagationView({ overview, propagation, frame }: { overview: Overview;
               </tbody>
             </table>
           </ScrollRegion>
-          <p className="muted small">「真實延遲」來自合成資料產生器：兩站相對污染源的延遲差。真實資料沒有這個答案，屆時這一欄會顯示「—」。</p>
+          {hasTruth && <p className="muted small">測試延遲來自已知答案 fixture，僅供驗證分析方法。</p>}
         </div>
       </section>
 
@@ -283,7 +288,7 @@ function PropagationView({ overview, propagation, frame }: { overview: Overview;
 }
 
 export default function PropagationPage({ frame }: { frame?: number }) {
-  useDocumentTitle("污染傳播追蹤");
+  useDocumentTitle("空品時序關聯");
   const overview = useDataset("overview.json");
   const propagation = useDataset("propagation.json");
   return (

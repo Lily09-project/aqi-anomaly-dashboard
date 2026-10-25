@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: "25 12 * * *"
   workflow_dispatch:
 
 permissions:
@@ -32,18 +34,33 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: web/package-lock.json
-      - name: Generate the reproducible sample analysis
+      - name: Install locked dependencies and validate public release boundaries
         run: |
           python -m pip install --upgrade "pip>=26.2"
           python -m pip install -r requirements.txt -c requirements-lock-py312.txt
           python scripts/validate_public_release.py
-          python run_all.py --mode sample
+      - name: Generate reproducible sample analysis for pull request preview
+        if: github.event_name == 'pull_request'
+        run: python run_all.py --mode sample
+      - name: Fetch public CAMS model data for production site
+        if: github.event_name != 'pull_request'
+        run: python run_all.py --mode api --require-api
       - name: Build static site
         working-directory: web
         run: |
           npm ci --no-audit --no-fund
           npm run build
           npm run size
+      - name: Install Chromium for live public-data acceptance
+        if: github.event_name != 'pull_request'
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+      - name: Verify live public-data user paths before deployment
+        if: github.event_name != 'pull_request'
+        working-directory: web
+        env:
+          CI: "1"
+        run: npm run e2e -- e2e/production-data.spec.ts
       - name: Upload only the built static site
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v4
         with:
@@ -82,3 +99,20 @@ jobs:
           done
           curl --fail --silent --show-error "$base/" | grep -q "Taiwan Air Lab"
           curl --fail --silent --show-error "$base/data/manifest.json" | grep -q '"schema_version":"2.0"'
+          curl --fail --silent --show-error "$base/data/provenance.json" --output "$RUNNER_TEMP/provenance.json"
+          python - "$RUNNER_TEMP/provenance.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          provenance = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          assert provenance.get("provider") == "open_meteo_cams_global"
+          assert provenance.get("data_source") == "Open-Meteo CAMS Global model estimates"
+          assert provenance.get("is_model_estimate") is True
+          assert provenance.get("is_simulated") is False
+          assert provenance.get("native_temporal_resolution_hours") == 3
+          assert provenance.get("api_output_temporal_resolution_hours") == 1
+          assert provenance.get("spatial_resolution_km") == 45
+          assert provenance.get("input_sha256")
+          print("Verified public Open-Meteo/CAMS model data and its resolution labels")
+          PY
