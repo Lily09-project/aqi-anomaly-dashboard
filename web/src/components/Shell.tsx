@@ -13,8 +13,6 @@ const NAV: { route: Route; label: string; match: Route["name"][] }[] = [
   { route: { name: "data" }, label: "資料可信度", match: ["data"] },
 ];
 
-
-
 export function Shell({ children }: { children: ReactNode }) {
   const [route] = useRoute();
   const provenance = useDataset("provenance.json");
