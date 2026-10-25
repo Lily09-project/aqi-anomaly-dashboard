@@ -89,3 +89,20 @@ jobs:
           done
           curl --fail --silent --show-error "$base/" | grep -q "Taiwan Air Lab"
           curl --fail --silent --show-error "$base/data/manifest.json" | grep -q '"schema_version":"2.0"'
+          curl --fail --silent --show-error "$base/data/provenance.json" --output "$RUNNER_TEMP/provenance.json"
+          python - "$RUNNER_TEMP/provenance.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          provenance = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          assert provenance.get("provider") == "open_meteo_cams_global"
+          assert provenance.get("data_source") == "Open-Meteo CAMS Global model estimates"
+          assert provenance.get("is_model_estimate") is True
+          assert provenance.get("is_simulated") is False
+          assert provenance.get("native_temporal_resolution_hours") == 3
+          assert provenance.get("api_output_temporal_resolution_hours") == 1
+          assert provenance.get("spatial_resolution_km") == 45
+          assert provenance.get("input_sha256")
+          print("Verified public Open-Meteo/CAMS model data and its resolution labels")
+          PY
