@@ -3,37 +3,31 @@
 [![Quality Gate](https://github.com/Lily09-project/aqi-anomaly-dashboard/actions/workflows/quality.yml/badge.svg?branch=main)](https://github.com/Lily09-project/aqi-anomaly-dashboard/actions/workflows/quality.yml)
 [![Security](https://github.com/Lily09-project/aqi-anomaly-dashboard/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/Lily09-project/aqi-anomaly-dashboard/actions/workflows/security.yml)
 
-臺灣空品分析展示網站，提供區域趨勢、時序關聯、異常型態與情境分析。
+臺灣空品趨勢、異常與情境分析展示網站。
+
+**[開啟線上展示](https://lily09-project.github.io/aqi-anomaly-dashboard/)**
+
+| 桌面版 | 手機版 |
+| --- | --- |
+| ![Taiwan Air Lab 桌面畫面](docs/screenshots/pages-desktop.png) | ![Taiwan Air Lab 手機畫面](docs/screenshots/pages-mobile.png) |
 
 ## 正式資料
 
-- Open-Meteo 免費公開 API，每日更新，不需註冊或 API key。
-- 空品採 CAMS Global 模型估算：約 45 公里網格、原生每 3 小時；API 逐時輸出含插值。風場來自 Open-Meteo Forecast API。
-- AQI 採美國 EPA 標準；資料不是環境部測站實測，也不是即時健康警示。
-- 合成資料只供測試與 PR 預覽。正式部署必須驗證公開 API，失敗時不發布。
-- Open-Meteo 免費服務限非商業用途，需依 CC BY 4.0 標示 Open-Meteo 與 CAMS。
+- 空品使用免註冊的 [Open-Meteo Air Quality API](https://open-meteo.com/en/docs/air-quality-api) 與 CAMS Global 模型資料。
+- CAMS Global 約 45 公里網格、原生每 3 小時資料，約每 12 小時更新；API 逐時輸出含插值。風場來自 Open-Meteo Forecast API。
+- 這是模型估算，不是環境部測站實測或即時健康警示。正式部署驗證公開來源；合成資料只用於測試與預覽。
+- Open-Meteo 免費使用限非商業用途，依 CC BY 4.0 標示 Open-Meteo 與 CAMS。
 
-來源：[Air Quality API](https://open-meteo.com/en/docs/air-quality-api) · [CAMS](https://atmosphere.copernicus.eu/) · [使用條款](https://open-meteo.com/en/terms)
+## 功能與技術
 
-## 功能
+提供臺灣多區模型格點、24 小時趨勢、地點比較、異常分析與瀏覽器端情境工具。使用 Python 資料流程、React、TypeScript 與 Vite。
 
-- 臺灣四區模型格點與空品趨勢
-- 24 小時模型預測與活動時段比較
-- 地點間時序關聯與異常型態
-- 瀏覽器端情境分析
-- 資料來源、時間範圍與 SHA-256 完整性檢查
+## 本機執行與驗證
 
-## 本機執行
+```bash
+python -m pip install -r requirements.txt -c requirements-lock-py312.txt
+python run_all.py --mode sample
+cd web && npm ci && npm run dev
+```
 
-    python -m pip install -r requirements.txt -c requirements-lock-py312.txt
-    python run_all.py --mode sample
-    cd web && npm ci && npm run dev
-
-公開模型資料使用 python run_all.py --mode api --require-api。正式部署不得以 sample fixture 代替來源。
-
-## 驗證
-
-    python -m pytest -q
-    cd web && npm run typecheck && npm run lint && npm run test && npm run build
-
-更多資訊：[GitHub Pages](docs/GITHUB_PAGES.md) · [資料契約](docs/data-contract.md) · [部署指南](docs/deployment.md)
+公開模型資料使用 `python run_all.py --mode api --require-api`。測試與部署說明見[資料契約](docs/data-contract.md)、[GitHub Pages](docs/GITHUB_PAGES.md)及[部署指南](docs/deployment.md)。使用條款見[Open-Meteo 官方說明](https://open-meteo.com/en/terms)。
