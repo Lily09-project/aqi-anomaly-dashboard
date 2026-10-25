@@ -1,6 +1,14 @@
 import { expect, expectAccessible, openRoute, test } from "./fixtures";
 
-const ROUTES = ["/", "/station/前金測站", "/propagation", "/anomalies", "/whatif", "/model", "/data"];
+const ROUTES = [
+  "/",
+  "/station/前金測站",
+  "/propagation",
+  "/anomalies",
+  "/whatif",
+  "/model",
+  "/data",
+];
 
 test.describe("Q4/Q5 navigation, keyboard and accessibility", () => {
   test("skip link and keyboard-only navigation reach every page", async ({ page }) => {
