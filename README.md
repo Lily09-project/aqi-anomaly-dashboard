@@ -7,7 +7,7 @@
 
 **[▶ 開啟線上實驗室](https://lily09-project.github.io/aqi-anomaly-dashboard/)**：純靜態網站，不需登入、不需伺服器，模型直接在瀏覽器裡計算。
 
-![即時總覽：桌面](docs/screenshots/pages-desktop.png)
+![空品總覽：桌面](docs/screenshots/pages-desktop.png)
 
 ## 30 秒看懂這個專案
 
@@ -47,12 +47,8 @@
     <td><img src="docs/screenshots/propagation-replay.png" alt="污染傳播事件重播：地圖與抵達條帶圖" /></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/anomaly-attribution.png" alt="異常事件歸因與相似事件（深色主題）" /></td>
     <td><img src="docs/screenshots/whatif.png" alt="瀏覽器端情境模擬" /></td>
-  </tr>
-  <tr>
     <td><img src="docs/screenshots/model-monitoring.png" alt="各時距誤差與基準比較" /></td>
-    <td><img src="docs/screenshots/pages-mobile.png" alt="手機版首頁（深色主題）" width="260" /></td>
   </tr>
 </table>
 
@@ -70,7 +66,7 @@ flowchart LR
 
 - **資料科學**：所有方法在 `src/analytics/` 以 numpy／pandas 自行實作（ridge、保形預測、互相關、穩健 z、kNN），每個都有單元測試與「能否找回已知答案」的合成資料測試。
 - **後端工程**：一條指令重建資料、分析與匯出；匯出不讀系統時間、鍵排序、固定位數，CI 連跑兩次並 `diff`。API 模式有 HTTPS 限制、逾時、回應大小上限與安全的 fallback 標示。
-- **前端**：React 19 + TypeScript + Vite、d3-scale 手寫 SVG（依容器寬度量測，手機與桌面文字一致）、Hash 路由讓篩選與重播進度都能分享、淺色／深色主題、頁面延遲載入；首屏 JS 86 KB（gzip）。
+- **前端**：React 19 + TypeScript + Vite、d3-scale 手寫 SVG（依容器寬度量測，手機與桌面文字一致）、Hash 路由讓篩選與重播進度都能分享、固定淺色配色，不隨系統外觀偏好切換、頁面延遲載入；首屏 JS 86 KB（gzip）。
 - **可及性與安全**：每張圖都有等價資料表、地圖測站是可聚焦的連結、純鍵盤可操作、axe-core 零 serious/critical；嚴格 CSP、無 inline script、執行期不呼叫第三方、CSV 匯出防公式注入。
 
 ## 本機啟動
@@ -105,7 +101,7 @@ cd web && npm ci && npm run build && npm run preview
 | --- | --- | --- |
 | Python 分析 | `python -W error -m pytest -q --cov=src.analytics --cov=src.export_web --cov-fail-under=90` | 全數通過；分析與匯出覆蓋率 ≥ 90%（目前 99%） |
 | 前端邏輯 | `npm run typecheck && npm run lint && npm run coverage` | 0 錯誤；`web/src/lib` 覆蓋率 ≥ 85%；含 TS／Python 情境模型一致性測試 |
-| 端對端 | `npm run e2e` | 4 種組合（1440 淺色／深色、768、390）× 7 個使用者旅程與品質檢查，含 axe、鍵盤、reduced-motion、0 console error |
+| 端對端 | `npm run e2e` | 4 種視窗／系統色彩組合（1440 淺色與深色偏好、768 平板、390 手機）× 7 個使用者旅程；檢查固定品牌配色、axe、鍵盤、reduced-motion 與 0 console error |
 | 效能 | `npm run size` | 首屏 JS ≤ 200 KB、首屏資料 ≤ 800 KB |
 | 安全 | `ruff`、`bandit`、`pip-audit`、`npm audit`、gitleaks | 無問題 |
 

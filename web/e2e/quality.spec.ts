@@ -1,6 +1,16 @@
 import { expect, expectAccessible, openRoute, test } from "./fixtures";
 
-const ROUTES = ["/", "/station/前金測站", "/propagation", "/anomalies", "/whatif", "/model", "/data"];
+const ROUTES = [
+  "/",
+  "/station/前金測站",
+  "/propagation",
+  "/anomalies",
+  "/whatif",
+  "/model",
+  "/data",
+];
+const FIXED_BACKGROUND = "#f2f5f6";
+const LEGACY_THEME_KEY = "taiwan-air-lab-theme";
 
 test.describe("Q4/Q5 navigation, keyboard and accessibility", () => {
   test("skip link and keyboard-only navigation reach every page", async ({ page }) => {
@@ -28,27 +38,37 @@ test.describe("Q4/Q5 navigation, keyboard and accessibility", () => {
     await expect(page).toHaveTitle(/模型監控/);
   });
 
-  test("every page passes axe in both themes", async ({ page }) => {
-    for (const theme of ["light", "dark"] as const) {
-      await page.emulateMedia({ colorScheme: theme });
+  test("every page keeps one palette under both system color preferences", async ({ page }) => {
+    await page.addInitScript((key) => {
+      try {
+        window.localStorage.setItem(key, "dark");
+      } catch {
+        // Storage restrictions must not change the fixed site palette.
+      }
+    }, LEGACY_THEME_KEY);
+
+    for (const colorScheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme });
       for (const route of ROUTES) {
         await openRoute(page, route);
         await page.locator(".state-loading").waitFor({ state: "detached" });
+        await expect(page.getByLabel("介面主題")).toHaveCount(0);
+        const appearance = await page.locator("html").evaluate((root) => ({
+          dataTheme: root.getAttribute("data-theme"),
+          colorScheme: getComputedStyle(root).colorScheme,
+          background: getComputedStyle(root).getPropertyValue("--bg").trim(),
+        }));
+        expect(appearance).toEqual({
+          dataTheme: null,
+          colorScheme: "light",
+          background: FIXED_BACKGROUND,
+        });
         await expectAccessible(page);
       }
     }
   });
 
-  test("theme choice is applied and remembered", async ({ page }) => {
-    await openRoute(page, "/");
-    const picker = page.getByLabel("介面主題");
-    await picker.selectOption("dark");
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-    await page.reload();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-    await picker.selectOption("system");
-    await expect(page.locator("html")).not.toHaveAttribute("data-theme", /./);
-  });
+
 
   test("unknown routes and stations render helpful empty states", async ({ page }) => {
     await page.goto("./#/nowhere");

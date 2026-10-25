@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
-import { useDataset, useRoute, useTheme, type ThemeChoice } from "../app/hooks";
+import { useDataset, useRoute } from "../app/hooks";
 import { formatDay } from "../lib/format";
 import { routeToHash, type Route } from "../lib/router";
 import "./Shell.css";
 
 const NAV: { route: Route; label: string; match: Route["name"][] }[] = [
-  { route: { name: "home" }, label: "即時總覽", match: ["home", "station"] },
+  { route: { name: "home" }, label: "空品總覽", match: ["home", "station"] },
   { route: { name: "propagation" }, label: "傳播追蹤", match: ["propagation"] },
   { route: { name: "anomalies" }, label: "異常事件", match: ["anomalies"] },
   { route: { name: "whatif" }, label: "情境模擬", match: ["whatif"] },
@@ -13,15 +13,8 @@ const NAV: { route: Route; label: string; match: Route["name"][] }[] = [
   { route: { name: "data" }, label: "資料可信度", match: ["data"] },
 ];
 
-const THEMES: { value: ThemeChoice; label: string }[] = [
-  { value: "system", label: "跟隨系統" },
-  { value: "light", label: "淺色" },
-  { value: "dark", label: "深色" },
-];
-
 export function Shell({ children }: { children: ReactNode }) {
   const [route] = useRoute();
-  const [theme, setTheme] = useTheme();
   const provenance = useDataset("provenance.json");
   const simulated = provenance.status === "ready" ? provenance.data.is_simulated : null;
 
@@ -56,16 +49,6 @@ export function Shell({ children }: { children: ReactNode }) {
                 {simulated ? "模擬資料" : "環境部快照"}
               </a>
             )}
-            <label className="theme-picker">
-              <span className="visually-hidden">介面主題</span>
-              <select className="input" value={theme} onChange={(e) => setTheme(e.target.value as ThemeChoice)} aria-label="介面主題">
-                {THEMES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-            </label>
           </div>
         </div>
       </header>
