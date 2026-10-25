@@ -2,7 +2,7 @@ import { useContext, useEffect, useState } from "react";
 import { LoaderContext, useDataset, useDocumentTitle } from "../app/hooks";
 import { ScrollRegion } from "../components/ScrollRegion";
 import { Gate } from "../components/States";
-import { formatDay, formatHour, formatPercent } from "../lib/format";
+import { formatDay, formatPercent } from "../lib/format";
 import type { Anomalies, DataFiles, Manifest, Propagation, Provenance } from "../lib/types";
 import "./DataTrust.css";
 

@@ -220,5 +220,6 @@ def fetch_open_meteo(
         return target
     except Exception as exc:
         _write_failure(metadata_target, requested, exc)
-        print(f"Open-Meteo data unavailable or invalid; no model snapshot published: {type(exc).__name__}")
+        detail = " ".join(str(exc).split())[:180] or "validation failed"
+        print(f"Open-Meteo data unavailable or invalid; no model snapshot published: {type(exc).__name__}: {detail}")
         return None
