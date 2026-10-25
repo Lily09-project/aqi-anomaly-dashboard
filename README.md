@@ -8,9 +8,8 @@
 ## 正式資料
 
 - Open-Meteo 免費公開 API，每日更新，不需註冊或 API key。
-- 空品使用 CAMS Global 模型估算：約 45 公里網格、原生每 3 小時；風場使用 Open-Meteo Forecast API。
-- AQI 為美國 EPA AQI。資料不是環境部測站實測，也不是即時健康警示。
-- 分析管線在模型時點間插值成逐時面板；插值不是新增觀測。
+- 空品採 CAMS Global 模型估算：約 45 公里網格、原生每 3 小時；API 逐時輸出含插值。風場來自 Open-Meteo Forecast API。
+- AQI 採美國 EPA 標準；資料不是環境部測站實測，也不是即時健康警示。
 - 合成資料只供測試與 PR 預覽。正式部署必須驗證公開 API，失敗時不發布。
 - Open-Meteo 免費服務限非商業用途，需依 CC BY 4.0 標示 Open-Meteo 與 CAMS。
 

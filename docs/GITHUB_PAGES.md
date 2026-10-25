@@ -14,7 +14,7 @@
 
 - 空品來自 CAMS Global 模型估算，約 45 公里、原生每 3 小時；風場使用 Open-Meteo Forecast API。
 - 顯示美國 EPA AQI；資料是區域模型格點，不是環境部測站或健康警示。
-- 分析面板在三小時模型時點間插值，這不會新增實測資料。
+- Open-Meteo API 提供逐時輸出；底層 CAMS 原生約每 3 小時，中間值為 API 插值，不是新增實測資料。
 - 每日更新資料快照；網站執行時不直接連外，並以 manifest SHA-256 驗證每個靜態 JSON。
 - Open-Meteo 免費服務限非商業用途，使用時須按 CC BY 4.0 標示 Open-Meteo 與 CAMS。
 

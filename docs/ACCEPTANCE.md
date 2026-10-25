@@ -5,9 +5,9 @@
 ## 資料與 UI 驗收
 
 - Open-Meteo Air Quality API 的 CAMS Global 空品與 Open-Meteo Forecast API 風場皆成功；不得帶 API key。
-- 回應來源、回應大小、redirect、JSON 欄位、時間順序、臺灣格點範圍、四個唯一格點、原生 3 小時 cadence、30 天以上資料及 48 小時 freshness 全部通過。
+- 回應來源、回應大小、redirect、JSON 欄位、時間順序、臺灣格點範圍、四個唯一格點、連續逐時 API 輸出、底層 CAMS 原生 3 小時解析度、30 天以上資料及 48 小時 freshness 全部通過。
 - API 提供的 AQI 標示為美國 EPA AQI；污染物單位、Asia/Taipei 時區、CAMS 約 45 公里模型估算與非測站聲明須清楚。
-- 使用逐時分析時，兩個模型時點之間插值的數值要標明為推導值，不得描述成逐時實測。
+- Open-Meteo 的逐時輸出含底層 3 小時 CAMS 資料的 API 插值；不得描述為逐時實測或增加模型原生解析度。
 - 正式 workflow 使用 python run_all.py --mode api --require-api。API 或 metadata/digest 驗證失敗須使 job 失敗，不得讀舊 CSV 或 sample data 部署。
 - UI 保留既有主題和頁面邏輯；只修正資料來源標示、錯誤文案與可重現使用性缺陷。
 - 瀏覽器中的所有匯出 JSON 都須與 manifest SHA-256 相符。

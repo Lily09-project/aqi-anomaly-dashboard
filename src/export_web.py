@@ -217,6 +217,16 @@ def build_model(base: forecast.ForecastResult, enhanced: forecast.ForecastResult
     }
 
 
+def _resolution_hours(value: Any, default: int = 1) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError, OverflowError):
+        return default
+    if isinstance(value, bool) or not 1 <= parsed <= 24:
+        return default
+    return parsed
+
+
 def build_provenance(cleaned: pd.DataFrame, config: dict[str, Any], sample_dir: Path) -> dict[str, Any]:
     metadata_path = resolve_path(config, "reports.source_metadata_file")
     metadata = json.loads(metadata_path.read_text(encoding="utf-8")) if metadata_path.exists() else {}
@@ -224,11 +234,12 @@ def build_provenance(cleaned: pd.DataFrame, config: dict[str, Any], sample_dir: 
     frame["datetime"] = pd.to_datetime(frame["datetime"])
     provider = str(metadata.get("provider") or "unknown")
     modelled = provider == "open_meteo_cams_global" and metadata.get("is_simulated_data") is False
-    resolution = int(metadata.get("native_temporal_resolution_hours") or 1)
+    native_resolution = _resolution_hours(metadata.get("native_temporal_resolution_hours"), 3 if modelled else 1)
+    api_resolution = _resolution_hours(metadata.get("api_output_temporal_resolution_hours"), 1)
     expected = 0
     for _, station_rows in frame.groupby("site_name"):
         first, last = station_rows["datetime"].min(), station_rows["datetime"].max()
-        expected += int((last - first) / pd.Timedelta(hours=resolution)) + 1
+        expected += int((last - first) / pd.Timedelta(hours=api_resolution)) + 1
     sources = (
         [
             {"label": "Open-Meteo Air Quality API · CAMS Global", "url": "https://open-meteo.com/en/docs/air-quality-api"},
@@ -241,9 +252,9 @@ def build_provenance(cleaned: pd.DataFrame, config: dict[str, Any], sample_dir: 
             {"label": "環境部 AQI 分級說明", "url": "https://airtw.moenv.gov.tw/"},
         ]
     )
-    native_rows = metadata.get("row_count") if modelled else len(frame)
-    if not isinstance(native_rows, int) or isinstance(native_rows, bool) or native_rows < 0:
-        native_rows = len(frame)
+    source_rows = metadata.get("row_count") if modelled else len(frame)
+    if not isinstance(source_rows, int) or isinstance(source_rows, bool) or source_rows < 0:
+        source_rows = len(frame)
     return {
         "data_source": "Open-Meteo CAMS Global model estimates" if modelled else metadata.get("data_source", "Unknown"),
         "is_simulated": bool(metadata.get("is_simulated_data", True)),
@@ -251,7 +262,8 @@ def build_provenance(cleaned: pd.DataFrame, config: dict[str, Any], sample_dir: 
         "provider": provider,
         "model_name": metadata.get("model_name") if modelled else None,
         "aqi_standard": metadata.get("aqi_standard") if modelled else "Taiwan AQI",
-        "native_temporal_resolution_hours": resolution,
+        "native_temporal_resolution_hours": native_resolution,
+        "api_output_temporal_resolution_hours": api_resolution if modelled else None,
         "spatial_resolution_km": metadata.get("spatial_resolution_km") if modelled else None,
         "timezone": metadata.get("timezone", "Asia/Taipei"),
         "ozone_unit": metadata.get("ozone_unit", "ppb"),
@@ -259,8 +271,8 @@ def build_provenance(cleaned: pd.DataFrame, config: dict[str, Any], sample_dir: 
         "seed": config.get("random_state"),
         "range": {"start": _iso(frame["datetime"].min()), "end": _iso(frame["datetime"].max())},
         "stations": int(frame["site_name"].nunique()),
-        "rows": int(native_rows),
-        "completeness": _num(native_rows / expected, 4) if expected else None,
+        "rows": int(source_rows),
+        "completeness": _num(source_rows / expected, 4) if expected else None,
         "input_sha256": metadata.get("data_file_sha256"),
         "schema_sha256": metadata.get("schema_sha256"),
         "injected_events_file": "data/sample/injected_events.csv" if not modelled and bool(metadata.get("is_simulated_data", True)) and (sample_dir / "injected_events.csv").exists() else None,

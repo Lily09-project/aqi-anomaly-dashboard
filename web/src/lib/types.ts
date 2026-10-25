@@ -141,6 +141,7 @@ export interface Provenance {
   aqi_standard?: string;
   model_name?: string | null;
   native_temporal_resolution_hours?: number | null;
+  api_output_temporal_resolution_hours?: number | null;
   spatial_resolution_km?: number | null;
   timezone?: string;
   ozone_unit?: string;

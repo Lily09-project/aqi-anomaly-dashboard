@@ -1,7 +1,8 @@
 """Fetch public Open-Meteo CAMS global model estimates for Taiwan.
 
-CAMS global values are native three-hourly estimates on roughly 45 km grid
-cells. They are not air-quality monitoring-station observations.
+CAMS Global is native three-hourly data on roughly 45 km grid cells. Open-Meteo
+returns hourly time steps from this model; intermediate values are provider
+interpolation, not new observations or station measurements.
 """
 from __future__ import annotations
 
@@ -36,7 +37,7 @@ LOCATIONS = (
 )
 AIR_FIELDS = ("us_aqi", "pm2_5", "pm10", "ozone", "carbon_monoxide")
 WEATHER_FIELDS = ("wind_speed_10m", "wind_direction_10m")
-STEP = pd.Timedelta(hours=3)
+API_STEP = pd.Timedelta(hours=1)
 
 
 def _metadata_path(config: Mapping[str, Any], target: str | Path | None) -> Path:
@@ -163,10 +164,8 @@ def fetch_open_meteo(
             air_times, air_values = _hourly(aqi_location, AIR_FIELDS)
             wind_times, wind_values = _hourly(weather_location, WEATHER_FIELDS)
             intervals = pd.Series(air_times).diff().dropna()
-            if intervals.empty or intervals.median() != STEP or any(
-                delta < STEP or delta > pd.Timedelta(hours=9) or delta.value % STEP.value != 0 for delta in intervals
-            ):
-                raise ValueError("CAMS source does not match its documented three-hour cadence")
+            if intervals.empty or not intervals.eq(API_STEP).all():
+                raise ValueError("Open-Meteo hourly output is not a continuous one-hour series")
             if air_times[-1] > current_taipei or current_taipei-air_times[-1] > pd.Timedelta(hours=48) or air_times[-1]-air_times[0] < minimum_span:
                 raise ValueError("CAMS history is stale, too short, or includes future data")
             wind = {t: (s, d) for t, s, d in zip(wind_times, wind_values["wind_speed_10m"], wind_values["wind_direction_10m"])}
@@ -189,7 +188,7 @@ def fetch_open_meteo(
                              "county": config_location["county"], **values, "latitude": grid_lat, "longitude": grid_lon,
                              "coordinate_source": "Open-Meteo snapped CAMS global grid"})
             frame = pd.DataFrame(rows)
-            if frame.empty or len(frame) < minimum_days * 8 * .8:
+            if frame.empty or len(frame) < minimum_days * 24 * .8:
                 raise ValueError("too few aligned air-quality and weather rows")
             frames.append(frame)
         if len(grid_cells) != len(LOCATIONS):
@@ -208,11 +207,11 @@ def fetch_open_meteo(
             data_file_sha256=file_sha256(target),
         )
         metadata.update({
-            "timezone": "Asia/Taipei", "native_temporal_resolution_hours": 3, "spatial_resolution_km": 45,
+            "timezone": "Asia/Taipei", "native_temporal_resolution_hours": 3, "api_output_temporal_resolution_hours": 1, "spatial_resolution_km": 45,
             "aqi_standard": "U.S. EPA AQI", "ozone_unit": "μg/m³", "carbon_monoxide_unit": "μg/m³",
             "wind_speed_unit": "ms", "model_name": "CAMS Global Atmospheric Composition Forecasts",
             "weather_model": "Open-Meteo Forecast API",
-            "interpolation": "The hourly analytics interpolate only the two hours between native three-hourly CAMS estimates; these derived values are not additional observations.",
+            "interpolation": "Open-Meteo returns an hourly series from native three-hourly CAMS data; intermediate hourly values are provider interpolation and are not additional observations.",
             "regions": [{"name": loc["site_name"], "latitude": round(float(item["latitude"]),3), "longitude": round(float(item["longitude"]),3)}
                         for loc, item in zip(LOCATIONS, air)],
         })

@@ -27,8 +27,8 @@ class FakeResponse:
         self.closed = True
 
 
-def _payloads(duplicate_grid: bool = False):
-    air_times = pd.date_range("2026-09-20T00:00:00+08:00", periods=30 * 8 + 1, freq="3h")
+def _payloads(duplicate_grid: bool = False, step_hours: int = 1):
+    air_times = pd.date_range("2026-09-20T00:00:00+08:00", periods=(30 * 24) // step_hours + 1, freq=f"{step_hours}h")
     weather_times = pd.date_range(air_times[0], air_times[-1], freq="h")
     air = []
     weather = []
@@ -60,8 +60,8 @@ def _payloads(duplicate_grid: bool = False):
 
 
 class FakeClient:
-    def __init__(self, *, duplicate_grid: bool = False, redirect: bool = False):
-        self.air, self.weather = _payloads(duplicate_grid)
+    def __init__(self, *, duplicate_grid: bool = False, redirect: bool = False, step_hours: int = 1):
+        self.air, self.weather = _payloads(duplicate_grid, step_hours)
         self.redirect = redirect
         self.calls = []
 
@@ -106,6 +106,7 @@ def test_open_meteo_snapshot_is_unregistered_model_data_with_grid_metadata(tmp_p
     assert saved["data_source"] == "Model Estimate"
     assert saved["is_simulated_data"] is False
     assert saved["native_temporal_resolution_hours"] == 3
+    assert saved["api_output_temporal_resolution_hours"] == 1
     assert saved["spatial_resolution_km"] == 45
     assert saved["aqi_standard"] == "U.S. EPA AQI"
 
@@ -124,6 +125,17 @@ def test_open_meteo_rejects_redirect_and_preserves_previous_snapshot(tmp_path):
     saved = json.loads(metadata.read_text(encoding="utf-8"))
     assert saved["status"] == "fallback"
     assert "evil.example" not in json.dumps(saved)
+
+
+def test_open_meteo_rejects_non_hourly_api_output(tmp_path):
+    output = tmp_path / "raw" / "aqi_open_meteo.csv"
+    metadata = tmp_path / "source_metadata.json"
+    result = fetch_open_meteo(
+        _config(tmp_path), output, metadata, client=FakeClient(step_hours=2),
+        now=datetime(2026, 10, 21, 12, tzinfo=ZoneInfo("Asia/Taipei")),
+    )
+    assert result is None
+    assert not output.exists()
 
 
 def test_open_meteo_rejects_aliased_grid_cells_without_publication(tmp_path):

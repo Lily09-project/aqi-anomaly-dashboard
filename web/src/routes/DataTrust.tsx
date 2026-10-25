@@ -64,7 +64,7 @@ function Trust({ provenance, anomalies, propagation }: { provenance: Provenance;
           <span className="stat-label">涵蓋範圍</span>
           <p className="stat-value">{provenance.stations} {provenance.is_model_estimate ? "個模型格點" : "站"}</p>
           <span className="muted small">
-            {formatDay(provenance.range.start)} 至 {formatDay(provenance.range.end)} · {provenance.rows.toLocaleString("zh-TW")} 筆{provenance.is_model_estimate ? "原生模型時點（約每 " + (provenance.native_temporal_resolution_hours ?? 3) + " 小時）" : "逐時資料"} · 完整度{" "}
+            {formatDay(provenance.range.start)} 至 {formatDay(provenance.range.end)} · {provenance.rows.toLocaleString("zh-TW")} 筆{provenance.is_model_estimate ? "API 逐時輸出（底層模型原生約每 " + (provenance.native_temporal_resolution_hours ?? 3) + " 小時）" : "逐時資料"} · 完整度{" "}
             {formatPercent(provenance.completeness, 2)}
           </span>
         </div>
@@ -181,7 +181,7 @@ function Trust({ provenance, anomalies, propagation }: { provenance: Provenance;
         <p>以每個測站、每個時段的中位數與 MAD 計算穩健 z 分數，連續超過門檻的時段合併為事件；以高峰時各因子的 z 分數排序作為解釋，並以同一組 z 分數找出最相似的歷史事件。</p>
         <h3>不應該怎麼用</h3>
         <ul>
-          <li>{provenance.is_model_estimate ? "模型格點不是地面測站，解析度約 45 公里、原生約 3 小時；健康決策請查環境部即時資訊。" : "不是即時監測，也不是官方預報；健康決策請以環境部即時資訊為準。"}</li>
+          <li>{provenance.is_model_estimate ? "模型格點不是地面測站，解析度約 45 公里；CAMS 原生約 3 小時，API 逐時輸出含插值。健康決策請查環境部即時資訊。" : "不是即時監測，也不是官方預報；健康決策請以環境部即時資訊為準。"}</li>
           <li>情境模擬是條件相關的線性模型，不代表因果；調整滑桿不會真的改變大氣。</li>
           <li>合成資料只用於測試與 PR 預覽；正式頁面不以合成數據替代上游來源。</li>
         </ul>

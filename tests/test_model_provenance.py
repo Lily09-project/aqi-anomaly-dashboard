@@ -8,7 +8,7 @@ import pandas as pd
 from src.export_web import build_provenance
 
 
-def test_model_provenance_counts_native_api_rows_not_interpolated_hourly_rows(tmp_path: Path) -> None:
+def test_model_provenance_counts_hourly_api_rows_and_retains_native_model_resolution(tmp_path: Path) -> None:
     metadata_path = tmp_path / "source_metadata.json"
     metadata_path.write_text(
         json.dumps(
@@ -17,8 +17,9 @@ def test_model_provenance_counts_native_api_rows_not_interpolated_hourly_rows(tm
                 "status": "success",
                 "data_source": "Model Estimate",
                 "is_simulated_data": False,
-                "row_count": 16,
+                "row_count": 48,
                 "native_temporal_resolution_hours": 3,
+                "api_output_temporal_resolution_hours": 1,
                 "spatial_resolution_km": 45,
                 "model_name": "CAMS Global Atmospheric Composition Forecasts",
                 "aqi_standard": "U.S. EPA AQI",
@@ -35,8 +36,10 @@ def test_model_provenance_counts_native_api_rows_not_interpolated_hourly_rows(tm
 
     payload = build_provenance(cleaned, {"reports": {"source_metadata_file": str(metadata_path)}}, tmp_path / "sample")
 
-    # The 49 hourly panel rows represent 17 expected native 3-hour timestamps.
-    assert payload["rows"] == 16
-    assert payload["completeness"] == 0.9412
+    # The source has 48 API hourly rows across a 49-hour expected interval.
+    assert payload["rows"] == 48
+    assert payload["native_temporal_resolution_hours"] == 3
+    assert payload["api_output_temporal_resolution_hours"] == 1
+    assert payload["completeness"] == 0.9796
     assert payload["is_model_estimate"] is True
     assert payload["is_simulated"] is False
