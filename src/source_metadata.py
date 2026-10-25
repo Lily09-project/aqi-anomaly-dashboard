@@ -96,7 +96,7 @@ def frame_summary(frame: pd.DataFrame | None) -> dict[str, Any]:
 
 
 def _source_label(mode: str, status: str, data_source: str | None) -> tuple[str, bool]:
-    if data_source in {"Sample Data", "API Data"}:
+    if data_source in {"Sample Data", "API Data", "Model Estimate"}:
         return data_source, data_source == "Sample Data"
     if mode == "sample" or status == "fallback":
         return "Sample Data", True
@@ -190,7 +190,7 @@ def resolve_effective_run_mode(
     if (
         requested_mode == "api"
         and metadata.get("status") == "success"
-        and metadata.get("data_source") == "API Data"
+        and metadata.get("data_source") in {"API Data", "Model Estimate"}
         and metadata.get("is_simulated_data") is False
         and expected_digest
         and actual_digest == expected_digest

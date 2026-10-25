@@ -5,7 +5,7 @@ import { EmptyState, Gate } from "../components/States";
 import { ADVICE, bestWindow, categoryOf, exceedanceProbability, windowRisks } from "../lib/air";
 import { addHours, formatClock, formatHour, formatNumber, formatPercent } from "../lib/format";
 import { routeToHash, type Sensitivity } from "../lib/router";
-import type { Model, Overview } from "../lib/types";
+import type { Model, Overview, Provenance } from "../lib/types";
 import "./Station.css";
 
 const HISTORY_SHOWN = 48;
@@ -18,14 +18,15 @@ interface Props {
   hours: number;
 }
 
-function StationView({ overview, model, station: name, sensitivity, hours }: Props & { overview: Overview; model: Model }) {
+function StationView({ overview, model, provenance, station: name, sensitivity, hours }: Props & { overview: Overview; model: Model; provenance: Provenance }) {
   const [, navigate] = useRoute();
   const station = overview.stations.find((s) => s.station === name);
+  const locationLabel = provenance.is_model_estimate ? "模型格點" : "測站";
   if (!station) {
     return (
-      <EmptyState title="找不到這個測站">
+      <EmptyState title={"找不到這個" + locationLabel}>
         <p>
-          「{name}」不在資料中。<a href={routeToHash({ name: "home" })}>回到即時總覽</a>選擇測站。
+          「{name}」不在資料中。<a href={routeToHash({ name: "home" })}>回到總覽</a>選擇{locationLabel}。
         </p>
       </EmptyState>
     );
@@ -54,7 +55,7 @@ function StationView({ overview, model, station: name, sensitivity, hours }: Pro
           <h1>{station.station}</h1>
         </div>
         <label className="field station-switch">
-          <span className="label">切換測站</span>
+          <span className="label">切換{locationLabel}</span>
           <select
             className="input"
             value={station.station}
@@ -71,7 +72,7 @@ function StationView({ overview, model, station: name, sensitivity, hours }: Pro
 
       <section className="grid grid-3" aria-label="目前狀態">
         <div className="card kpi">
-          <span className="stat-label">目前 AQI</span>
+          <span className="stat-label">{provenance.is_model_estimate ? "目前美國 AQI" : "目前 AQI"}</span>
           <span className="aqi-big" data-testid="current-aqi">
             {formatNumber(station.aqi)}
           </span>
@@ -85,7 +86,7 @@ function StationView({ overview, model, station: name, sensitivity, hours }: Pro
             <dt>PM10</dt>
             <dd>{formatNumber(station.pm10, 1)} µg/m³</dd>
             <dt>臭氧</dt>
-            <dd>{formatNumber(station.o3, 1)} ppb</dd>
+            <dd>{formatNumber(station.o3, 1)} {provenance.ozone_unit ?? "ppb"}</dd>
             <dt>風速</dt>
             <dd>{formatNumber(station.wind_speed, 1)} m/s</dd>
           </dl>
@@ -93,7 +94,7 @@ function StationView({ overview, model, station: name, sensitivity, hours }: Pro
         <div className="card kpi">
           <span className="stat-label">{AUDIENCE[sensitivity]}活動建議</span>
           <p data-testid="advice">{advice ? advice[sensitivity] : "無資料"}</p>
-          <span className="muted small">依環境部 AQI 分級的活動建議改寫</span>
+          <span className="muted small">{provenance.is_model_estimate ? "參考美國 AQI 分級 · 模型估算" : "依環境部 AQI 分級的活動建議改寫"}</span>
         </div>
       </section>
 
@@ -146,7 +147,7 @@ function StationView({ overview, model, station: name, sensitivity, hours }: Pro
 
         <ChartFrame
           title={`${station.station} 過去 ${HISTORY_SHOWN} 小時與未來 24 小時預報`}
-          summary={`實線為觀測、虛線為預報中位數，陰影為 80% 預測區間；紅線是${AUDIENCE[sensitivity]}門檻 ${threshold}${best ? `，綠色區塊是建議時段` : ""}。`}
+          summary={(provenance.is_model_estimate ? "實線為每 3 小時模型估算值與時點間插值" : "實線為來源資料") + "、虛線為預報中位數，陰影為 80% 預測區間；紅線是" + AUDIENCE[sensitivity] + "門檻 " + threshold + (best ? "，綠色區塊是建議時段" : "") + "。"}
           table={
             <table data-testid="forecast-table">
               <thead>
@@ -193,9 +194,10 @@ export default function Station(props: Props) {
   useDocumentTitle(props.station);
   const overview = useDataset("overview.json");
   const model = useDataset("model.json");
+  const provenance = useDataset("provenance.json");
   return (
     <div className="page">
-      <Gate<[Overview, Model]> states={[overview, model]}>{(o, m) => <StationView overview={o} model={m} {...props} />}</Gate>
+      <Gate<[Overview, Model, Provenance]> states={[overview, model, provenance]}>{(o, m, p) => <StationView overview={o} model={m} provenance={p} {...props} />}</Gate>
     </div>
   );
 }

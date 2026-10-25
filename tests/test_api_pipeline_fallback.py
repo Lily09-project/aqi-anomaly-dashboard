@@ -50,3 +50,21 @@ def test_sample_mode_never_calls_the_api(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(run_all, "load_config", lambda: {})
 
     assert run_all.run("sample", out_dir=tmp_path / "out") == {}
+
+
+def test_require_api_never_falls_back_to_sample(monkeypatch, tmp_path: Path) -> None:
+    paths = {
+        "data.raw_dir": tmp_path / "raw",
+        "data.sample_file": tmp_path / "sample" / "sample_aqi.csv",
+        "data.cleaned_file": tmp_path / "processed" / "aqi_cleaned.csv",
+    }
+    calls: list[str] = []
+    monkeypatch.setattr(run_all, "fetch_aqi_data", lambda: None)
+    monkeypatch.setattr(run_all, "load_config", lambda: {})
+    monkeypatch.setattr(run_all, "resolve_path", lambda _config, key: paths[key])
+    monkeypatch.setattr(run_all, "latest_csv", lambda _path: calls.append("cached") or None)
+    monkeypatch.setattr(run_all, "generate_sample_aqi", lambda: calls.append("sample"))
+    import pytest
+    with pytest.raises(RuntimeError, match="refusing to publish a sample-data build"):
+        run_all.run("api", out_dir=tmp_path / "out", require_api=True)
+    assert calls == []

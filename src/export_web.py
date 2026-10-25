@@ -49,9 +49,21 @@ def _write_json(path: Path, payload: Any) -> str:
 
 
 def _station_meta(cleaned: pd.DataFrame) -> dict[str, dict[str, Any]]:
-    meta = {}
+    meta: dict[str, dict[str, Any]] = {}
+    grid_coordinates: dict[str, dict[str, Any]] = {}
+    if {"latitude", "longitude"}.issubset(cleaned.columns):
+        columns = ["site_name", "latitude", "longitude"]
+        if "coordinate_source" in cleaned.columns:
+            columns.append("coordinate_source")
+        rows = cleaned[columns].dropna(subset=["latitude", "longitude"]).drop_duplicates("site_name", keep="last")
+        for row in rows.to_dict(orient="records"):
+            grid_coordinates[str(row["site_name"])] = {
+                "latitude": row["latitude"],
+                "longitude": row["longitude"],
+                "coordinate_source": row.get("coordinate_source", "unknown"),
+            }
     for station, county in cleaned[["site_name", "county"]].drop_duplicates().itertuples(index=False):
-        location = get_station_location(station, county) or {}
+        location = grid_coordinates.get(station) or get_station_location(station, county) or {}
         meta[station] = {
             "county": county,
             "latitude": _num(location.get("latitude"), 3),
@@ -59,6 +71,7 @@ def _station_meta(cleaned: pd.DataFrame) -> dict[str, dict[str, Any]]:
             "coordinate_source": location.get("coordinate_source", "unknown"),
         }
     return meta
+
 
 
 def build_overview(panels: dict[str, pd.DataFrame], meta: dict[str, dict[str, Any]], forecasts: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
@@ -209,24 +222,51 @@ def build_provenance(cleaned: pd.DataFrame, config: dict[str, Any], sample_dir: 
     metadata = json.loads(metadata_path.read_text(encoding="utf-8")) if metadata_path.exists() else {}
     frame = cleaned.copy()
     frame["datetime"] = pd.to_datetime(frame["datetime"])
-    expected = frame["site_name"].nunique() * (int((frame["datetime"].max() - frame["datetime"].min()) / pd.Timedelta(hours=1)) + 1)
+    provider = str(metadata.get("provider") or "unknown")
+    modelled = provider == "open_meteo_cams_global" and metadata.get("is_simulated_data") is False
+    resolution = int(metadata.get("native_temporal_resolution_hours") or 1)
+    expected = 0
+    for _, station_rows in frame.groupby("site_name"):
+        first, last = station_rows["datetime"].min(), station_rows["datetime"].max()
+        expected += int((last - first) / pd.Timedelta(hours=resolution)) + 1
+    sources = (
+        [
+            {"label": "Open-Meteo Air Quality API · CAMS Global", "url": "https://open-meteo.com/en/docs/air-quality-api"},
+            {"label": "CAMS Global Atmospheric Composition Forecasts · Copernicus Atmosphere Monitoring Service", "url": "https://atmosphere.copernicus.eu/"},
+            {"label": "Open-Meteo Forecast API (wind fields)", "url": "https://open-meteo.com/en/docs"},
+        ]
+        if modelled
+        else [
+            {"label": "環境部空氣品質指標（AQX_P_432）", "url": "https://data.moenv.gov.tw/dataset/detail/aqx_p_432"},
+            {"label": "環境部 AQI 分級說明", "url": "https://airtw.moenv.gov.tw/"},
+        ]
+    )
+    native_rows = metadata.get("row_count") if modelled else len(frame)
+    if not isinstance(native_rows, int) or isinstance(native_rows, bool) or native_rows < 0:
+        native_rows = len(frame)
     return {
-        "data_source": metadata.get("data_source", "Unknown"),
+        "data_source": "Open-Meteo CAMS Global model estimates" if modelled else metadata.get("data_source", "Unknown"),
         "is_simulated": bool(metadata.get("is_simulated_data", True)),
-        "provider": metadata.get("provider"),
+        "is_model_estimate": modelled,
+        "provider": provider,
+        "model_name": metadata.get("model_name") if modelled else None,
+        "aqi_standard": metadata.get("aqi_standard") if modelled else "Taiwan AQI",
+        "native_temporal_resolution_hours": resolution,
+        "spatial_resolution_km": metadata.get("spatial_resolution_km") if modelled else None,
+        "timezone": metadata.get("timezone", "Asia/Taipei"),
+        "ozone_unit": metadata.get("ozone_unit", "ppb"),
+        "interpolation": metadata.get("interpolation") if modelled else None,
         "seed": config.get("random_state"),
         "range": {"start": _iso(frame["datetime"].min()), "end": _iso(frame["datetime"].max())},
         "stations": int(frame["site_name"].nunique()),
-        "rows": int(len(frame)),
-        "completeness": _num(len(frame) / expected, 4) if expected else None,
+        "rows": int(native_rows),
+        "completeness": _num(native_rows / expected, 4) if expected else None,
         "input_sha256": metadata.get("data_file_sha256"),
         "schema_sha256": metadata.get("schema_sha256"),
-        "injected_events_file": "data/sample/injected_events.csv" if (sample_dir / "injected_events.csv").exists() else None,
-        "sources": [
-            {"label": "環境部空氣品質指標（AQX_P_432）", "url": "https://data.moenv.gov.tw/dataset/detail/aqx_p_432"},
-            {"label": "環境部 AQI 分級說明", "url": "https://airtw.moenv.gov.tw/"},
-        ],
+        "injected_events_file": "data/sample/injected_events.csv" if not modelled and bool(metadata.get("is_simulated_data", True)) and (sample_dir / "injected_events.csv").exists() else None,
+        "sources": sources,
     }
+
 
 
 MIN_HISTORY_DAYS = 14

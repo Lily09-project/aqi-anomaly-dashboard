@@ -185,6 +185,10 @@ def fetch_aqi_data(output_path: str | Path | None = None, metadata_path: str | P
     api_config = config.get("api", {})
     provider = str(api_config.get("provider", "moenv_aqx_p_432"))
     metadata_target = _metadata_target(config, metadata_path)
+    if provider == "open_meteo_cams_global":
+        from src.fetch_open_meteo import fetch_open_meteo
+
+        return fetch_open_meteo(config=config, output_path=output_path, metadata_path=metadata_target)
 
     try:
         from dotenv import load_dotenv  # type: ignore

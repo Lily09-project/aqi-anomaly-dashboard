@@ -137,6 +137,14 @@ export interface Model {
 export interface Provenance {
   data_source: string;
   is_simulated: boolean;
+  is_model_estimate?: boolean;
+  aqi_standard?: string;
+  model_name?: string | null;
+  native_temporal_resolution_hours?: number | null;
+  spatial_resolution_km?: number | null;
+  timezone?: string;
+  ozone_unit?: string;
+  interpolation?: string | null;
   provider: string | null;
   seed: number;
   range: { start: string; end: string };

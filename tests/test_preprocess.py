@@ -105,3 +105,30 @@ def test_preprocess_does_not_fill_from_future_values(tmp_path):
 
     assert cleaned["datetime"].min() == pd.Timestamp("2026-06-01 01:00")
     assert cleaned["data_source"].eq("Sample Data").all()
+
+
+def test_preprocess_preserves_model_grid_coordinates_and_provenance(monkeypatch, tmp_path):
+    from src.source_metadata import file_sha256
+    rows = pd.DataFrame({
+        "datetime": pd.date_range("2026-08-20T00:00:00+08:00", periods=4, freq="3h").astype(str),
+        "site_name": ["臺北網格"] * 4, "county": ["Taipei City"] * 4,
+        "aqi": [30, 32, 31, 34], "pm25": [4, 5, 4, 6], "pm10": [8, 9, 8, 10],
+        "o3": [40, 42, 41, 43], "co": [180, 185, 181, 188],
+        "wind_speed": [1.2, 1.4, 1.1, 1.3], "wind_directions": [90, 95, 100, 105],
+        "latitude": [25.1] * 4, "longitude": [121.5] * 4,
+        "coordinate_source": ["CAMS grid"] * 4,
+    })
+    path = tmp_path / "model.csv"
+    rows.to_csv(path, index=False)
+    metadata = {
+        "status": "success", "data_source": "Model Estimate", "is_simulated_data": False,
+        "data_file_sha256": file_sha256(path), "provider": "open_meteo_cams_global",
+    }
+    output = tmp_path / "clean.csv"
+    monkeypatch.setattr("src.preprocess.load_config", lambda: {})
+    monkeypatch.setattr("src.preprocess.resolve_path", lambda _config, _key: output)
+    cleaned = preprocess(mode="api", input_path=path, source_metadata=metadata)
+    assert cleaned["data_source"].eq("Model Estimate").all()
+    assert cleaned["latitude"].eq(25.1).all()
+    assert cleaned["longitude"].eq(121.5).all()
+    assert cleaned["coordinate_source"].eq("CAMS grid").all()
