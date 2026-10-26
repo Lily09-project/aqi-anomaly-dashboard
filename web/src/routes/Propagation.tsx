@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useDataset, useDocumentTitle, usePrefersReducedMotion, useRoute } from "../app/hooks";
+import { useDataset, useDocumentTitle, useRoute } from "../app/hooks";
 import { ArrivalStrips, ChartFrame, TaiwanMap } from "../components/charts";
 import { ScrollRegion } from "../components/ScrollRegion";
 import { Gate } from "../components/States";
@@ -13,7 +13,6 @@ const shortName = (name: string) => name.replace(/(?:測站|網格)$/, "");
 
 function Replay({ overview, propagation, initialFrame }: { overview: Overview; propagation: Propagation; initialFrame: number }) {
   const [, navigate] = useRoute();
-  const reducedMotion = usePrefersReducedMotion();
   const episode = propagation.episode;
   const last = Math.max(episode.times.length - 1, 0);
   const [frame, setFrame] = useState(Math.min(initialFrame, last));
@@ -22,9 +21,9 @@ function Replay({ overview, propagation, initialFrame }: { overview: Overview; p
 
   useEffect(() => {
     if (!isPlaying) return;
-    const id = window.setInterval(() => setFrame((f) => Math.min(f + 1, last)), reducedMotion ? 1200 : 450);
+    const id = window.setInterval(() => setFrame((f) => Math.min(f + 1, last)), 450);
     return () => window.clearInterval(id);
-  }, [isPlaying, last, reducedMotion]);
+  }, [isPlaying, last]);
 
   useEffect(() => {
     navigate({ name: "propagation", frame }, { replace: true });
@@ -86,7 +85,6 @@ function Replay({ overview, propagation, initialFrame }: { overview: Overview; p
           />
         </label>
       </div>
-      {reducedMotion && <p className="muted small">已偵測到「減少動態效果」設定：播放速度放慢且不使用轉場動畫。</p>}
       <div className="split">
         <ChartFrame
           title={`${formatHour(time)} 各地點 AQI`}
