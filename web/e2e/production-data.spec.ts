@@ -1,5 +1,6 @@
 import { expect, expectAccessible, fetchJson, openRoute, test } from "./fixtures";
-import { taiwanLocalTimestampMs } from "../src/lib/format";
+// Independent oracle: never reuse the application parser when checking production timestamps.
+const forecastInstant = (value: string) => Date.parse(/(?:Z|[+-]\d{2}:\d{2})$/.test(value) ? value : `${value}+08:00`);
 
 interface Provenance {
   provider: string;
@@ -35,6 +36,11 @@ test.describe("正式公開空品模型資料", () => {
     expect(provenance.input_sha256).toMatch(/^[a-f0-9]{64}$/);
     expect(overview.stations.length).toBeGreaterThan(0);
 
+    const firstForecast = overview.stations[0]!.forecast[0]!;
+    const evaluationTime = forecastInstant(firstForecast.t) + 30 * 60_000;
+    expect(Number.isFinite(evaluationTime)).toBe(true);
+    await page.clock.install({ time: evaluationTime });
+
     await openRoute(page, "/");
     await expect(page.getByTestId("data-badge")).toHaveText("CAMS 模型估算");
     await expect(page.locator(".taiwan-map a")).toHaveCount(overview.stations.length);
@@ -50,24 +56,26 @@ test.describe("正式公開空品模型資料", () => {
     );
     const expectedFutureTimes = selectedStation!.forecast
       .filter((hour) => {
-        const timestamp = taiwanLocalTimestampMs(hour.t);
-        return timestamp !== null && timestamp >= asOfMs;
+        const timestamp = forecastInstant(hour.t);
+        return Number.isFinite(timestamp) && timestamp >= asOfMs;
       })
       .map((hour) => hour.t);
+    expect(asOfMs).toBe(evaluationTime);
+    expect(expectedFutureTimes.length).toBeGreaterThanOrEqual(2);
     expect(displayedTimes).toEqual(expectedFutureTimes);
     expect(displayedTimes.length).toBeLessThanOrEqual(24);
     const bestWindow = page.getByTestId("best-window");
-    const bestCount = await bestWindow.count();
-    expect(bestCount).toBeLessThanOrEqual(1);
-    if (bestCount === 1) {
-      const bestStart = await bestWindow.getAttribute("data-window-start");
-      expect(bestStart).toBeTruthy();
-      const bestTimestamp = taiwanLocalTimestampMs(bestStart!);
-      expect(bestTimestamp).not.toBeNull();
-      expect(bestTimestamp!).toBeGreaterThanOrEqual(asOfMs);
-    } else {
-      await expect(page.getByTestId("planner-result")).toContainText("不足");
-    }
+    await expect(bestWindow).toHaveCount(1);
+    const bestStart = await bestWindow.getAttribute("data-window-start");
+    expect(bestStart).toBeTruthy();
+    expect(forecastInstant(bestStart!)).toBeGreaterThanOrEqual(asOfMs);
+
+    const lastForecastMs = Math.max(...selectedStation!.forecast.map((hour) => forecastInstant(hour.t)));
+    await page.clock.setFixedTime(lastForecastMs + 1);
+    await page.reload();
+    await expect(page.getByTestId("planner-result")).toContainText("不足");
+    await expect(forecastTable.locator("tbody tr[data-forecast-time]")).toHaveCount(0);
+    await expect(bestWindow).toHaveCount(0);
     await expectAccessible(page);
 
     await openRoute(page, "/data");
