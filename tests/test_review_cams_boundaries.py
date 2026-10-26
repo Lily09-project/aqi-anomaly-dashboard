@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from src.fetch_open_meteo import fetch_open_meteo
-from tests.test_open_meteo import FakeClient, _config
+from test_open_meteo import FakeClient, _config
 
 
 @pytest.mark.parametrize("gap", ["stale_tail", "interior_hour"])
