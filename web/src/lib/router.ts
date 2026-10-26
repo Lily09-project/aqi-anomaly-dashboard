@@ -24,7 +24,12 @@ export function parseRoute(hash: string): Route {
   const raw = hash.replace(/^#/, "") || "/";
   const [path = "/", query = ""] = raw.split("?");
   const params = new URLSearchParams(query);
-  const parts = path.split("/").filter(Boolean).map(decodeURIComponent);
+  let parts: string[];
+  try {
+    parts = path.split("/").filter(Boolean).map(decodeURIComponent);
+  } catch {
+    return { name: "not-found", path };
+  }
   const [head, second] = parts;
   switch (head) {
     case undefined:
