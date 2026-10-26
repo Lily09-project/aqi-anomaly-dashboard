@@ -113,6 +113,8 @@ test.describe("F4 異常歸因與相似事件", () => {
 test.describe("F5 情境模擬", () => {
   test("sliders recompute the prediction in the browser", async ({ page }) => {
     await openRoute(page, "/whatif");
+    const model = await fetchJson<WhatIf>(page, "whatif.json");
+    const defaultAqi = model.inputs.find((input) => input.key === "aqi_now")!.default;
     const prediction = page.getByTestId("whatif-prediction");
     const before = Number(await prediction.innerText());
     const slider = page.getByRole("slider", { name: "目前 AQI", exact: true });
@@ -121,11 +123,10 @@ test.describe("F5 情境模擬", () => {
     await expect(prediction).not.toHaveText(String(before));
     expect(Number(await prediction.innerText())).toBeGreaterThan(before);
     await page.getByLabel("從地點目前狀態載入").selectOption("前金測站");
-    await expect(page.getByTestId("value-aqi_now")).not.toHaveText("55.7");
+    await expect(page.getByTestId("value-aqi_now")).not.toHaveText(String(defaultAqi));
     await page.getByRole("button", { name: "重設為典型值" }).click();
-    await expect(page.getByTestId("value-aqi_now")).toHaveText(/55\.7/);
-    // The browser model is fed the same numbers the Python tests check.
-    const model = await fetchJson<WhatIf>(page, "whatif.json");
+    await expect(page.getByTestId("value-aqi_now")).toHaveText(defaultAqi.toFixed(1));
+    // The reset uses the current training-only typical value, not an old fixture constant.
     expect(model.parity_cases.length).toBeGreaterThanOrEqual(10);
     await expectAccessible(page);
   });
