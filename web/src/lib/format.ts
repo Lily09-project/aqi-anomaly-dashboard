@@ -16,13 +16,13 @@ export function formatSigned(value: number, digits = 1): string {
 const TAIWAN_UTC_OFFSET_MS = 8 * 60 * 60 * 1_000;
 
 /**
- * Parse the project's timezone-naive Taiwan local timestamps as UTC instants.
- * Exported data omits its offset, so interpreting it in the visitor's zone is unsafe.
+ * Parse Taiwan-local timestamps, honoring explicit ISO offsets when present.
+ * Histories omit the offset; production forecasts may include +08:00.
  */
 export function taiwanLocalTimestampMs(value: string): number | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?$/.exec(value);
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}:\d{2})?$/.exec(value);
   if (!match) return null;
-  const [, yearText, monthText, dayText, hourText, minuteText, secondText, fraction] = match;
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText, fraction, offsetText] = match;
   const year = Number(yearText);
   const month = Number(monthText);
   const day = Number(dayText);
@@ -44,11 +44,21 @@ export function taiwanLocalTimestampMs(value: string): number | null {
   ) {
     return null;
   }
-  return localAsUtc - TAIWAN_UTC_OFFSET_MS;
+  let offsetMs = TAIWAN_UTC_OFFSET_MS;
+  if (offsetText === "Z") {
+    offsetMs = 0;
+  } else if (offsetText) {
+    const offsetHours = Number(offsetText.slice(1, 3));
+    const offsetMinutes = Number(offsetText.slice(4, 6));
+    if (offsetHours > 23 || offsetMinutes > 59) return null;
+    const sign = offsetText.startsWith("+") ? 1 : -1;
+    offsetMs = sign * (offsetHours * 60 + offsetMinutes) * 60_000;
+  }
+  return localAsUtc - offsetMs;
 }
 
 /**
- * Exported timestamps are Taiwan local time without an offset ("2026-10-20T23:00").
+ * Exported timestamps use Taiwan clock values, optionally with an explicit +08:00 offset.
  * They are formatted as text so the viewer's own time zone never shifts them.
  */
 export function formatHour(iso: string): string {

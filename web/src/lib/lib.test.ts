@@ -38,7 +38,29 @@ describe("future forecast times", () => {
     expect(taiwanLocalTimestampMs("2026-10-26T13:00:00.250")).toBe(Date.parse("2026-10-26T05:00:00.250Z"));
     expect(taiwanLocalTimestampMs("2026-02-30T12:00")).toBeNull();
     expect(taiwanLocalTimestampMs("2026-10-26T24:00")).toBeNull();
-    expect(taiwanLocalTimestampMs("2026-10-26T12:00Z")).toBeNull();
+    expect(taiwanLocalTimestampMs("2026-10-26T12:00Z")).toBe(Date.parse("2026-10-26T12:00:00Z"));
+  });
+
+  it("honors the offset-bearing production forecast format and equivalent UTC instants", () => {
+    const instant = Date.parse("2026-10-26T04:00:00Z");
+    expect(taiwanLocalTimestampMs("2026-10-26T12:00:00+08:00")).toBe(instant);
+    expect(taiwanLocalTimestampMs("2026-10-26T04:00:00Z")).toBe(instant);
+    expect(taiwanLocalTimestampMs("2026-10-26T00:00:00-04:00")).toBe(instant);
+    expect(taiwanLocalTimestampMs("2026-10-26T09:30:00+05:30")).toBe(instant);
+    expect(taiwanLocalTimestampMs("2026-10-26T12:00:00.250+08:00")).toBe(instant + 250);
+    for (const invalid of [
+      "2026-02-30T12:00:00+08:00",
+      "2026-10-26T12:00:00+24:00",
+      "2026-10-26T12:00:00+08:60",
+      "2026-10-26T12:00:00+0800",
+      "2026-10-26T12:00:00Zjunk",
+    ]) expect(taiwanLocalTimestampMs(invalid)).toBeNull();
+    const production = [11, 12, 13].map((hour) => ({
+      h: hour, t: `2026-10-26T${hour}:00:00+08:00`,
+    }));
+    expect(futureForecast(production, instant).map((hour) => hour.h)).toEqual([12, 13]);
+    expect(futureForecast(production, instant + 1).map((hour) => hour.h)).toEqual([13]);
+    expect(futureForecast(production, instant + 3_600_001)).toEqual([]);
   });
 
   it("excludes expired hours while including a forecast exactly at the evaluation time", () => {
