@@ -2,6 +2,7 @@
  * AQI categories, the outing planner and the in-browser what-if model.
  * Each function mirrors a Python module and is tested against it.
  */
+import { taiwanLocalTimestampMs } from "./format";
 import type { Category, QuantileHour, WhatIf } from "./types";
 
 export const DEFAULT_CATEGORIES: Category[] = [
@@ -59,6 +60,16 @@ export function exceedanceProbability(hour: Pick<QuantileHour, "p10" | "p50" | "
     cdf = ps[segment]! + ((ps[segment + 1]! - ps[segment]!) * (threshold - lo)) / Math.max(hi - lo, 1e-9);
   }
   return 1 - Math.min(Math.max(cdf, 0), 1);
+}
+
+
+/** Keep only forecast hours that have not started yet, using Taiwan-local timestamps. */
+export function futureForecast<T extends Pick<QuantileHour, "t">>(forecast: readonly T[], nowMs = Date.now()): T[] {
+  if (!Number.isFinite(nowMs)) return [];
+  return forecast.filter((hour) => {
+    const instant = taiwanLocalTimestampMs(hour.t);
+    return instant !== null && instant >= nowMs;
+  });
 }
 
 export interface Window {

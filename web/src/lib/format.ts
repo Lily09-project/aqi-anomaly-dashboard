@@ -13,6 +13,40 @@ export function formatSigned(value: number, digits = 1): string {
   return value > 0 ? `+${fixed}` : fixed === `-${(0).toFixed(digits)}` ? (0).toFixed(digits) : fixed;
 }
 
+const TAIWAN_UTC_OFFSET_MS = 8 * 60 * 60 * 1_000;
+
+/**
+ * Parse the project's timezone-naive Taiwan local timestamps as UTC instants.
+ * Exported data omits its offset, so interpreting it in the visitor's zone is unsafe.
+ */
+export function taiwanLocalTimestampMs(value: string): number | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?$/.exec(value);
+  if (!match) return null;
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText, fraction] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText ?? 0);
+  const millisecond = Number((fraction ?? "").slice(0, 3).padEnd(3, "0"));
+  const localAsUtc = Date.UTC(year, month - 1, day, hour, minute, second, millisecond);
+  const check = new Date(localAsUtc);
+  if (
+    !Number.isFinite(localAsUtc) ||
+    check.getUTCFullYear() !== year ||
+    check.getUTCMonth() !== month - 1 ||
+    check.getUTCDate() !== day ||
+    check.getUTCHours() !== hour ||
+    check.getUTCMinutes() !== minute ||
+    check.getUTCSeconds() !== second ||
+    check.getUTCMilliseconds() !== millisecond
+  ) {
+    return null;
+  }
+  return localAsUtc - TAIWAN_UTC_OFFSET_MS;
+}
+
 /**
  * Exported timestamps are Taiwan local time without an offset ("2026-10-20T23:00").
  * They are formatted as text so the viewer's own time zone never shifts them.
