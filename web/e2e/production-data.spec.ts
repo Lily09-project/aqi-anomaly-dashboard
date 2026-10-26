@@ -56,9 +56,13 @@ test.describe("正式公開空品模型資料", () => {
       .map((hour) => hour.t);
     expect(displayedTimes).toEqual(expectedFutureTimes);
     expect(displayedTimes.length).toBeLessThanOrEqual(24);
-    const bestStart = await page.getByTestId("best-window").getAttribute("data-window-start");
-    if (bestStart) {
-      const bestTimestamp = taiwanLocalTimestampMs(bestStart);
+    const bestWindow = page.getByTestId("best-window");
+    const bestCount = await bestWindow.count();
+    expect(bestCount).toBeLessThanOrEqual(1);
+    if (bestCount === 1) {
+      const bestStart = await bestWindow.getAttribute("data-window-start");
+      expect(bestStart).toBeTruthy();
+      const bestTimestamp = taiwanLocalTimestampMs(bestStart!);
       expect(bestTimestamp).not.toBeNull();
       expect(bestTimestamp!).toBeGreaterThanOrEqual(asOfMs);
     } else {
