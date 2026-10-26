@@ -142,7 +142,7 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
           {best && windowStart && windowEnd ? (
             <>
               <p className="planner-answer">
-                建議 <strong data-testid="best-window">{formatHour(windowStart.t)}–{formatClock(addHours(windowEnd.t, 1))}</strong>
+                建議 <strong data-testid="best-window" data-window-start={windowStart.t}>{formatHour(windowStart.t)}–{formatClock(addHours(windowEnd.t, 1))}</strong>
                 ，平均超標機率 <strong data-testid="best-risk">{formatPercent(best.risk, 1)}</strong>
               </p>
               <p className="muted">

@@ -28,6 +28,7 @@ test.describe("F1 測站總覽地圖", () => {
 
 test.describe("F2 機率預報與出門規劃", () => {
   test("planner settings live in the URL and the recommendation updates", async ({ page }) => {
+    await page.clock.install({ time: new Date("2000-01-01T00:00:00Z") });
     await openRoute(page, "/station/前金測站");
     await expect(page.getByTestId("forecast-table").locator("tbody tr")).toHaveCount(24);
     const first = await page.getByTestId("best-window").innerText();
