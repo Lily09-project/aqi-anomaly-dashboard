@@ -40,6 +40,7 @@ test.describe("正式公開空品模型資料", () => {
     const evaluationTime = forecastInstant(firstForecast.t) + 30 * 60_000;
     expect(Number.isFinite(evaluationTime)).toBe(true);
     await page.clock.install({ time: evaluationTime });
+    await page.clock.setFixedTime(evaluationTime);
 
     await openRoute(page, "/");
     await expect(page.getByTestId("data-badge")).toHaveText("CAMS 模型估算");
