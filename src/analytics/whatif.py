@@ -55,7 +55,9 @@ def training_table(panels: dict[str, pd.DataFrame]) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True).dropna()
 
 
-def fit_whatif(panels: dict[str, pd.DataFrame], alpha: float = 1.0) -> tuple[RidgeModel, dict[str, Any]]:
+def fit_whatif(panels: dict[str, pd.DataFrame], alpha: float = 1.0, *, ozone_unit: str = "ppb") -> tuple[RidgeModel, dict[str, Any]]:
+    if ozone_unit not in {"ppb", "µg/m³", "μg/m³"}:
+        raise ValueError("Unsupported ozone unit")
     table = training_table(panels)
     train_end, calibration_end = split_times(panels["aqi"].index)
     train = table[table["origin"] < train_end]
@@ -63,7 +65,7 @@ def fit_whatif(panels: dict[str, pd.DataFrame], alpha: float = 1.0) -> tuple[Rid
     model = fit_ridge(_features(train), train["target"].to_numpy(), alpha=alpha)
     residuals = calibration["target"].to_numpy() - model.predict(_features(calibration))
     ranges = {
-        name: {"min": round(float(table[name].quantile(0.01)), 1), "max": round(float(table[name].quantile(0.99)), 1), "default": round(float(table[name].median()), 1)}
+        name: {"min": round(float(train[name].quantile(0.01)), 1), "max": round(float(train[name].quantile(0.99)), 1), "default": round(float(train[name].median()), 1)}
         for name, _, _ in INPUTS
         if name != "hour"
     }
@@ -72,7 +74,7 @@ def fit_whatif(panels: dict[str, pd.DataFrame], alpha: float = 1.0) -> tuple[Rid
     # results differ in the last bits); the parity cases are then computed from
     # the rounded payload with the same arithmetic the browser uses.
     payload: dict[str, Any] = {
-        "inputs": [{"key": k, "label": label, "unit": unit, **ranges[k]} for k, label, unit in INPUTS],
+        "inputs": [{"key": k, "label": label, "unit": ozone_unit if k == "o3_now" else unit, **ranges[k]} for k, label, unit in INPUTS],
         "feature_order": [name for name, _, _ in INPUTS if name != "hour"] + ["hour_sin", "hour_cos"],
         "means": [round(float(v), PARAM_DIGITS) for v in model.means],
         "scales": [round(float(v), PARAM_DIGITS) for v in model.scales],

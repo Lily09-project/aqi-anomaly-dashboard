@@ -211,6 +211,7 @@ def build_model(base: forecast.ForecastResult, enhanced: forecast.ForecastResult
         "split": enhanced.split,
         "features": enhanced.features,
         "target_coverage": 0.8,
+        "preprocessing": "causal forward fill up to 3 hours; upstream topology selected on training interval only",
         "horizons": horizons,
         "downstream_stations": downstream,
         "drift": drift.mean_shift(panels["pm25"]),
@@ -288,11 +289,19 @@ class InsufficientHistoryError(ValueError):
     """Raised when the input is too short to train and test the models honestly."""
 
 
+
+def training_upstream(panels: dict[str, pd.DataFrame]) -> dict[str, str]:
+    """Select predictive topology using the training interval only."""
+    train_end, _ = forecast.split_times(panels["aqi"].index)
+    links, _ = propagation.lead_lag_links(panels["pm25"].loc[:train_end])
+    return {station: link.upstream for station, link in propagation.nearest_upstream(links).items()}
+
+
 def export(out_dir: Path, cleaned_path: Path | None = None) -> dict[str, str]:
     config = load_config()
     cleaned_file = cleaned_path or resolve_path(config, "data.cleaned_file")
     cleaned = pd.read_csv(cleaned_file)
-    panels = build_panels(cleaned)
+    panels = build_panels(cleaned, causal=True)
     span = panels["aqi"].index[-1] - panels["aqi"].index[0] if len(panels["aqi"].index) else pd.Timedelta(0)
     if span < pd.Timedelta(days=MIN_HISTORY_DAYS):
         raise InsufficientHistoryError(
@@ -309,11 +318,13 @@ def export(out_dir: Path, cleaned_path: Path | None = None) -> dict[str, str]:
 
         truth_lags = dict(TRANSPORT_LAG_HOURS)
 
-    propagation_payload, upstream = build_propagation(panels, truth_lags)
+    propagation_payload, _display_upstream = build_propagation(panels, truth_lags)
+    upstream = training_upstream(panels)
+    provenance_payload = build_provenance(cleaned, config, sample_dir)
     regional_window = max([l["lag_hours"] for l in propagation_payload["links"]], default=attribution.REGIONAL_WINDOW_HOURS)
     base = forecast.fit_forecaster(panels)
     enhanced = forecast.fit_forecaster(panels, upstream=upstream)
-    _, whatif_payload = whatif.fit_whatif(panels)
+    _, whatif_payload = whatif.fit_whatif(panels, ozone_unit=str(provenance_payload["ozone_unit"]))
     meta = _station_meta(cleaned)
 
     files = {
@@ -322,7 +333,7 @@ def export(out_dir: Path, cleaned_path: Path | None = None) -> dict[str, str]:
         "anomalies.json": build_anomalies(panels, regional_window, truth),
         "whatif.json": whatif_payload,
         "model.json": build_model(base, enhanced, sorted(upstream), panels),
-        "provenance.json": build_provenance(cleaned, config, sample_dir),
+        "provenance.json": provenance_payload,
     }
     out_dir.mkdir(parents=True, exist_ok=True)
     hashes = {name: _write_json(out_dir / name, payload) for name, payload in files.items()}
