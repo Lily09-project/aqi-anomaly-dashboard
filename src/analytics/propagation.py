@@ -78,10 +78,12 @@ def nearest_upstream(links: list[Link]) -> dict[str, Link]:
     return best
 
 
-def strongest_episode(pm25: pd.DataFrame, stations: list[str], before: int = 18, after: int = 30) -> tuple[pd.Timestamp, pd.Timestamp]:
-    """Window around the hour when the listed stations were jointly most polluted."""
+def strongest_episode(pm25: pd.DataFrame, stations: list[str], before: int = 18, after: int = 30) -> tuple[pd.Timestamp, pd.Timestamp] | None:
+    """Window around the strongest joint anomaly, or None without usable variation."""
     anomalies = deseasonalise(pm25[stations])
-    joint = anomalies.mean(axis=1).rolling(6, min_periods=3).mean()
+    joint = anomalies.mean(axis=1).rolling(6, min_periods=3).mean().dropna()
+    if joint.empty:
+        return None
     peak = joint.idxmax()
     start = max(pm25.index[0], peak - pd.Timedelta(hours=before))
     end = min(pm25.index[-1], peak + pd.Timedelta(hours=after))

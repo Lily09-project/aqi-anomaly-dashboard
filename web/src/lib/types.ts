@@ -51,7 +51,7 @@ export interface Propagation {
   links: Link[];
   nearest_upstream: Record<string, { upstream: string; lag_hours: number }>;
   matrix: Record<string, Record<string, { lag: number; r: number }>>;
-  episode: { start: string; end: string; times: string[]; aqi: Record<string, (number | null)[]> };
+  episode: { start: string | null; end: string | null; times: string[]; aqi: Record<string, (number | null)[]> };
   ground_truth: Record<string, number> | null;
 }
 
