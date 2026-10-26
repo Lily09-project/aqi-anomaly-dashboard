@@ -11,8 +11,9 @@ GAP_FILL_HOURS = 3
 def build_panels(cleaned: pd.DataFrame, *, causal: bool = False) -> dict[str, pd.DataFrame]:
     """Return {variable: DataFrame[time × station]} on a complete hourly grid.
 
-    Short gaps (≤ 3 hours) are interpolated so lag features stay usable;
-    longer gaps remain missing and are dropped by each analysis.
+    Predictive exports use causal=True: forward-fill at most 3 hours without
+    borrowing future endpoints. The descriptive default interpolates only
+    whole interior gaps of at most 3 hours; longer gaps remain missing.
     """
     frame = cleaned.copy()
     frame["datetime"] = pd.to_datetime(frame["datetime"])
