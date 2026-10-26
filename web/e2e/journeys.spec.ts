@@ -70,11 +70,14 @@ test.describe("F3 污染傳播追蹤", () => {
     await expectAccessible(page);
   });
 
-  test("reduced motion slows playback and says so", async ({ page }) => {
+  test("replay controls remain clear and usable under system motion preference", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await openRoute(page, "/propagation?frame=3");
-    await expect(page.getByText("已偵測到「減少動態效果」設定")).toBeVisible();
-    await expect(page.locator(".replay-slider input")).toHaveValue("3");
+    await expect(page.getByText("已偵測到「減少動態效果」設定")).toHaveCount(0);
+    const slider = page.locator(".replay-slider input");
+    await expect(slider).toHaveValue("3");
+    await page.getByRole("button", { name: "下一小時" }).click();
+    await expect(slider).toHaveValue("4");
   });
 });
 
