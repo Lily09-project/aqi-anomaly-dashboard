@@ -101,6 +101,8 @@ def _hourly(item: Mapping[str, Any], fields: tuple[str, ...]) -> tuple[list[pd.T
 
 
 def _number(value: Any, field: str) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"invalid {field}: booleans are not measurements")
     try:
         result = float(value)
     except (TypeError, ValueError) as exc:
@@ -163,6 +165,8 @@ def fetch_open_meteo(
             grid_cells.add(cell)
             air_times, air_values = _hourly(aqi_location, AIR_FIELDS)
             wind_times, wind_values = _hourly(weather_location, WEATHER_FIELDS)
+            if air_times != wind_times:
+                raise ValueError("air-quality and weather timelines are not exactly aligned")
             intervals = pd.Series(air_times).diff().dropna()
             if intervals.empty or not intervals.eq(API_STEP).all():
                 raise ValueError("Open-Meteo hourly output is not a continuous one-hour series")
