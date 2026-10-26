@@ -19,6 +19,8 @@ test.describe("Q4/Q5 navigation, keyboard and accessibility", () => {
     await expect(page.getByText("跳到主要內容")).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(page.locator("main")).toBeFocused();
+    await expect(page.locator("main")).toHaveCSS("outline-style", "solid");
+    await expect(page.locator("main")).toHaveCSS("outline-width", "3px");
 
     // A map station is a real link: focus it and press Enter.
     const marker = page.locator(".taiwan-map a").first();
