@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { ADVICE, bestWindow, categoryOf, DEFAULT_CATEGORIES, defaultInputs, exceedanceProbability, predictWhatIf, whatIfContributions, windowRisks } from "./air";
+import { ADVICE, bestWindow, categoryOf, DEFAULT_CATEGORIES, defaultInputs, exceedanceProbability, futureForecast, predictWhatIf, whatIfContributions, windowRisks } from "./air";
 import { coverageStatus, episodeFrame, eventRows, filterEvents, lagAgreement, peakFrames, skill, upstreamGain } from "./analysis";
 import { escapeCell, toCsv } from "./csv";
 import { createLoader, IntegrityError, sha256Hex } from "./data";
 import whatifFixture from "./fixtures/whatif.json";
-import { addHours, formatClock, formatDay, formatHour, formatNumber, formatPercent, formatSigned } from "./format";
+import { addHours, formatClock, formatDay, formatHour, formatNumber, formatPercent, formatSigned, taiwanLocalTimestampMs } from "./format";
 import { makeProjection, outlinePath, TAIWAN_OUTLINE } from "./geo";
 import { parseRoute, routeToHash, type Route } from "./router";
 import type { AnomalyEvent, HorizonMetrics, Link, Propagation, WhatIf } from "./types";
@@ -22,6 +22,30 @@ describe("AQI categories", () => {
     expect(categoryOf(Number.NaN)).toBeNull();
     expect(categoryOf(10, [])).toBeNull();
     for (const c of DEFAULT_CATEGORIES) expect(ADVICE[c.key]?.sensitive).toBeTruthy();
+  });
+});
+
+
+describe("future forecast times", () => {
+  const forecast = [
+    { h: 1, t: "2026-10-26T11:00", p10: 10, p50: 20, p90: 30 },
+    { h: 2, t: "2026-10-26T12:00", p10: 10, p50: 20, p90: 30 },
+    { h: 3, t: "2026-10-26T13:00:00.250", p10: 10, p50: 20, p90: 30 },
+  ];
+
+  it("parses Taiwan-local timestamps independently of the viewer time zone", () => {
+    expect(taiwanLocalTimestampMs("2026-10-26T12:00")).toBe(Date.parse("2026-10-26T04:00:00Z"));
+    expect(taiwanLocalTimestampMs("2026-10-26T13:00:00.250")).toBe(Date.parse("2026-10-26T05:00:00.250Z"));
+    expect(taiwanLocalTimestampMs("2026-02-30T12:00")).toBeNull();
+    expect(taiwanLocalTimestampMs("2026-10-26T24:00")).toBeNull();
+    expect(taiwanLocalTimestampMs("2026-10-26T12:00Z")).toBeNull();
+  });
+
+  it("excludes expired hours while including a forecast exactly at the evaluation time", () => {
+    const now = Date.parse("2026-10-26T04:00:00Z");
+    expect(futureForecast(forecast, now).map((hour) => hour.h)).toEqual([2, 3]);
+    expect(futureForecast(forecast, now + 1).map((hour) => hour.h)).toEqual([3]);
+    expect(futureForecast(forecast, Number.NaN)).toEqual([]);
   });
 });
 

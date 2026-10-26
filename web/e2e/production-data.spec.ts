@@ -1,4 +1,5 @@
 import { expect, expectAccessible, fetchJson, openRoute, test } from "./fixtures";
+import { taiwanLocalTimestampMs } from "../src/lib/format";
 
 interface Provenance {
   provider: string;
@@ -14,7 +15,7 @@ interface Provenance {
 }
 
 interface Overview {
-  stations: { station: string }[];
+  stations: { station: string; forecast: { t: string }[] }[];
 }
 
 test.describe("正式公開空品模型資料", () => {
@@ -38,7 +39,35 @@ test.describe("正式公開空品模型資料", () => {
     await expect(page.getByTestId("data-badge")).toHaveText("CAMS 模型估算");
     await expect(page.locator(".taiwan-map a")).toHaveCount(overview.stations.length);
     await page.locator(".station-card").first().click();
-    await expect(page.getByTestId("forecast-table").locator("tbody tr")).toHaveCount(24);
+    const stationName = await page.locator(".station-head h1").textContent();
+    const selectedStation = overview.stations.find((station) => station.station === stationName);
+    expect(selectedStation).toBeDefined();
+    const forecastTable = page.getByTestId("forecast-table");
+    const asOfMs = Number(await forecastTable.getAttribute("data-as-of-ms"));
+    expect(Number.isFinite(asOfMs)).toBe(true);
+    const displayedTimes = await forecastTable.locator("tbody tr[data-forecast-time]").evaluateAll((rows) =>
+      rows.map((row) => row.getAttribute("data-forecast-time") ?? ""),
+    );
+    const expectedFutureTimes = selectedStation!.forecast
+      .filter((hour) => {
+        const timestamp = taiwanLocalTimestampMs(hour.t);
+        return timestamp !== null && timestamp >= asOfMs;
+      })
+      .map((hour) => hour.t);
+    expect(displayedTimes).toEqual(expectedFutureTimes);
+    expect(displayedTimes.length).toBeLessThanOrEqual(24);
+    const bestWindow = page.getByTestId("best-window");
+    const bestCount = await bestWindow.count();
+    expect(bestCount).toBeLessThanOrEqual(1);
+    if (bestCount === 1) {
+      const bestStart = await bestWindow.getAttribute("data-window-start");
+      expect(bestStart).toBeTruthy();
+      const bestTimestamp = taiwanLocalTimestampMs(bestStart!);
+      expect(bestTimestamp).not.toBeNull();
+      expect(bestTimestamp!).toBeGreaterThanOrEqual(asOfMs);
+    } else {
+      await expect(page.getByTestId("planner-result")).toContainText("不足");
+    }
     await expectAccessible(page);
 
     await openRoute(page, "/data");

@@ -1,8 +1,9 @@
+import { useEffect, useState } from "react";
 import { useDataset, useDocumentTitle, useRoute } from "../app/hooks";
 import { AqiChip } from "../components/Aqi";
 import { ChartFrame, ForecastBand } from "../components/charts";
 import { EmptyState, Gate } from "../components/States";
-import { ADVICE, bestWindow, categoryOf, exceedanceProbability, windowRisks } from "../lib/air";
+import { ADVICE, bestWindow, categoryOf, exceedanceProbability, futureForecast, windowRisks } from "../lib/air";
 import { addHours, formatClock, formatHour, formatNumber, formatPercent } from "../lib/format";
 import { routeToHash, type Sensitivity } from "../lib/router";
 import type { Model, Overview, Provenance } from "../lib/types";
@@ -20,6 +21,16 @@ interface Props {
 
 function StationView({ overview, model, provenance, station: name, sensitivity, hours }: Props & { overview: Overview; model: Model; provenance: Provenance }) {
   const [, navigate] = useRoute();
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const refreshNow = () => setNowMs(Date.now());
+    const interval = window.setInterval(refreshNow, 60_000);
+    document.addEventListener("visibilitychange", refreshNow);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshNow);
+    };
+  }, []);
   const station = overview.stations.find((s) => s.station === name);
   const locationLabel = provenance.is_model_estimate ? "模型格點" : "測站";
   if (!station) {
@@ -34,8 +45,9 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
 
   const threshold = overview.planner_thresholds[sensitivity];
   const forecast = station.forecast;
-  const best = bestWindow(forecast, hours, threshold);
-  const risks = windowRisks(forecast, hours, threshold);
+  const availableForecast = futureForecast(forecast, nowMs);
+  const best = bestWindow(availableForecast, hours, threshold);
+  const risks = windowRisks(availableForecast, hours, threshold);
   const worstRisk = risks.length ? Math.max(...risks) : null;
   const worstStart = worstRisk === null ? -1 : risks.indexOf(worstRisk);
   const category = categoryOf(station.aqi, overview.categories);
@@ -44,8 +56,9 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
   const update = (patch: Partial<Props>) =>
     navigate({ name: "station", station: name, sensitivity, hours, ...patch }, { replace: true });
 
-  const windowStart = best ? forecast[best.start] : undefined;
-  const windowEnd = best ? forecast[best.start + hours - 1] : undefined;
+  const windowStart = best ? availableForecast[best.start] : undefined;
+  const windowEnd = best ? availableForecast[best.start + hours - 1] : undefined;
+  const chartWindowStart = windowStart ? forecast.findIndex((item) => item.h === windowStart.h) : -1;
 
   return (
     <div className="stack">
@@ -129,27 +142,27 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
           {best && windowStart && windowEnd ? (
             <>
               <p className="planner-answer">
-                建議 <strong data-testid="best-window">{formatHour(windowStart.t)}–{formatClock(addHours(windowEnd.t, 1))}</strong>
+                建議 <strong data-testid="best-window" data-window-start={windowStart.t}>{formatHour(windowStart.t)}–{formatClock(addHours(windowEnd.t, 1))}</strong>
                 ，平均超標機率 <strong data-testid="best-risk">{formatPercent(best.risk, 1)}</strong>
               </p>
               <p className="muted">
-                比較了未來 24 小時內全部 {risks.length} 個連續 {hours} 小時的候選時段，這一段平均超標機率最低、預估中位數 AQI 約{" "}
+                以尚未發生的 {availableForecast.length} 個預報時點比較 {risks.length} 個連續 {hours} 小時候選時段，這一段平均超標機率最低、預估中位數 AQI 約{" "}
                 {formatNumber(best.meanP50)}。
-                {worstRisk !== null && worstRisk - best.risk > 0.005 && forecast[worstStart] && (
-                  <> 最該避開的是 {formatHour(forecast[worstStart].t)} 起的時段（{formatPercent(worstRisk, 1)}）。</>
+                {worstRisk !== null && worstRisk - best.risk > 0.005 && availableForecast[worstStart] && (
+                  <> 最該避開的是 {formatHour(availableForecast[worstStart].t)} 起的時段（{formatPercent(worstRisk, 1)}）。</>
                 )}
               </p>
             </>
           ) : (
-            <p>預報只有 24 小時，無法安排這麼長的活動。</p>
+            <p>目前剩餘的未來預報不足以安排 {hours} 小時活動。</p>
           )}
         </div>
 
         <ChartFrame
-          title={`${station.station} 過去 ${HISTORY_SHOWN} 小時與未來 24 小時預報`}
-          summary={(provenance.is_model_estimate ? "實線為每 3 小時模型估算值與時點間插值" : "實線為來源資料") + "、虛線為預報中位數，陰影為 80% 預測區間；紅線是" + AUDIENCE[sensitivity] + "門檻 " + threshold + (best ? "，綠色區塊是建議時段" : "") + "。"}
+          title={`${station.station} 過去 ${HISTORY_SHOWN} 小時與資料時間起算的 24 小時預報`}
+          summary={(provenance.is_model_estimate ? "實線為每 3 小時模型估算值與時點間插值" : "實線為來源資料") + "、虛線為預報中位數，陰影為 80% 預測區間；紅線是" + AUDIENCE[sensitivity] + "門檻 " + threshold + (best ? "，綠色區塊是建議時段" : "") + "；最佳時段只比較尚未發生的預報。"}
           table={
-            <table data-testid="forecast-table">
+            <table data-testid="forecast-table" data-as-of-ms={nowMs}>
               <thead>
                 <tr>
                   <th scope="col">時間</th>
@@ -160,25 +173,31 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
                 </tr>
               </thead>
               <tbody>
-                {forecast.map((f) => (
-                  <tr key={f.h}>
+                {availableForecast.length ? availableForecast.map((f) => (
+                  <tr key={f.h} data-forecast-time={f.t}>
                     <th scope="row">{formatHour(f.t)}</th>
                     <td className="num">{formatNumber(f.p10)}</td>
                     <td className="num">{formatNumber(f.p50)}</td>
                     <td className="num">{formatNumber(f.p90)}</td>
                     <td className="num">{formatPercent(exceedanceProbability(f, threshold), 1)}</td>
                   </tr>
-                ))}
+                )) : (
+                  <tr><td colSpan={5}>目前沒有尚未發生的預報時段。</td></tr>
+                )}
               </tbody>
             </table>
           }
         >
-          <ForecastBand
-            history={station.history.slice(-HISTORY_SHOWN).map((h) => ({ label: formatHour(h.t), value: h.aqi }))}
-            forecast={forecast.map((f) => ({ label: formatHour(f.t), p10: f.p10, p50: f.p50, p90: f.p90 }))}
-            threshold={threshold}
-            window={best ? { start: best.start, hours } : null}
-          />
+          {forecast.length ? (
+            <ForecastBand
+              history={station.history.slice(-HISTORY_SHOWN).map((h) => ({ label: formatHour(h.t), value: h.aqi }))}
+              forecast={forecast.map((f) => ({ label: formatHour(f.t), p10: f.p10, p50: f.p50, p90: f.p90 }))}
+              threshold={threshold}
+              window={best && chartWindowStart >= 0 ? { start: chartWindowStart, hours } : null}
+            />
+          ) : (
+            <p className="muted">目前沒有可繪製的模型預報資料。</p>
+          )}
         </ChartFrame>
         <p className="muted small">
           區間怎麼來：每個預報時距各有一個 ridge 迴歸模型，再用保留的校準期殘差（分割式保形預測）決定 P10／P90。測試期的 80% 區間實際涵蓋{" "}
