@@ -19,6 +19,8 @@ test.describe("Q4/Q5 navigation, keyboard and accessibility", () => {
     await expect(page.getByText("跳到主要內容")).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(page.locator("main")).toBeFocused();
+    await expect(page.locator("main")).toHaveCSS("outline-style", "solid");
+    await expect(page.locator("main")).toHaveCSS("outline-width", "3px");
 
     // A map station is a real link: focus it and press Enter.
     const marker = page.locator(".taiwan-map a").first();
@@ -36,6 +38,16 @@ test.describe("Q4/Q5 navigation, keyboard and accessibility", () => {
     await expect(nav.getByRole("link", { name: "模型監控" })).toHaveAttribute("aria-current", "page");
     await expect(page.locator("main")).toBeFocused();
     await expect(page).toHaveTitle(/模型監控/);
+  });
+
+  test("motion duration stays unchanged under reduced-motion system preference", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await openRoute(page, "/");
+    const durationMs = await page.locator(":root").evaluate((root) => {
+      const value = getComputedStyle(root).getPropertyValue("--duration").trim();
+      return value.endsWith("ms") ? Number.parseFloat(value) : Number.parseFloat(value) * 1000;
+    });
+    expect(durationMs).toBe(220);
   });
 
   test("every page keeps one palette under both system color preferences", async ({ page }) => {
