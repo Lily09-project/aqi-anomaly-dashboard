@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useDataset, useDocumentTitle, useRoute } from "../app/hooks";
 import { ArrivalStrips, ChartFrame, TaiwanMap } from "../components/charts";
 import { ScrollRegion } from "../components/ScrollRegion";
-import { Gate } from "../components/States";
+import { EmptyState, Gate } from "../components/States";
 import { categoryOf } from "../lib/air";
 import { episodeFrame, lagAgreement, peakFrames } from "../lib/analysis";
 import { formatHour, formatNumber } from "../lib/format";
@@ -44,7 +44,7 @@ function Replay({ overview, propagation, initialFrame }: { overview: Overview; p
     <section className="card replay" aria-labelledby="replay-title">
       <h2 id="replay-title">資料時序回放</h2>
       <p className="muted">
-        {formatHour(episode.start)} 至 {formatHour(episode.end)}。各地點依峰值時間排序；模型原始資料每 3 小時一次，中間時點為插值，不代表污染實際移動。
+        {formatHour(episode.start ?? "")} 至 {formatHour(episode.end ?? "")}。各地點依峰值時間排序；模型原始資料每 3 小時一次，中間時點為插值，不代表污染實際移動。
       </p>
       <div className="replay-controls" role="group" aria-label="重播控制">
         <button
@@ -280,7 +280,11 @@ function PropagationView({ overview, propagation, frame }: { overview: Overview;
         </div>
       </section>
 
-      <Replay overview={overview} propagation={propagation} initialFrame={frame} />
+      {propagation.episode.times.length > 0 ? (
+        <Replay overview={overview} propagation={propagation} initialFrame={frame} />
+      ) : (
+        <EmptyState title="目前沒有可回放的時序區段" />
+      )}
     </div>
   );
 }

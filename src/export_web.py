@@ -109,8 +109,9 @@ def build_propagation(panels: dict[str, pd.DataFrame], truth_lags: dict[str, int
     links, matrix = propagation.lead_lag_links(panels["pm25"])
     upstream = propagation.nearest_upstream(links)
     chain = sorted({l.upstream for l in links} | {l.downstream for l in links})
-    start, end = propagation.strongest_episode(panels["pm25"], chain or list(panels["pm25"].columns))
-    window = panels["aqi"].loc[start:end]
+    episode = propagation.strongest_episode(panels["pm25"], chain or list(panels["pm25"].columns))
+    start, end = episode if episode is not None else (None, None)
+    window = panels["aqi"].loc[start:end] if episode is not None else panels["aqi"].iloc[:0]
     payload = {
         "max_lag": propagation.MAX_LAG,
         "min_correlation": propagation.MIN_CORRELATION,
@@ -128,8 +129,8 @@ def build_propagation(panels: dict[str, pd.DataFrame], truth_lags: dict[str, int
         "nearest_upstream": {station: {"upstream": l.upstream, "lag_hours": l.lag_hours} for station, l in sorted(upstream.items())},
         "matrix": matrix,
         "episode": {
-            "start": _iso(start),
-            "end": _iso(end),
+            "start": _iso(start) if start is not None else None,
+            "end": _iso(end) if end is not None else None,
             "times": [_iso(t) for t in window.index],
             "aqi": {station: [_num(v) for v in window[station]] for station in window.columns},
         },
