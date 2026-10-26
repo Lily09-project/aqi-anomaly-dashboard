@@ -5,6 +5,7 @@ interface Overview {
   stations: { station: string; aqi: number; category_label: string }[];
 }
 interface WhatIf {
+  inputs: { key: string; default: number }[];
   parity_cases: { inputs: Record<string, number>; expected: number }[];
 }
 
