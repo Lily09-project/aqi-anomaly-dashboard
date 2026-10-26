@@ -4,6 +4,7 @@ const forecastInstant = (value: string) => Date.parse(/(?:Z|[+-]\d{2}:\d{2})$/.t
 
 interface Provenance {
   provider: string;
+  ozone_unit: string;
   data_source: string;
   is_simulated: boolean;
   is_model_estimate: boolean;
@@ -23,6 +24,8 @@ test.describe("正式公開空品模型資料", () => {
   test("the public site labels Open-Meteo/CAMS estimates and renders usable locations", async ({ page }) => {
     const provenance = await fetchJson<Provenance>(page, "provenance.json");
     const overview = await fetchJson<Overview>(page, "overview.json");
+    const whatif = await fetchJson<{ inputs: { key: string; unit: string }[] }>(page, "whatif.json");
+    expect(whatif.inputs.find((input) => input.key === "o3_now")!.unit).toBe(provenance.ozone_unit);
 
     expect(provenance.provider).toBe("open_meteo_cams_global");
     expect(provenance.data_source).toBe("Open-Meteo CAMS Global model estimates");

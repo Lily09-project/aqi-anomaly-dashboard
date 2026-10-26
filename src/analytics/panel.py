@@ -8,7 +8,7 @@ VARIABLES = ("aqi", "pm25", "pm10", "o3", "co", "wind_speed")
 GAP_FILL_HOURS = 3
 
 
-def build_panels(cleaned: pd.DataFrame) -> dict[str, pd.DataFrame]:
+def build_panels(cleaned: pd.DataFrame, *, causal: bool = False) -> dict[str, pd.DataFrame]:
     """Return {variable: DataFrame[time × station]} on a complete hourly grid.
 
     Short gaps (≤ 3 hours) are interpolated so lag features stay usable;
@@ -22,7 +22,7 @@ def build_panels(cleaned: pd.DataFrame) -> dict[str, pd.DataFrame]:
     for variable in VARIABLES:
         wide = frame.pivot_table(index="datetime", columns="site_name", values=variable, aggfunc="mean")
         wide = wide.reindex(index=index, columns=stations)
-        panels[variable] = fill_short_gaps(wide, GAP_FILL_HOURS)
+        panels[variable] = wide.ffill(limit=GAP_FILL_HOURS) if causal else fill_short_gaps(wide, GAP_FILL_HOURS)
     return panels
 
 
