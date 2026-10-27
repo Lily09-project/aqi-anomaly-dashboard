@@ -156,7 +156,7 @@ function ModelView({ model }: { model: Model }) {
               labels={labels}
               reference={{ value: model.target_coverage * 100, label: `目標 ${formatPercent(model.target_coverage, 0)}` }}
               format={(v) => `${v}%`}
-              yMin={60}
+              yMin={Math.min(60, ...horizons.map((h) => h.coverage * 100))}
             />
           </ChartFrame>
         </div>
