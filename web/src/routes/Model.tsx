@@ -19,7 +19,7 @@ const FEATURE_LABEL: Record<string, string> = {
   wind_now: "目前風速",
   clim_now: "此刻的典型 AQI",
   clim_target: "目標時刻的典型 AQI",
-  upstream_anomaly: "上游測站的異常量",
+  upstream_anomaly: "上游地點的異常量",
 };
 
 function ModelView({ model }: { model: Model }) {
@@ -75,9 +75,9 @@ function ModelView({ model }: { model: Model }) {
           <span className="muted small">目標 {formatPercent(model.target_coverage, 0)}；略高代表區間保守</span>
         </div>
         <div className="card kpi">
-          <span className="stat-label">上游特徵對下游測站的幫助</span>
+          <span className="stat-label">上游特徵對下游地點的幫助</span>
           <span className="stat-value">{avgShortGain === null ? "—" : formatSigned(avgShortGain * 100, 1) + "%"}</span>
-          <span className="muted small">1–6 小時的平均誤差降幅；9 小時後沒有幫助，部分時距甚至略差</span>
+          <span className="muted small">1–6 小時的平均誤差降幅；正值代表誤差較低，負值代表較高</span>
         </div>
       </section>
 
@@ -162,8 +162,8 @@ function ModelView({ model }: { model: Model }) {
         </div>
         <div className="card">
           <ChartFrame
-            title="上游特徵讓下游測站誤差下降多少"
-            summary={`下游測站（${model.downstream_stations.join("、")}）在 1 小時時距誤差下降 ${formatPercent(gains[0] ?? null, 1)}，24 小時時距為 ${formatPercent(gains.at(-1) ?? null, 1)}。`}
+            title="上游特徵讓下游地點誤差下降多少"
+            summary={`下游地點（${model.downstream_stations.join("、")}）在 1 小時時距誤差下降 ${formatPercent(gains[0] ?? null, 1)}，24 小時時距為 ${formatPercent(gains.at(-1) ?? null, 1)}。`}
             table={
               <table>
                 <thead>
@@ -194,7 +194,7 @@ function ModelView({ model }: { model: Model }) {
               format={(v) => `${v}%`}
             />
           </ChartFrame>
-          <p className="muted small">誠實結論：上游訊號只在短時距有小幅幫助；9 小時之後污染團早已抵達或散去，這個特徵沒有價值，部分時距還略差。</p>
+          <p className="muted small">比較同一測試期有無上游特徵的誤差；結果反映預測表現差異，不能據此判定污染傳播的因果。</p>
         </div>
       </section>
 
