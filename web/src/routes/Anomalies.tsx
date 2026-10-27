@@ -75,7 +75,7 @@ function EventDetail({ event, all, filter, windowHours }: { event: AnomalyEvent;
       </ChartFrame>
       {top && (
         <p className="callout">
-          高峰時同步偏離最多的因子是 <strong>{top.label}</strong>：高峰時比這個地點同時段的典型值高出 {formatNumber(Math.abs(top.z), 1)} 個穩健標準差（以中位數與 MAD 計算，不受其他極端值影響）。
+          高峰時同步偏離最多的因子是 <strong>{top.label}</strong>：相對這個地點同時段的典型值偏離 {formatSigned(top.z, 1)} 個穩健標準差（以中位數與 MAD 計算，不受其他極端值影響）。
         </p>
       )}
 
@@ -122,7 +122,7 @@ function EventDetail({ event, all, filter, windowHours }: { event: AnomalyEvent;
                   </a>{" "}
                   <span className="muted small">
                     距離 {s.distance.toFixed(2)}
-                    {other && ` · ${KIND_LABEL[other.kind]} · 主因 ${other.drivers[0]?.label ?? "—"}`}
+                    {other && ` · ${KIND_LABEL[other.kind]} · 主要偏離 ${other.drivers[0]?.label ?? "—"}`}
                   </span>
                 </li>
               );
@@ -239,7 +239,7 @@ function AnomaliesView({ data, id, station, kind }: Props & { data: Anomalies })
                       <span className="small">
                         {formatHour(e.start)} · {e.duration_hours} 小時 · 高峰 AQI {formatNumber(e.peak_aqi)}
                       </span>
-                      <span className="muted small">主因：{e.drivers[0]?.label ?? "—"}</span>
+                      <span className="muted small">主要偏離：{e.drivers[0]?.label ?? "—"}</span>
                     </a>
                   </li>
                 ))}
