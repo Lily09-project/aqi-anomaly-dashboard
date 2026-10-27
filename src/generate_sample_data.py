@@ -78,7 +78,10 @@ def _plume(rng: np.random.Generator, n: int, pad: int) -> tuple[np.ndarray, list
     t = np.arange(total, dtype=float)
     plume = np.zeros(total)
     episodes = []
-    centres = np.sort(rng.choice(np.arange(pad + 48, total - 24), size=PLUME_EPISODES, replace=False))
+    centre_candidates = np.arange(pad + 48, total - 24)
+    if len(centre_candidates) < PLUME_EPISODES:
+        centre_candidates = np.arange(pad, total)
+    centres = np.sort(rng.choice(centre_candidates, size=min(PLUME_EPISODES, len(centre_candidates)), replace=False))
     for centre in centres:
         amplitude = rng.uniform(22, 40)
         width = rng.uniform(5, 10)
@@ -114,7 +117,12 @@ def generate_sample_aqi(
     sun = np.clip(np.sin((hours - 7) / 13 * np.pi), 0, None)
 
     event_rows: list[dict[str, object]] = []
-    event_starts = np.sort(rng.choice(np.arange(24, n - 6), size=LOCAL_EVENTS, replace=False))
+    # Preserve the default fixture stream; short supported windows need room
+    # for events without a full-day margin, and every event must end in range.
+    event_candidates = np.arange(24, n - 6)
+    if len(event_candidates) < LOCAL_EVENTS:
+        event_candidates = np.arange(0, n - 3)
+    event_starts = np.sort(rng.choice(event_candidates, size=min(LOCAL_EVENTS, len(event_candidates)), replace=False))
     event_sites = rng.choice([s[0] for s in SITES], size=LOCAL_EVENTS)
     frames = []
     for site_name, county, background, gain in SITES:

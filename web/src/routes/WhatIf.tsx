@@ -153,7 +153,7 @@ function Simulator({ model, overview }: { model: WhatIf; overview: Overview }) {
           >
             <DivergingBars rows={contributions.map((c) => ({ key: c.key, label: labels[c.key] ?? c.key, value: c.value }))} format={(v) => formatSigned(v, 1)} />
           </ChartFrame>
-          <p className="muted small">基準是訓練資料的平均狀態（AQI 約 {formatNumber(model.intercept)}）；各貢獻加總即為預測值。</p>
+          <p className="muted small">基準是訓練資料的平均狀態（AQI 約 {formatNumber(model.intercept)}）；基準加上各項貢獻才是預測值。</p>
         </section>
 
         <section className="card">

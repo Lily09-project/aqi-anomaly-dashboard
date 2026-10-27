@@ -51,3 +51,16 @@ def test_sample_data_defaults_to_a_fixed_reproducible_window():
 def test_sample_data_rejects_invalid_day_ranges(days: int) -> None:
     with pytest.raises(ValueError, match="days must be between"):
         generate_sample_aqi(days=days)
+
+@pytest.mark.parametrize("days", [1, 2, 3])
+def test_every_supported_short_sample_window_can_be_generated(tmp_path, days):
+    from src.generate_sample_data import SITES
+    target = tmp_path / "short.csv"
+    frame = generate_sample_aqi(days=days, output_path=target, metadata_path=tmp_path / "source.json")
+    assert len(frame) == len(SITES) * days * 24
+    assert frame["site_name"].nunique() == len(SITES)
+    assert pd.to_datetime(frame["datetime"]).nunique() == days * 24
+    events = pd.read_csv(target.with_name("injected_events.csv"))
+    assert not events.empty
+    assert pd.to_datetime(events["start"]).min() >= pd.to_datetime(frame["datetime"]).min()
+    assert pd.to_datetime(events["end"]).max() <= pd.to_datetime(frame["datetime"]).max()
