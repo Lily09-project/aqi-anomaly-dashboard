@@ -20,7 +20,7 @@ test("redesigned pages reflow with 200 percent text and retain reachable navigat
         mainLeft: main.left, navRight: nav.right, navPosition: getComputedStyle(document.querySelector(".site-header")!).position };
     });
     expect(layout.overflow, route).toBeLessThanOrEqual(1);
-    if ("aqi-anomaly-dashboard" === "aqi-anomaly-dashboard" && page.viewportSize()!.width >= 1200)
+    if (page.viewportSize()!.width >= 1200)
       expect(layout.mainLeft, "sidebar must not overlap main").toBeGreaterThanOrEqual(layout.navRight);
     await expect(page.locator("main h1")).toBeVisible();
     await testInfo.attach(route === "/" ? "home-200-percent" : route.replaceAll("/", "-") + "-200-percent",
