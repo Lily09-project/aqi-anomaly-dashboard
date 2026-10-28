@@ -5,29 +5,29 @@
   --font-serif: "Noto Serif TC", "Songti TC", "PMingLiU", Georgia, serif;
   --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 
-  --bg: #f2f5f6;
+  --bg: #fafcfb;
   --bg-raised: #ffffff;
-  --bg-sunken: #e6ecee;
-  --ink: #11191d;
-  --ink-soft: #2f3b41;
-  --muted: #55636a;
-  --line: #d0dadd;
-  --line-strong: #a9b8bd;
-  --accent: #0b6670;
+  --bg-sunken: #f0f6f3;
+  --ink: #12231c;
+  --ink-soft: #34473e;
+  --muted: #52645a;
+  --line: #dce8e1;
+  --line-strong: #9db5a8;
+  --accent: #006b52;
   --accent-ink: #ffffff;
-  --accent-soft: #d3ecee;
-  --teal: #0b6670;
-  --teal-soft: #d3ecee;
-  --gold: #8a5a00;
-  --good: #1f6f3d;
+  --accent-soft: #d7f5e8;
+  --teal: #006b52;
+  --teal-soft: #d7f5e8;
+  --gold: #805200;
+  --good: #006b40;
   --bad: #b3261e;
-  --chart-1: #0b6670;
-  --chart-2: #c2410c;
+  --chart-1: #006b52;
+  --chart-2: #b23c0c;
   --chart-3: #6d28d9;
-  --chart-4: #64748b;
-  --chart-grid: #dfe6e8;
-  --focus: #1d4ed8;
-  --shadow: 0 1px 2px rgb(17 25 29 / 6%), 0 8px 24px rgb(17 25 29 / 6%);
+  --chart-4: #526c85;
+  --chart-grid: #e0eae4;
+  --focus: #005cc5;
+  --shadow: 0 2px 8px rgb(18 35 28 / 3%);
 
   /* AQI bands (Ministry of Environment hues, darkened where text sits on them). */
   --aqi-good: #3fae5a;
@@ -44,7 +44,7 @@
   --aqi-hazardous-ink: #ffffff;
 
   --radius-s: 6px;
-  --radius-m: 10px;
+  --radius-m: 12px;
   --radius-l: 16px;
   --space-1: 4px;
   --space-2: 8px;
@@ -53,11 +53,11 @@
   --space-5: 24px;
   --space-6: 32px;
   --space-7: 48px;
-  --step--1: clamp(0.82rem, 0.8rem + 0.1vw, 0.88rem);
-  --step-0: clamp(0.98rem, 0.95rem + 0.15vw, 1.05rem);
+  --step--1: 0.875rem;
+  --step-0: 1rem;
   --step-1: clamp(1.15rem, 1.08rem + 0.35vw, 1.35rem);
   --step-2: clamp(1.4rem, 1.25rem + 0.7vw, 1.85rem);
-  --step-3: clamp(1.8rem, 1.5rem + 1.4vw, 2.75rem);
+  --step-3: clamp(1.9rem, 1.4rem + 1.6vw, 3.25rem);
   --content: 1180px;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --duration: 220ms;

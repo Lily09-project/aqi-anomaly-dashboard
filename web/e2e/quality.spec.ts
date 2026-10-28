@@ -9,7 +9,7 @@ const ROUTES = [
   "/model",
   "/data",
 ];
-const FIXED_BACKGROUND = "#f2f5f6";
+const FIXED_BACKGROUND = "#fafcfb";
 const LEGACY_THEME_KEY = "taiwan-air-lab-theme";
 
 test.describe("Q4/Q5 navigation, keyboard and accessibility", () => {
