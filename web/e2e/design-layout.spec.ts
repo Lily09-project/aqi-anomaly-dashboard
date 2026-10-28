@@ -16,10 +16,14 @@ test("redesigned pages reflow with 200 percent text and retain reachable navigat
     const layout = await page.evaluate(() => {
       const main = document.querySelector("main")!.getBoundingClientRect();
       const nav = document.querySelector(".site-nav")!.getBoundingClientRect();
-      return { overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      const offenders = [...document.querySelectorAll("main *, .site-header *")].filter(el => {
+        const rect = el.getBoundingClientRect();
+        return rect.right > innerWidth + 1 && !el.closest(".table-scroll, .site-nav");
+      }).slice(0,8).map(el => ({ tag: el.tagName, cls: el.className, text: el.textContent?.slice(0,50) }));
+      return { offenders, overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         mainLeft: main.left, navRight: nav.right, navPosition: getComputedStyle(document.querySelector(".site-header")!).position };
     });
-    expect(layout.overflow, route).toBeLessThanOrEqual(1);
+    expect(layout.overflow, route + JSON.stringify(layout.offenders)).toBeLessThanOrEqual(1);
     if (page.viewportSize()!.width >= 1200)
       expect(layout.mainLeft, "sidebar must not overlap main").toBeGreaterThanOrEqual(layout.navRight);
     await expect(page.locator("main h1")).toBeVisible();

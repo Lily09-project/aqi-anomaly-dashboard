@@ -38,3 +38,11 @@ main,.site-footer{margin-left:240px}
 }
 @media(max-width:1199px){.site-header{position:static}.site-header-inner{grid-template-columns:1fr auto}.site-nav{grid-column:1/-1;grid-row:2;overflow-x:auto}.site-nav a{border-radius:8px}}
 @media(max-width:640px){.hero{padding-top:12px}.card{padding:20px}.grid-3{gap:16px}}
+
+/* Reflow without hiding content when the user enlarges text. */
+.brand,.brand-text,.site-nav,.field,.controls,.row,.segmented{min-width:0}
+.brand-mark{flex-shrink:0}
+.site-header .brand-text strong{white-space:normal;overflow-wrap:anywhere}
+.site-nav{max-width:100%;width:100%}
+.segmented{flex-wrap:wrap;row-gap:8px}
+@media(max-width:1199px){.site-header-inner{grid-template-columns:minmax(0,1fr) auto}}
