@@ -1,0 +1,234 @@
+/* Visual polish layer: depth, rhythm and motion on top of the mint reading workspace.
+   Colours, routes and accessibility contracts stay with the earlier layers. */
+
+/* Route changes move focus to <main>; only keyboard users need the ring. */
+main:focus:not(:focus-visible) {
+  outline: none;
+}
+
+main {
+  min-height: 75vh;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+/* ---- Navigation rail ---- */
+.brand-mark {
+  background: linear-gradient(145deg, #5ff0cb, #00d4a4 55%, #00a982);
+  box-shadow: 0 6px 16px -8px rgb(0 107 82 / 0.7);
+}
+
+.site-nav a {
+  color: var(--ink-soft);
+}
+
+.site-nav a:hover {
+  background: var(--bg-sunken);
+  color: var(--ink);
+}
+
+.site-nav a[aria-current="page"] {
+  background: linear-gradient(90deg, var(--accent-soft), color-mix(in srgb, var(--accent-soft) 40%, #fff));
+  font-weight: 750;
+}
+
+@media (min-width: 1200px) {
+  .site-header {
+    background: linear-gradient(180deg, #fff, #f6fbf8);
+  }
+}
+
+/* ---- Hero ---- */
+.hero {
+  position: relative;
+  isolation: isolate;
+  padding-top: 32px;
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: -40px -24px -8px;
+  z-index: -1;
+  background:
+    radial-gradient(45% 80% at 90% 0%, rgb(0 212 164 / 0.14), transparent 70%),
+    radial-gradient(35% 60% at 0% 100%, rgb(0 107 82 / 0.06), transparent 70%);
+  pointer-events: none;
+}
+
+.hero h1 {
+  font-size: clamp(2rem, 1.4rem + 2vw, 3.1rem);
+  font-weight: 750;
+  text-wrap: balance;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+}
+
+.eyebrow::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.page header:has(> .eyebrow):not(.hero) {
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+}
+
+.page header:has(> .eyebrow) h1 {
+  text-wrap: balance;
+}
+
+/* ---- Surfaces ---- */
+.card {
+  border-color: var(--line);
+  box-shadow: 0 1px 2px rgb(18 35 28 / 0.04), 0 8px 24px -16px rgb(18 35 28 / 0.18);
+}
+
+.insight {
+  position: relative;
+  border-top: 0;
+  overflow: hidden;
+}
+
+.insight::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), #00d4a4);
+}
+
+.insight:hover {
+  box-shadow: 0 1px 2px rgb(18 35 28 / 0.04), 0 16px 32px -18px rgb(0 107 82 / 0.45);
+}
+
+.station-card {
+  position: relative;
+  transition: border-color var(--duration) var(--ease), box-shadow var(--duration) var(--ease), transform var(--duration) var(--ease);
+}
+
+.station-card:hover {
+  transform: translateX(2px);
+  box-shadow: 0 10px 24px -18px rgb(0 107 82 / 0.6);
+}
+
+.aqi-chip {
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.4) inset;
+}
+
+/* ---- Map ---- */
+.taiwan-map .map-land {
+  stroke: color-mix(in srgb, var(--accent) 35%, var(--line-strong));
+  filter: drop-shadow(0 10px 14px rgb(0 107 82 / 0.14));
+}
+
+.taiwan-map .map-land-top {
+  stop-color: #e9f8f1;
+}
+
+.taiwan-map .map-land-bottom {
+  stop-color: #cfeadd;
+}
+
+.taiwan-map .map-halo {
+  fill: var(--cat, transparent);
+  opacity: 0.22;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.taiwan-map .is-emphasis .map-halo {
+  animation: halo 2.4s var(--ease) infinite;
+}
+
+@keyframes halo {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+.taiwan-map .map-dot {
+  stroke: #fff;
+  stroke-width: 2.5;
+  filter: drop-shadow(0 1px 2px rgb(18 35 28 / 0.35));
+}
+
+.taiwan-map a:hover .map-dot,
+.taiwan-map a:focus-visible .map-dot {
+  stroke: var(--ink);
+}
+
+/* ---- Tables ---- */
+tbody tr:hover > * {
+  background: var(--bg-sunken);
+}
+
+thead th {
+  letter-spacing: 0.03em;
+}
+
+/* ---- Loading state: a quiet skeleton instead of a dashed box ---- */
+.state {
+  border-style: solid;
+  border-color: var(--line);
+}
+
+.state-loading {
+  position: relative;
+  overflow: hidden;
+  min-height: 160px;
+  align-items: flex-start;
+  color: var(--muted);
+}
+
+.state-loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgb(0 212 164 / 0.08) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+
+/* ---- Footer ---- */
+.site-footer {
+  border-top-color: var(--line);
+}
+
+/* ---- Motion preference ---- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
