@@ -53,9 +53,8 @@ main {
   position: absolute;
   inset: -40px 0 -8px;
   z-index: -1;
-  background:
-    radial-gradient(45% 80% at 90% 0%, rgb(0 212 164 / 0.14), transparent 70%),
-    radial-gradient(35% 60% at 0% 100%, rgb(0 107 82 / 0.06), transparent 70%);
+  /* closest-side keeps the glow fully transparent before any edge of the box. */
+  background: radial-gradient(closest-side at 78% 40%, rgb(0 212 164 / 0.16), transparent);
   pointer-events: none;
 }
 
