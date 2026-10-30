@@ -110,8 +110,12 @@ export function TaiwanMap({
         <marker id={`arrow-${markerId}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
           <path d="M0,0 L10,5 L0,10 z" className="map-arrow-head" />
         </marker>
+        <linearGradient id={`land-${markerId}`} x1="0" y1="0" x2="0.4" y2="1">
+          <stop offset="0" className="map-land-top" />
+          <stop offset="1" className="map-land-bottom" />
+        </linearGradient>
       </defs>
-      <path className="map-land" d={outlinePath(projection)} aria-hidden="true" />
+      <path className="map-land" d={outlinePath(projection)} style={{ fill: `url(#land-${markerId})` }} aria-hidden="true" />
       {links.map((link) => {
         const a = position.get(link.from);
         const b = position.get(link.to);
@@ -142,6 +146,7 @@ export function TaiwanMap({
         const [dx, dy, anchor] = LABEL_PLACEMENT[s.name] ?? (s.lon < 121 ? [-12, 4, "end"] : [12, 4, "start"]);
         const marker = (
           <>
+            <circle cx={x} cy={y} r={s.emphasis ? 18 : 13} className="map-halo" data-category={s.category ?? "none"} />
             <circle cx={x} cy={y} r={s.emphasis ? 9 : 7} className="map-dot" data-category={s.category ?? "none"} />
             {/* An invisible larger target keeps touch hits ≥ 24px. */}
             <circle cx={x} cy={y} r={13} className="map-hit" />
