@@ -51,7 +51,7 @@ main {
 .hero::before {
   content: "";
   position: absolute;
-  inset: -40px -24px -8px;
+  inset: -40px 0 -8px;
   z-index: -1;
   background:
     radial-gradient(45% 80% at 90% 0%, rgb(0 212 164 / 0.14), transparent 70%),
@@ -146,23 +146,15 @@ main {
 .taiwan-map .map-halo {
   fill: var(--cat, transparent);
   opacity: 0.22;
-  transform-box: fill-box;
-  transform-origin: center;
 }
 
+/* Static on purpose: an endless pulse never settles, which blocks axe's
+   animation wait and Playwright's stable-element click on the station link. */
 .taiwan-map .is-emphasis .map-halo {
-  animation: halo 2.4s var(--ease) infinite;
-}
-
-@keyframes halo {
-  0% {
-    transform: scale(0.6);
-    opacity: 0.45;
-  }
-  100% {
-    transform: scale(1.35);
-    opacity: 0;
-  }
+  opacity: 0.32;
+  stroke: var(--cat, transparent);
+  stroke-width: 1.5;
+  stroke-opacity: 0.8;
 }
 
 .taiwan-map .map-dot {
