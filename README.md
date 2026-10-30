@@ -20,9 +20,21 @@
 
 ## 功能與技術
 
-提供臺灣多區模型格點、24 小時趨勢、地點比較、異常分析與瀏覽器端情境工具。使用 Python 資料流程、React、TypeScript 與 Vite。
+提供臺灣多區模型格點、24 小時趨勢、地點比較、異常分析與瀏覽器端情境工具。使用 Python 資料流程、React、TypeScript 與 Vite。介面採薄荷色閱讀工作區與桌面側邊導覽，設計原則見 [DESIGN.md](DESIGN.md)。
+
+## 畫面
+
+| 出門時段規劃 | 時序關聯回放 |
+| --- | --- |
+| ![出門時段規劃畫面](docs/screenshots/station-planner.png) | ![時序關聯回放畫面](docs/screenshots/propagation-replay.png) |
+| **異常事件與相關因子** | **情境模擬** |
+| ![異常事件畫面](docs/screenshots/anomaly-attribution.png) | ![情境模擬畫面](docs/screenshots/whatif.png) |
+
+截圖取自正式網站的 CAMS 模型估算資料。
 
 ## 本機執行與驗證
+
+需求：Python 3.12、Node.js 22。
 
 ```bash
 python -m pip install -r requirements.txt -c requirements-lock-py312.txt
