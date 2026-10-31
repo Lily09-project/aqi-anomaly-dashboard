@@ -46,6 +46,21 @@ export function useRoute(): [Route, (route: Route, options?: { replace?: boolean
   return [parseRoute(hash), navigate];
 }
 
+/** Wall-clock milliseconds, refreshed every minute and when the tab becomes visible again. */
+export function useNow(): number {
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const refreshNow = () => setNowMs(Date.now());
+    const interval = window.setInterval(refreshNow, 60_000);
+    document.addEventListener("visibilitychange", refreshNow);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshNow);
+    };
+  }, []);
+  return nowMs;
+}
+
 export function useDocumentTitle(title: string): void {
   useEffect(() => {
     document.title = title ? `${title}｜Taiwan Air Lab` : "Taiwan Air Lab — 台灣空氣實驗室";

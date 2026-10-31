@@ -62,8 +62,9 @@ export function ChartFrame({
 
 export interface MapStation {
   name: string;
-  lon: number;
-  lat: number;
+  /** Null when the location is unknown; the station is then left off the map. */
+  lon: number | null;
+  lat: number | null;
   /** Category key, used for the fill colour; null draws an empty marker. */
   category: string | null;
   label: string;
@@ -98,7 +99,8 @@ export function TaiwanMap({
 }) {
   const projection = makeProjection(MAP_WIDTH);
   const markerId = useId().replace(/:/g, "");
-  const position = new Map(stations.map((s) => [s.name, projection.project(s.lon, s.lat)]));
+  const placed = stations.flatMap((s) => (s.lon === null || s.lat === null ? [] : [{ ...s, lon: s.lon, lat: s.lat }]));
+  const position = new Map(placed.map((s) => [s.name, projection.project(s.lon, s.lat)]));
   return (
     <svg
       className="chart taiwan-map"
@@ -141,7 +143,7 @@ export function TaiwanMap({
           </g>
         );
       })}
-      {stations.map((s) => {
+      {placed.map((s) => {
         const [x, y] = position.get(s.name) ?? [0, 0];
         const [dx, dy, anchor] = LABEL_PLACEMENT[s.name] ?? (s.lon < 121 ? [-12, 4, "end"] : [12, 4, "start"]);
         const marker = (

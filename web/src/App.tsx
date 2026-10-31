@@ -1,9 +1,9 @@
-import { lazy, Suspense, useEffect, useMemo, useRef } from "react";
+import { Component, lazy, Suspense, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { LoaderContext, useRoute } from "./app/hooks";
 import { Shell } from "./components/Shell";
-import { EmptyState, Loading } from "./components/States";
+import { EmptyState, ErrorState, Loading } from "./components/States";
 import { createLoader, type Loader } from "./lib/data";
-import { routeToHash } from "./lib/router";
+import { routeToHash, type Route } from "./lib/router";
 import Home from "./routes/Home";
 
 const Station = lazy(() => import("./routes/Station"));
@@ -13,10 +13,35 @@ const WhatIfPage = lazy(() => import("./routes/WhatIf"));
 const ModelPage = lazy(() => import("./routes/Model"));
 const DataTrust = lazy(() => import("./routes/DataTrust"));
 
+const routeKey = (route: Route) => (route.name === "station" ? `station-${route.station}` : route.name);
+
+/** Show the page error state instead of unmounting the whole site; navigating away clears it. */
+class ErrorBoundary extends Component<{ resetKey: string; children: ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: unknown) {
+    return { error: error instanceof Error ? error : new Error(String(error)) };
+  }
+
+  componentDidUpdate(previous: { resetKey: string }) {
+    if (previous.resetKey !== this.props.resetKey && this.state.error) this.setState({ error: null });
+  }
+
+  render() {
+    return this.state.error ? (
+      <div className="page">
+        <ErrorState error={this.state.error} />
+      </div>
+    ) : (
+      this.props.children
+    );
+  }
+}
+
 function Routes() {
   const [route] = useRoute();
   const first = useRef(true);
-  const key = route.name === "station" ? `station-${route.station}` : route.name;
+  const key = routeKey(route);
 
   // Move focus to the new page for keyboard and screen-reader users.
   useEffect(() => {
@@ -58,18 +83,21 @@ function Routes() {
 
 export default function App({ loader }: { loader?: Loader }) {
   const value = useMemo(() => loader ?? createLoader(import.meta.env.BASE_URL), [loader]);
+  const [route] = useRoute();
   return (
     <LoaderContext.Provider value={value}>
       <Shell>
-        <Suspense
-          fallback={
-            <div className="page">
-              <Loading label="頁面載入中" />
-            </div>
-          }
-        >
-          <Routes />
-        </Suspense>
+        <ErrorBoundary resetKey={routeKey(route)}>
+          <Suspense
+            fallback={
+              <div className="page">
+                <Loading label="頁面載入中" />
+              </div>
+            }
+          >
+            <Routes />
+          </Suspense>
+        </ErrorBoundary>
       </Shell>
     </LoaderContext.Provider>
   );

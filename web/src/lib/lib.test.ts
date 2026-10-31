@@ -316,4 +316,39 @@ describe("data loader", () => {
       url.endsWith("manifest.json") ? respond(JSON.stringify({ schema_version: "2.0", files: { "model.json": "0".repeat(64) } })) : respond("{}");
     await expect(createLoader("./", fetcher).load("model.json")).rejects.toBeInstanceOf(IntegrityError);
   });
+
+  it("retries the manifest after a transient failure", async () => {
+    const body = "{}";
+    const digest = await sha256Hex(encoder.encode(body).buffer as ArrayBuffer);
+    let manifestCalls = 0;
+    const fetcher = async (url: string) => {
+      if (url.endsWith("manifest.json")) {
+        manifestCalls += 1;
+        return manifestCalls === 1 ? respond("down", 503) : respond(JSON.stringify({ schema_version: "2.0", files: { "model.json": digest } }));
+      }
+      return respond(body);
+    };
+    const loader = createLoader("./", fetcher);
+    await expect(loader.load("model.json")).rejects.toThrow("HTTP 503");
+    await expect(loader.load("model.json")).resolves.toEqual({});
+    expect(manifestCalls).toBe(2);
+  });
+
+  it("refetches a stale manifest and file once, bypassing the cache, before reporting tampering", async () => {
+    const oldBody = '{"v":1}';
+    const newBody = '{"v":2}';
+    const hash = async (text: string) => sha256Hex(encoder.encode(text).buffer as ArrayBuffer);
+    const manifestFor = async (text: string) => JSON.stringify({ schema_version: "2.0", files: { "model.json": await hash(text) } });
+    let deployed = oldBody;
+    const calls: [string, RequestInit | undefined][] = [];
+    const fetcher = async (url: string, init?: RequestInit) => {
+      calls.push([url, init]);
+      return url.endsWith("manifest.json") ? respond(await manifestFor(deployed)) : respond(deployed);
+    };
+    const loader = createLoader("./", fetcher);
+    await loader.manifest();
+    deployed = newBody; // the site is redeployed while the tab still holds the old manifest
+    await expect(loader.load("model.json")).resolves.toEqual({ v: 2 });
+    expect(calls.filter(([, init]) => init?.cache === "reload").map(([url]) => url).sort()).toEqual(["./data/manifest.json", "./data/model.json"]);
+  });
 });

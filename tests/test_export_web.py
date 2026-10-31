@@ -120,3 +120,11 @@ def test_short_history_fails_with_a_clear_error(exported: Path, tmp_path: Path) 
     short.to_csv(path, index=False)
     with pytest.raises(export_web.InsufficientHistoryError, match="14 days"):
         export_web.export(tmp_path / "out", cleaned_path=path)
+
+
+def test_non_finite_floats_are_written_as_null(tmp_path: Path) -> None:
+    payload = {"drift": [{"reference_mean": float("nan"), "current_mean": 1.0}], "links": [{"r_synchronous": float("inf")}]}
+    export_web._write_json(tmp_path / "x.json", payload)
+    text = (tmp_path / "x.json").read_text(encoding="utf-8")
+    assert "NaN" not in text and "Infinity" not in text
+    assert json.loads(text) == {"drift": [{"current_mean": 1.0, "reference_mean": None}], "links": [{"r_synchronous": None}]}
