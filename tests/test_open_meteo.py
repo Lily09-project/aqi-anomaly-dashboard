@@ -147,3 +147,72 @@ def test_open_meteo_rejects_aliased_grid_cells_without_publication(tmp_path):
     )
     assert result is None
     assert not output.exists()
+
+
+NOW = datetime(2026, 10, 21, 12, tzinfo=ZoneInfo("Asia/Taipei"))
+
+
+def _fetch_with_nulls(tmp_path: Path, edits):
+    client = FakeClient()
+    for location, source, field, indexes, value in edits:
+        series = (client.air if source == "air" else client.weather)[location]["hourly"][field]
+        for index in indexes:
+            series[index] = value
+    output = tmp_path / "raw" / "aqi_open_meteo.csv"
+    metadata = tmp_path / "source_metadata.json"
+    result = fetch_open_meteo(_config(tmp_path), output, metadata, client=client, now=NOW)
+    return result, output, json.loads(metadata.read_text(encoding="utf-8"))
+
+
+def test_open_meteo_trims_trailing_null_hours_and_records_them(tmp_path):
+    result, output, saved = _fetch_with_nulls(tmp_path, [
+        (0, "weather", "wind_speed_10m", [-3, -2, -1], None),
+        (2, "air", "ozone", [-1], None),
+    ])
+    assert result == output
+    frame = pd.read_csv(output)
+    assert not frame[["aqi", "pm25", "pm10", "o3", "co", "wind_speed", "wind_directions"]].isna().any().any()
+    counts = frame.groupby("site_name").size()
+    full = 30 * 24 + 1
+    assert counts[LOCATIONS[0]["site_name"]] == full - 3
+    assert counts[LOCATIONS[2]["site_name"]] == full - 1
+    assert counts[LOCATIONS[1]["site_name"]] == full
+    regions = {item["name"]: item for item in saved["missing_values"]["regions"]}
+    assert regions[LOCATIONS[0]["site_name"]]["trimmed_trailing_hours"] == 3
+    assert regions[LOCATIONS[2]["site_name"]]["trimmed_trailing_hours"] == 1
+    assert regions[LOCATIONS[1]["site_name"]] == {"name": LOCATIONS[1]["site_name"], "trimmed_trailing_hours": 0, "masked_values": {}}
+    assert saved["row_count"] == len(frame)
+
+
+def test_open_meteo_keeps_isolated_interior_null_for_short_gap_filling(tmp_path):
+    from src.analytics.panel import build_panels
+
+    result, output, saved = _fetch_with_nulls(tmp_path, [(1, "air", "us_aqi", [100], None)])
+    assert result == output
+    frame = pd.read_csv(output)
+    site = LOCATIONS[1]["site_name"]
+    assert int(frame["aqi"].isna().sum()) == 1
+    assert frame.loc[frame["aqi"].isna(), "site_name"].tolist() == [site]
+    regions = {item["name"]: item for item in saved["missing_values"]["regions"]}
+    assert regions[site]["masked_values"] == {"us_aqi": 1}
+    assert regions[site]["trimmed_trailing_hours"] == 0
+    assert saved["missing_values"]["max_null_run_hours"] == 3
+    assert not build_panels(frame)["aqi"][site].isna().any()
+
+
+def test_open_meteo_fails_closed_on_long_or_frequent_null_runs(tmp_path):
+    long_gap = [(0, "air", "pm10", range(200, 204), None)]
+    frequent = [(3, "weather", "wind_direction_10m", range(10, 700, 40), None)]
+    for case, edits in (("long", long_gap), ("frequent", frequent)):
+        result, output, saved = _fetch_with_nulls(tmp_path / case, edits)
+        assert result is None
+        assert not output.exists()
+        assert saved["status"] == "fallback"
+
+
+def test_open_meteo_still_rejects_non_numeric_values(tmp_path):
+    for case, value in (("text", "n/a"), ("bool", True), ("nan", "NaN")):
+        result, output, saved = _fetch_with_nulls(tmp_path / case, [(0, "air", "pm2_5", [50], value)])
+        assert result is None
+        assert not output.exists()
+        assert saved["status"] == "fallback"
