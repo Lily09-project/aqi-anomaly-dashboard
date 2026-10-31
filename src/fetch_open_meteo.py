@@ -38,6 +38,23 @@ LOCATIONS = (
 AIR_FIELDS = ("us_aqi", "pm2_5", "pm10", "ozone", "carbon_monoxide")
 WEATHER_FIELDS = ("wind_speed_10m", "wind_direction_10m")
 API_STEP = pd.Timedelta(hours=1)
+# Missing (null) values are tolerated only where downstream gap handling can
+# absorb them: preprocess forward-fills at most 3 consecutive hours and
+# build_panels interpolates interior gaps of at most 3 hours (GAP_FILL_HOURS).
+# Trailing hours where any field is null are trimmed instead, subject to the
+# existing 48-hour staleness and minimum-history checks. Longer runs, or more
+# than 2% nulls in any field of one region (~29 h of a 60-day window), fail
+# closed. Non-null values that are not finite numbers always fail.
+MAX_NULL_RUN_HOURS = 3
+MAX_NULL_SHARE = 0.02
+COLUMN_FIELDS = (
+    ("aqi", "us_aqi"), ("pm25", "pm2_5"), ("pm10", "pm10"), ("o3", "ozone"), ("co", "carbon_monoxide"),
+    ("wind_speed", "wind_speed_10m"), ("wind_directions", "wind_direction_10m"),
+)
+VALUE_RANGES = {
+    "aqi": (0, 1000), "pm25": (0, math.inf), "pm10": (0, math.inf), "o3": (0, math.inf), "co": (0, math.inf),
+    "wind_speed": (0, 200), "wind_directions": (0, 360),
+}
 
 
 def _metadata_path(config: Mapping[str, Any], target: str | Path | None) -> Path:
@@ -112,6 +129,18 @@ def _number(value: Any, field: str) -> float:
     return result
 
 
+def _nullable_number(value: Any, field: str) -> float:
+    """Map an explicit JSON null to NaN; every other value must be a finite number."""
+    return math.nan if value is None else _number(value, field)
+
+
+def _longest_null_run(values: pd.Series) -> int:
+    missing = values.isna()
+    if not missing.any():
+        return 0
+    return int(missing.groupby((~missing).cumsum()).sum().max())
+
+
 def _write_failure(target: Path, requested: str, exc: Exception) -> None:
     metadata = build_source_metadata(
         provider=PROVIDER, mode="api", status="fallback", source_url=AIR_URL,
@@ -151,6 +180,7 @@ def fetch_open_meteo(
         weather = _location_list(_get_json(http, WEATHER_URL, {**shared, "hourly": ",".join(WEATHER_FIELDS), "wind_speed_unit": "ms"}))
         grid_cells: set[tuple[float, float]] = set()
         frames = []
+        missing_report: list[dict[str, Any]] = []
         minimum_span = pd.Timedelta(days=minimum_days)
         for config_location, aqi_location, weather_location in zip(LOCATIONS, air, weather):
             grid_lat = _number(aqi_location.get("latitude"), "grid latitude")
@@ -170,28 +200,36 @@ def fetch_open_meteo(
             intervals = pd.Series(air_times).diff().dropna()
             if intervals.empty or not intervals.eq(API_STEP).all():
                 raise ValueError("Open-Meteo hourly output is not a continuous one-hour series")
-            if air_times[-1] > current_taipei or current_taipei-air_times[-1] > pd.Timedelta(hours=48) or air_times[-1]-air_times[0] < minimum_span:
-                raise ValueError("CAMS history is stale, too short, or includes future data")
-            wind = {t: (s, d) for t, s, d in zip(wind_times, wind_values["wind_speed_10m"], wind_values["wind_direction_10m"])}
-            rows = []
-            for i, stamp in enumerate(air_times):
-                if stamp not in wind:
-                    continue
-                values = {
-                    "aqi": _number(air_values["us_aqi"][i], "us_aqi"),
-                    "pm25": _number(air_values["pm2_5"][i], "pm2_5"),
-                    "pm10": _number(air_values["pm10"][i], "pm10"),
-                    "o3": _number(air_values["ozone"][i], "ozone"),
-                    "co": _number(air_values["carbon_monoxide"][i], "carbon_monoxide"),
-                    "wind_speed": _number(wind[stamp][0], "wind_speed_10m"),
-                    "wind_directions": _number(wind[stamp][1], "wind_direction_10m"),
-                }
-                if values["aqi"] < 0 or values["aqi"] > 1000 or any(values[k] < 0 for k in ("pm25","pm10","o3","co","wind_speed")) or values["wind_speed"] > 200 or not 0 <= values["wind_directions"] <= 360:
+            if air_times[-1] > current_taipei:
+                raise ValueError("CAMS history includes future data")
+            hourly = {**air_values, **wind_values}
+            values = pd.DataFrame({
+                column: [_nullable_number(v, field) for v in hourly[field]]
+                for column, field in COLUMN_FIELDS
+            })
+            complete = values.notna().all(axis=1)
+            keep = int(complete[::-1].idxmax()) + 1 if complete.any() else 0
+            trimmed = len(values) - keep
+            values = values.iloc[:keep]
+            times = air_times[:keep]
+            if not times or current_taipei-times[-1] > pd.Timedelta(hours=48) or times[-1]-times[0] < minimum_span:
+                raise ValueError("CAMS history is stale or too short after trimming trailing missing hours")
+            masked = {}
+            for column, field in COLUMN_FIELDS:
+                count = int(values[column].isna().sum())
+                if _longest_null_run(values[column]) > MAX_NULL_RUN_HOURS or count > MAX_NULL_SHARE * len(values):
+                    raise ValueError(f"{field} has too many or too long missing runs")
+                if count:
+                    masked[field] = count
+            for column, (low, high) in VALUE_RANGES.items():
+                if ((values[column] < low) | (values[column] > high)).any():
                     raise ValueError("physically invalid source value")
-                rows.append({"datetime": stamp.isoformat(timespec="minutes"), "site_name": config_location["site_name"],
-                             "county": config_location["county"], **values, "latitude": grid_lat, "longitude": grid_lon,
-                             "coordinate_source": "Open-Meteo snapped CAMS global grid"})
-            frame = pd.DataFrame(rows)
+            missing_report.append({"name": config_location["site_name"], "trimmed_trailing_hours": trimmed, "masked_values": masked})
+            frame = values.assign(
+                datetime=[stamp.isoformat(timespec="minutes") for stamp in times], site_name=config_location["site_name"],
+                county=config_location["county"], latitude=grid_lat, longitude=grid_lon,
+                coordinate_source="Open-Meteo snapped CAMS global grid",
+            )[["datetime", "site_name", "county", *VALUE_RANGES, "latitude", "longitude", "coordinate_source"]]
             if frame.empty or len(frame) < minimum_days * 24 * .8:
                 raise ValueError("too few aligned air-quality and weather rows")
             frames.append(frame)
@@ -218,6 +256,11 @@ def fetch_open_meteo(
             "interpolation": "Open-Meteo returns an hourly series from native three-hourly CAMS data; intermediate hourly values are provider interpolation and are not additional observations.",
             "regions": [{"name": loc["site_name"], "latitude": round(float(item["latitude"]),3), "longitude": round(float(item["longitude"]),3)}
                         for loc, item in zip(LOCATIONS, air)],
+            "missing_values": {
+                "policy": f"Trailing hours with any null field are trimmed; up to {MAX_NULL_RUN_HOURS} consecutive null hours "
+                          f"and at most {MAX_NULL_SHARE:.0%} nulls per field and region are kept as blanks for downstream short-gap filling.",
+                "max_null_run_hours": MAX_NULL_RUN_HOURS, "max_null_share": MAX_NULL_SHARE, "regions": missing_report,
+            },
         })
         write_source_metadata(metadata_target, metadata)
         return target
