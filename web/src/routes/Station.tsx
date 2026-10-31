@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { useDataset, useDocumentTitle, useRoute } from "../app/hooks";
+import { useDataset, useDocumentTitle, useNow, useRoute } from "../app/hooks";
 import { AqiChip } from "../components/Aqi";
 import { ChartFrame, ForecastBand } from "../components/charts";
 import { EmptyState, Gate } from "../components/States";
@@ -21,16 +20,7 @@ interface Props {
 
 function StationView({ overview, model, provenance, station: name, sensitivity, hours }: Props & { overview: Overview; model: Model; provenance: Provenance }) {
   const [, navigate] = useRoute();
-  const [nowMs, setNowMs] = useState(() => Date.now());
-  useEffect(() => {
-    const refreshNow = () => setNowMs(Date.now());
-    const interval = window.setInterval(refreshNow, 60_000);
-    document.addEventListener("visibilitychange", refreshNow);
-    return () => {
-      window.clearInterval(interval);
-      document.removeEventListener("visibilitychange", refreshNow);
-    };
-  }, []);
+  const nowMs = useNow();
   const station = overview.stations.find((s) => s.station === name);
   const locationLabel = provenance.is_model_estimate ? "模型格點" : "測站";
   if (!station) {

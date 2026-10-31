@@ -1,30 +1,41 @@
-import { useDataset, useDocumentTitle } from "../app/hooks";
+import { useDataset, useDocumentTitle, useNow } from "../app/hooks";
 import { AqiChip, ScaleLegend } from "../components/Aqi";
 import { ChartFrame, TaiwanMap } from "../components/charts";
 import { Gate } from "../components/States";
-import { categoryOf } from "../lib/air";
+import { categoryOf, futureForecast } from "../lib/air";
 import { formatHour, formatNumber, formatSigned } from "../lib/format";
 import { routeToHash } from "../lib/router";
-import type { Overview, Propagation, Provenance, Station } from "../lib/types";
+import type { Overview, Propagation, Provenance, QuantileHour, Station } from "../lib/types";
 import "./Home.css";
 
 const shortName = (name: string) => name.replace(/(?:測站|網格)$/, "");
 
-/** Highest P90 in the next six hours: the "how bad could it get" number. */
-function nextSixWorst(station: Station): number {
-  return Math.max(...station.forecast.slice(0, 6).map((f) => f.p90));
+const NEXT_HOURS = 6;
+
+/** The next six forecast hours that have not started yet; null when fewer remain. */
+function nextSix(station: Station, nowMs: number): QuantileHour[] | null {
+  const hours = futureForecast(station.forecast, nowMs).slice(0, NEXT_HOURS);
+  return hours.length === NEXT_HOURS ? hours : null;
 }
+
+/** Highest P90 in the next six hours: the "how bad could it get" number. */
+const worstOf = (hours: QuantileHour[]) => Math.max(...hours.map((f) => f.p90));
 
 /** Highest median forecast in the next six hours. */
-function nextSixMedian(station: Station): number {
-  return Math.max(...station.forecast.slice(0, 6).map((f) => f.p50));
-}
+const medianOf = (hours: QuantileHour[]) => Math.max(...hours.map((f) => f.p50));
+
+const formatCoordinate = (value: number | null) => (value === null ? "—" : value.toFixed(3));
 
 function Dashboard({ overview, propagation, provenance }: { overview: Overview; propagation: Propagation; provenance: Provenance }) {
+  const nowMs = useNow();
   const stations = [...overview.stations].sort((a, b) => b.aqi - a.aqi);
   const worst = stations[0];
-  const rise = (s: Station) => nextSixMedian(s) - s.aqi;
-  const rising = [...overview.stations].sort((a, b) => rise(b) - rise(a))[0];
+  const next = new Map(overview.stations.map((s) => [s.station, nextSix(s, nowMs)]));
+  const outlooks = overview.stations.flatMap((s) => {
+    const hours = next.get(s.station);
+    return hours ? [{ station: s, median: medianOf(hours), worst: worstOf(hours), rise: medianOf(hours) - s.aqi }] : [];
+  });
+  const rising = outlooks.sort((a, b) => b.rise - a.rise)[0];
   const upstream = worst ? propagation.nearest_upstream[worst.station] : undefined;
   const upstreamStation = upstream ? overview.stations.find((s) => s.station === upstream.upstream) : undefined;
 
@@ -61,17 +72,23 @@ function Dashboard({ overview, propagation, provenance }: { overview: Overview; 
             <span className="muted small">由去季節化互相關找出的領先關係 →</span>
           </a>
         )}
-        {rising && (
-          <a className="card insight" href={routeToHash({ name: "station", station: rising.station })}>
+        {rising ? (
+          <a className="card insight" href={routeToHash({ name: "station", station: rising.station.station })}>
             <span className="stat-label">未來 6 小時預估上升最多</span>
             <strong className="insight-title">
-              {rising.station}（{formatSigned(rise(rising), 0)}）
+              {rising.station.station}（{formatSigned(rising.rise, 0)}）
             </strong>
             <span>
-              預估中位數最高 <AqiChip value={nextSixMedian(rising)} categories={overview.categories} />
+              預估中位數最高 <AqiChip value={rising.median} categories={overview.categories} />
             </span>
-            <span className="muted small">最壞情境（P90，十次約一次會更糟）{formatNumber(nextSixWorst(rising))} →</span>
+            <span className="muted small">最壞情境（P90，十次約一次會更糟）{formatNumber(rising.worst)} →</span>
           </a>
+        ) : (
+          <div className="card insight" data-testid="rising-insufficient">
+            <span className="stat-label">未來 6 小時預估上升最多</span>
+            <strong className="insight-title">未來預報不足 6 小時</strong>
+            <span className="muted small">目前資料已沒有足夠的未來時段，等下次資料更新後再比較。</span>
+          </div>
         )}
       </section>
 
@@ -100,7 +117,7 @@ function Dashboard({ overview, propagation, provenance }: { overview: Overview; 
                       <td className="num">{formatNumber(s.aqi)}</td>
                       <td>{s.category_label}</td>
                       <td>
-                        {s.latitude.toFixed(3)}, {s.longitude.toFixed(3)}
+                        {formatCoordinate(s.latitude)}, {formatCoordinate(s.longitude)}
                       </td>
                     </tr>
                   ))}
@@ -127,7 +144,7 @@ function Dashboard({ overview, propagation, provenance }: { overview: Overview; 
           <h2 id="station-list-title">{provenance.is_model_estimate ? "模型格點" : "測站"}</h2>
           <ul className="station-list">
             {stations.map((s) => {
-              const peak = nextSixWorst(s);
+              const hours = next.get(s.station);
               return (
                 <li key={s.station}>
                   <a className="station-card" href={routeToHash({ name: "station", station: s.station })}>
@@ -137,7 +154,7 @@ function Dashboard({ overview, propagation, provenance }: { overview: Overview; 
                     </span>
                     <AqiChip value={s.aqi} categories={overview.categories} />
                     <span className="station-meta small">
-                      PM2.5 {formatNumber(s.pm25, 1)} · 風速 {formatNumber(s.wind_speed, 1)} m/s · 6 小時 P90 {formatNumber(peak)}
+                      PM2.5 {formatNumber(s.pm25, 1)} · 風速 {formatNumber(s.wind_speed, 1)} m/s · {hours ? `6 小時 P90 ${formatNumber(worstOf(hours))}` : "未來預報不足 6 小時"}
                     </span>
                   </a>
                 </li>

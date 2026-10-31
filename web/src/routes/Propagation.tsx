@@ -11,13 +11,21 @@ import "./Propagation.css";
 
 const shortName = (name: string) => name.replace(/(?:測站|網格)$/, "");
 
-function Replay({ overview, propagation, initialFrame }: { overview: Overview; propagation: Propagation; initialFrame: number }) {
+function Replay({ overview, propagation, urlFrame }: { overview: Overview; propagation: Propagation; urlFrame: number }) {
   const [, navigate] = useRoute();
   const episode = propagation.episode;
   const last = Math.max(episode.times.length - 1, 0);
-  const [frame, setFrame] = useState(Math.min(initialFrame, last));
+  const [frame, setFrame] = useState(Math.min(urlFrame, last));
   const [playing, setPlaying] = useState(false);
+  const [syncedUrlFrame, setSyncedUrlFrame] = useState(urlFrame);
   const isPlaying = playing && frame < last;
+
+  // Follow the URL when it changes from outside (nav link, back button, edited address).
+  if (urlFrame !== syncedUrlFrame) {
+    setSyncedUrlFrame(urlFrame);
+    setFrame(Math.min(urlFrame, last));
+    setPlaying(false);
+  }
 
   useEffect(() => {
     if (!isPlaying) return;
@@ -25,9 +33,11 @@ function Replay({ overview, propagation, initialFrame }: { overview: Overview; p
     return () => window.clearInterval(id);
   }, [isPlaying, last]);
 
+  // Write the frame back only once playback stops, not on every animation tick.
   useEffect(() => {
+    if (isPlaying || frame === urlFrame) return;
     navigate({ name: "propagation", frame }, { replace: true });
-  }, [frame, navigate]);
+  }, [frame, isPlaying, urlFrame, navigate]);
 
   const values = episodeFrame(episode, frame);
   const peaks = peakFrames(episode);
@@ -269,7 +279,7 @@ function PropagationView({ overview, propagation, frame }: { overview: Overview;
                         </td>
                       )}
                       <td className="num">{l.r.toFixed(2)}</td>
-                      <td className="num">{l.r_synchronous.toFixed(2)}</td>
+                      <td className="num">{formatNumber(l.r_synchronous, 2)}</td>
                     </tr>
                   );
                 })}
@@ -281,7 +291,7 @@ function PropagationView({ overview, propagation, frame }: { overview: Overview;
       </section>
 
       {propagation.episode.times.length > 0 ? (
-        <Replay overview={overview} propagation={propagation} initialFrame={frame} />
+        <Replay overview={overview} propagation={propagation} urlFrame={frame} />
       ) : (
         <EmptyState title="目前沒有可回放的時序區段" />
       )}

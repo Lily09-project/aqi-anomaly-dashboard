@@ -42,8 +42,19 @@ def _iso(ts: pd.Timestamp) -> str:
     return pd.Timestamp(ts).strftime("%Y-%m-%dT%H:%M")
 
 
+def _finite(value: Any) -> Any:
+    """Replace NaN/Infinity with None recursively: bare NaN tokens break JSON.parse."""
+    if isinstance(value, dict):
+        return {key: _finite(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_finite(item) for item in value]
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    return value
+
+
 def _write_json(path: Path, payload: Any) -> str:
-    text = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    text = json.dumps(_finite(payload), ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
     path.write_text(text + "\n", encoding="utf-8")
     return hashlib.sha256(path.read_bytes()).hexdigest()
 

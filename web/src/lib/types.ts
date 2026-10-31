@@ -9,8 +9,8 @@ export interface QuantileHour {
 export interface Station {
   station: string;
   county: string;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   coordinate_source: string;
   aqi: number;
   pm25: number;
@@ -41,7 +41,7 @@ export interface Link {
   downstream: string;
   lag_hours: number;
   r: number;
-  r_synchronous: number;
+  r_synchronous: number | null;
   truth_lag: number | null;
 }
 
@@ -131,7 +131,7 @@ export interface Model {
   target_coverage: number;
   horizons: HorizonMetrics[];
   downstream_stations: string[];
-  drift: { station: string; reference_mean: number; current_mean: number; shift_sd: number | null; status: string }[];
+  drift: { station: string; reference_mean: number | null; current_mean: number | null; shift_sd: number | null; status: string }[];
 }
 
 export interface Provenance {
