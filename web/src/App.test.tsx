@@ -92,6 +92,10 @@ describe("home forecast outlook", () => {
     expect(rising.closest("a")).toHaveTextContent("乙測站（+45）");
     expect(screen.getByRole("row", { name: /乙測站/ })).toHaveTextContent("—, —");
     expect(screen.queryByTestId("rising-insufficient")).toBeNull();
+    // The hero gives judges and first-time visitors one obvious place to start.
+    const start = screen.getByRole("link", { name: /的 24 小時預報開始/ });
+    expect(start.getAttribute("href")).toMatch(/^#\/station\//);
+    expect(screen.getByRole("heading", { name: "四個分析頁，各回答一個問題" })).toBeInTheDocument();
   });
 
   it("says when fewer than six future forecast hours remain", async () => {

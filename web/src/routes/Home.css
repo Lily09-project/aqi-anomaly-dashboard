@@ -54,3 +54,73 @@
   grid-column: 1 / -1;
   color: var(--muted);
 }
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.hero-source {
+  margin: var(--space-3) 0 0;
+  color: var(--muted);
+}
+
+.tour h2 {
+  font-size: var(--step-1);
+  margin: 0 0 var(--space-3);
+}
+
+.tour-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tour-list > li {
+  display: grid;
+  min-width: 0;
+}
+
+.tour-card {
+  display: grid;
+  align-content: start;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--bg-raised);
+  color: var(--ink);
+  text-decoration: none;
+  transition: border-color var(--duration) var(--ease);
+}
+
+.tour-card:hover {
+  border-color: var(--accent);
+}
+
+.tour-card strong {
+  color: var(--accent);
+}
+
+.insight .aqi-chip,
+.kpi .aqi-chip {
+  justify-self: start;
+}
+
+.hero-source a {
+  display: inline-block;
+}
+
+/* Four points do not need a 460px-wide island; keep the map beside the list. */
+.home-map .taiwan-map {
+  max-width: 360px;
+}
+
+.home-map .scale-legend {
+  margin-top: var(--space-3);
+}

@@ -46,8 +46,28 @@ function Dashboard({ overview, propagation, provenance }: { overview: Overview; 
         <h1>空氣會移動，預報也該告訴你不確定性。</h1>
         <p className="lede">
           {provenance.is_model_estimate
-            ? overview.stations.length + " 個 CAMS 區域模型格點，提供風險趨勢、時序關聯與情境分析；不代表測站實測或污染來源判定。"
-            : provenance.is_simulated ? "使用固定種子測試資料驗證預報、時序關聯與情境分析。" : "整理公開空品資料，查看風險趨勢、時序關聯與情境分析。"}
+            ? `用 ${overview.stations.length} 個 CAMS 區域模型格點回答三件事：現在哪裡空氣最差、未來 24 小時可能多糟（附 80% 預測區間）、哪些時段異常偏高，以及當時哪些因子一起偏離。`
+            : provenance.is_simulated
+              ? "使用固定種子測試資料驗證預報、時序關聯、異常偵測與情境分析。"
+              : "整理公開空品資料，查看風險趨勢、預報區間、異常事件與情境分析。"}
+        </p>
+        {worst && (
+          <div className="hero-actions">
+            <a className="btn btn-primary" href={routeToHash({ name: "station", station: worst.station })}>
+              從{shortName(worst.station)}的 24 小時預報開始 →
+            </a>
+            <a className="btn" href={routeToHash({ name: "anomalies" })}>
+              看異常事件
+            </a>
+          </div>
+        )}
+        <p className="hero-source small">
+          {provenance.is_model_estimate
+            ? "資料：Open-Meteo · CAMS Global 模型估算，非環境部測站實測，也不是健康警示。"
+            : provenance.is_simulated
+              ? "資料：固定種子測試資料，只用於測試與預覽。"
+              : `資料：${provenance.data_source}。`}{" "}
+          <a href={routeToHash({ name: "data" })}>方法與資料可信度</a>
         </p>
       </header>
 
@@ -92,11 +112,50 @@ function Dashboard({ overview, propagation, provenance }: { overview: Overview; 
         )}
       </section>
 
+      <section aria-labelledby="tour-title" className="tour">
+        <h2 id="tour-title">四個分析頁，各回答一個問題</h2>
+        <ul className="tour-list">
+          <li>
+            <a className="tour-card" href={routeToHash({ name: "propagation" })}>
+              <strong>時序關聯</strong>
+              <span>哪個地點的 PM2.5 先變化？</span>
+              <span className="muted small">
+                {propagation.links.length
+                  ? `目前找到 ${propagation.links.length} 組顯著的領先關係，可逐時回放。`
+                  : "目前沒有達門檻的領先關係；仍可逐時回放各地點變化。"}
+              </span>
+            </a>
+          </li>
+          <li>
+            <a className="tour-card" href={routeToHash({ name: "anomalies" })}>
+              <strong>異常事件</strong>
+              <span>什麼時候異常偏高？和什麼一起偏離？</span>
+              <span className="muted small">以穩健 z 分數標記事件，區分局部與區域，並找出歷史相似事件。</span>
+            </a>
+          </li>
+          <li>
+            <a className="tour-card" href={routeToHash({ name: "whatif" })}>
+              <strong>情境模擬</strong>
+              <span>條件改變時，下一小時 AQI 會怎麼變？</span>
+              <span className="muted small">拖動風速、臭氧等滑桿，看每個條件把預測推高或拉低多少。</span>
+            </a>
+          </li>
+          <li>
+            <a className="tour-card" href={routeToHash({ name: "model" })}>
+              <strong>模型監控</strong>
+              <span>這些預報值得相信嗎？</span>
+              <span className="muted small">和「維持現狀」「同時段典型值」兩個基準比誤差，並檢查區間覆蓋率。</span>
+            </a>
+          </li>
+        </ul>
+      </section>
+
       <section className="split">
-        <div className="card">
+        <div className="card home-map">
           <ChartFrame
             interactive
             title={provenance.is_model_estimate ? "區域模型格點分布與目前 AQI" : "測站分布與目前 AQI"}
+            legend={<ScaleLegend categories={overview.categories} />}
             summary={stations.map((s) => `${s.station} ${formatNumber(s.aqi)}（${s.category_label}）`).join("、")}
             table={
               <table>
@@ -137,7 +196,6 @@ function Dashboard({ overview, propagation, provenance }: { overview: Overview; 
               hrefFor={(station) => routeToHash({ name: "station", station })}
             />
           </ChartFrame>
-          <ScaleLegend categories={overview.categories} />
         </div>
 
         <section aria-labelledby="station-list-title">
