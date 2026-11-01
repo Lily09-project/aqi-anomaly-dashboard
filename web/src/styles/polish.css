@@ -223,3 +223,37 @@ thead th {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Word-valued stats (source names, place lists) read as headings, not giant figures. */
+.stat-value.stat-text {
+  font-size: var(--step-2);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+/* Restore a visible disclosure cue: `display: flex` on <summary> hides the native marker. */
+details.data-table summary {
+  gap: var(--space-2);
+  list-style: none;
+}
+
+details.data-table summary::-webkit-details-marker {
+  display: none;
+}
+
+details.data-table summary::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border-block: 5px solid transparent;
+  border-inline-start: 7px solid currentColor;
+  transition: transform var(--duration) var(--ease);
+}
+
+details.data-table[open] summary::before {
+  transform: rotate(90deg);
+}
+
+details.data-table summary:hover {
+  color: var(--accent);
+}

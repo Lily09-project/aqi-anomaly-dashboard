@@ -34,11 +34,14 @@ export function ChartFrame({
   summary,
   table,
   interactive = false,
+  legend,
   children,
 }: {
   title: string;
   summary: string;
   table: ReactNode;
+  /** Shown right under the chart, before the data table, so the key sits next to what it explains. */
+  legend?: ReactNode;
   /** Interactive charts contain links, so they are a labelled group rather than one image. */
   interactive?: boolean;
   children: ReactNode;
@@ -52,6 +55,7 @@ export function ChartFrame({
       <div role={interactive ? "group" : "img"} aria-label={`${title}：${summary}`}>
         {children}
       </div>
+      {legend}
       <details className="data-table">
         <summary>以表格檢視資料</summary>
         <ScrollRegion label={`${title}（資料表）`}>{table}</ScrollRegion>
@@ -345,13 +349,30 @@ export function MultiLine({
   );
 }
 
-export function Legend({ series }: { series: Pick<Series, "key" | "label" | "tone">[] }) {
+/** Non-line marks a chart can use; each legend swatch reuses the chart's own styling. */
+export type LegendMark = "history" | "median" | "band" | "threshold" | "window" | "span";
+
+export interface LegendItem {
+  key: string;
+  label: string;
+  tone?: Series["tone"];
+  mark?: LegendMark;
+}
+
+function LegendSwatch({ item }: { item: LegendItem }) {
+  if (item.mark === "band" || item.mark === "window" || item.mark === "span")
+    return <rect x="1" y="1" width="26" height="10" rx="2" className={`legend-${item.mark}`} />;
+  if (item.mark) return <line x1="1" x2="27" y1="6" y2="6" className={`legend-${item.mark}`} />;
+  return <line x1="1" x2="27" y1="6" y2="6" className={`series series-${item.tone ?? 1}`} />;
+}
+
+export function Legend({ series }: { series: LegendItem[] }) {
   return (
     <ul className="legend">
       {series.map((s) => (
         <li key={s.key}>
-          <svg width="28" height="10" aria-hidden="true">
-            <line x1="1" x2="27" y1="5" y2="5" className={`series series-${s.tone}`} />
+          <svg width="28" height="12" aria-hidden="true">
+            <LegendSwatch item={s} />
           </svg>
           {s.label}
         </li>

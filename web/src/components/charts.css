@@ -247,3 +247,40 @@
   width: 100%;
   min-width: 0;
 }
+
+/* Legend swatches for non-series marks mirror the chart styles above. */
+.legend .legend-history {
+  stroke: var(--ink-soft);
+}
+
+.legend .legend-median {
+  stroke: var(--chart-1);
+  stroke-dasharray: 6 3;
+}
+
+.legend .legend-threshold {
+  stroke: var(--bad);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+
+.legend .legend-band {
+  fill: var(--chart-1);
+  opacity: 0.25;
+}
+
+.legend .legend-window {
+  fill: var(--good);
+  fill-opacity: 0.16;
+  stroke: var(--good);
+  stroke-dasharray: 3 3;
+}
+
+.legend .legend-span {
+  fill: var(--bad);
+  opacity: 0.18;
+}
+
+.chart-frame .legend {
+  margin-bottom: var(--space-1);
+}

@@ -80,8 +80,9 @@ function EventDetail({ event, all, filter, windowHours }: { event: AnomalyEvent;
       )}
 
       <ChartFrame
-        title="事件前後的 PM2.5"
+        title="事件前後的 PM2.5（µg/m³）"
         summary={`紅色區塊是偵測到的事件期間；來源數值高於同時段典型值。`}
+        legend={<Legend series={[...series, { key: "span", label: "偵測到的事件期間", mark: "span" }]} />}
         table={
           <table>
             <thead>
@@ -105,7 +106,6 @@ function EventDetail({ event, all, filter, windowHours }: { event: AnomalyEvent;
       >
         <MultiLine series={series} labels={event.context.map((c) => formatHour(c.t))} span={span} format={(v) => String(v)} />
       </ChartFrame>
-      <Legend series={series} />
 
       <section aria-labelledby="similar-title">
         <h3 id="similar-title">歷史上最相似的事件</h3>
@@ -142,6 +142,12 @@ function AnomaliesView({ data, id, station, kind }: Props & { data: Anomalies })
   const selected = (id && filtered.find((e) => e.id === id)) || (id && all.get(id)) || filtered[0];
   const stations = [...new Set(data.events.map((e) => e.station))].sort((a, b) => a.localeCompare(b, "zh-Hant"));
   const v = data.validation;
+  const localCount = data.events.filter((e) => e.kind === "local").length;
+  const perStation = new Map<string, number>();
+  for (const e of data.events) perStation.set(e.station, (perStation.get(e.station) ?? 0) + 1);
+  const busiestCount = Math.max(0, ...perStation.values());
+  const busiest = [...perStation].filter(([, n]) => n === busiestCount).map(([name]) => name);
+  const highest = data.events.reduce<AnomalyEvent | undefined>((top, e) => (!top || e.peak_aqi > top.peak_aqi ? e : top), undefined);
   const update = (patch: Props) => navigate({ name: "anomalies", id: undefined, station, kind, ...patch }, { replace: true });
 
   return (
@@ -153,6 +159,17 @@ function AnomaliesView({ data, id, station, kind }: Props & { data: Anomalies })
           每個地點、每個時段各自的「正常範圍」不同。我們用中位數與 MAD 算出 PM2.5 的穩健 z 分數，超過 {data.threshold} 就標記為異常，再看其他地點有沒有在傳播延遲範圍內同時異常，區分局部與區域事件。
         </p>
       </header>
+
+      {data.events.length > 0 && highest && (
+        <p className="callout" data-testid="anomaly-takeaway">
+          資料期間共偵測到 <strong>{data.events.length}</strong> 起事件：局部 {localCount}、區域 {data.events.length - localCount}。
+          最常出現在 <strong>{busiest.join("、")}</strong>（{busiestCount} 起）；高峰 AQI 最高的是{" "}
+          <a href={routeToHash({ name: "anomalies", id: highest.id })}>
+            {highest.station} {formatHour(highest.start)}（AQI {formatNumber(highest.peak_aqi)}）
+          </a>
+          。
+        </p>
+      )}
 
       {v && (
         <section className="kpis" aria-label="偵測器驗證">
@@ -221,6 +238,7 @@ function AnomaliesView({ data, id, station, kind }: Props & { data: Anomalies })
         <div className="split anomalies-layout">
           <section aria-labelledby="events-title">
             <h2 id="events-title">事件列表（{filtered.length}）</h2>
+            <p className="muted small event-list-hint">點選事件，查看當時哪些因子一起偏離、前後 PM2.5 走勢與最相似的歷史事件。</p>
             <ScrollRegion label="異常事件列表">
               <ul className="event-list" data-testid="event-list">
                 {filtered.map((e) => (
