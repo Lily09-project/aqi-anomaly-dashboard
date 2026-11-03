@@ -201,7 +201,7 @@ function PropagationView({ overview, propagation, frame }: { overview: Overview;
         )}
         <div className="card kpi">
           <span className="stat-label">未形成顯著關聯的地點</span>
-          <span className="stat-value" data-testid="isolated">
+          <span className="stat-value stat-text" data-testid="isolated">
             {isolated.length ? isolated.map((s) => shortName(s.station)).join("、") : "無"}
           </span>
           <span className="muted small">部分地點未達關聯門檻</span>

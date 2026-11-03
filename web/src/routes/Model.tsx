@@ -83,7 +83,8 @@ function ModelView({ model }: { model: Model }) {
 
       <section className="card">
         <ChartFrame
-          title="各預報時距的平均絕對誤差（越低越好）"
+          title="各預報時距的平均絕對誤差（AQI，越低越好）"
+          legend={<Legend series={maeSeries} />}
           summary={`本模型在 ${beatsPersistence} 個時距優於持續性基準，${beatsClimatology.length} 個時距優於氣候值基準。`}
           table={
             <table data-testid="mae-table">
@@ -113,7 +114,6 @@ function ModelView({ model }: { model: Model }) {
         >
           <MultiLine series={maeSeries} labels={labels} format={(v) => String(v)} yMin={0} />
         </ChartFrame>
-        <Legend series={maeSeries} />
       </section>
 
       <section className="split">

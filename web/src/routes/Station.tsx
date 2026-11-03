@@ -1,6 +1,6 @@
 import { useDataset, useDocumentTitle, useNow, useRoute } from "../app/hooks";
 import { AqiChip } from "../components/Aqi";
-import { ChartFrame, ForecastBand } from "../components/charts";
+import { ChartFrame, ForecastBand, Legend, type LegendItem } from "../components/charts";
 import { EmptyState, Gate } from "../components/States";
 import { ADVICE, bestWindow, categoryOf, exceedanceProbability, futureForecast, windowRisks } from "../lib/air";
 import { addHours, formatClock, formatHour, formatNumber, formatPercent } from "../lib/format";
@@ -11,6 +11,8 @@ import "./Station.css";
 const HISTORY_SHOWN = 48;
 const DURATIONS = [1, 2, 3, 4, 6, 8, 12];
 const AUDIENCE: Record<Sensitivity, string> = { sensitive: "敏感族群", general: "一般民眾" };
+/** At or above this average exceedance risk, even the best window is "least bad", not "recommended". */
+const HIGH_RISK = 0.5;
 
 interface Props {
   station: string;
@@ -49,6 +51,13 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
   const windowStart = best ? availableForecast[best.start] : undefined;
   const windowEnd = best ? availableForecast[best.start + hours - 1] : undefined;
   const chartWindowStart = windowStart ? forecast.findIndex((item) => item.h === windowStart.h) : -1;
+  const forecastLegend: LegendItem[] = [
+    { key: "history", label: provenance.is_model_estimate ? "過去模型估算" : "過去資料", mark: "history" },
+    { key: "median", label: "預報中位數（P50）", mark: "median" },
+    { key: "band", label: "80% 預測區間（P10–P90）", mark: "band" },
+    { key: "threshold", label: `${AUDIENCE[sensitivity]}門檻 ${threshold}`, mark: "threshold" },
+    ...(best && chartWindowStart >= 0 ? [{ key: "window", label: best.risk >= HIGH_RISK ? "相對最低時段" : "建議時段", mark: "window" as const }] : []),
+  ];
 
   return (
     <div className="stack">
@@ -79,7 +88,7 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
           <span className="aqi-big" data-testid="current-aqi">
             {formatNumber(station.aqi)}
           </span>
-          <AqiChip value={station.aqi} categories={overview.categories} />
+          <AqiChip value={station.aqi} categories={overview.categories} labelOnly />
         </div>
         <div className="card kpi">
           <span className="stat-label">污染物與氣象</span>
@@ -131,8 +140,13 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
         <div className="planner-result" aria-live="polite" data-testid="planner-result">
           {best && windowStart && windowEnd ? (
             <>
+              {best.risk >= HIGH_RISK && (
+                <p className="notice planner-warning" data-testid="planner-warning">
+                  未來每個可選的 {hours} 小時時段{best.risk >= 0.995 ? "都預估會超標" : `的平均超標機率都不低於 ${formatPercent(best.risk, 0)}`}，{AUDIENCE[sensitivity]}可考慮改到室內或縮短時間；下面是相對風險最低的時段。
+                </p>
+              )}
               <p className="planner-answer">
-                建議 <strong data-testid="best-window" data-window-start={windowStart.t}>{formatHour(windowStart.t)}–{formatClock(addHours(windowEnd.t, 1))}</strong>
+                {best.risk >= HIGH_RISK ? "相對最低" : "建議"} <strong data-testid="best-window" data-window-start={windowStart.t}>{formatHour(windowStart.t)}–{formatClock(addHours(windowEnd.t, 1))}</strong>
                 ，平均超標機率 <strong data-testid="best-risk">{formatPercent(best.risk, 1)}</strong>
               </p>
               <p className="muted">
@@ -149,7 +163,8 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
         </div>
 
         <ChartFrame
-          title={`${station.station} 過去 ${HISTORY_SHOWN} 小時與資料時間起算的 24 小時預報`}
+          title={`${station.station} AQI：過去 ${HISTORY_SHOWN} 小時與資料時間起算的 24 小時預報`}
+          legend={<Legend series={forecastLegend} />}
           summary={(provenance.is_model_estimate ? "實線為每 3 小時模型估算值與時點間插值" : "實線為來源資料") + "、虛線為預報中位數，陰影為 80% 預測區間；紅線是" + AUDIENCE[sensitivity] + "門檻 " + threshold + (best ? "，綠色區塊是建議時段" : "") + "；最佳時段只比較尚未發生的預報。"}
           table={
             <table data-testid="forecast-table" data-as-of-ms={nowMs}>
