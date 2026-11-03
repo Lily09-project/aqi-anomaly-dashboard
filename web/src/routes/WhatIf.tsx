@@ -34,6 +34,9 @@ function Simulator({ model, overview }: { model: WhatIf; overview: Overview }) {
   const high = Math.max(prediction + model.residual_p90, 0);
   const labels = Object.fromEntries(model.inputs.map((i) => [i.key, i.label]));
   const contributions = whatIfContributions(model, inputs);
+  // Largest push in each direction, for a one-line reading of the bar chart.
+  const strongestUp = contributions.reduce<(typeof contributions)[number] | null>((top, c) => (c.value >= 0.05 && (!top || c.value > top.value) ? c : top), null);
+  const strongestDown = contributions.reduce<(typeof contributions)[number] | null>((top, c) => (c.value <= -0.05 && (!top || c.value < top.value) ? c : top), null);
   const sweepInput = model.inputs.find((i) => i.key === sweepKey) ?? model.inputs[0];
   const sweep = sweepInput
     ? Array.from({ length: SWEEP_POINTS }, (_, i) => {
@@ -119,7 +122,7 @@ function Simulator({ model, overview }: { model: WhatIf; overview: Overview }) {
           <p className="aqi-big" data-testid="whatif-prediction">
             {formatNumber(prediction)}
           </p>
-          <AqiChip value={prediction} categories={overview.categories} />
+          <AqiChip value={prediction} categories={overview.categories} labelOnly />
           <p>
             80% 預測區間 <strong data-testid="whatif-interval">{formatNumber(low)}–{formatNumber(high)}</strong>
           </p>
@@ -153,6 +156,22 @@ function Simulator({ model, overview }: { model: WhatIf; overview: Overview }) {
           >
             <DivergingBars rows={contributions.map((c) => ({ key: c.key, label: labels[c.key] ?? c.key, value: c.value }))} format={(v) => formatSigned(v, 1)} />
           </ChartFrame>
+          {(strongestUp || strongestDown) && (
+            <p className="callout" data-testid="whatif-takeaway">
+              {strongestUp && (
+                <>
+                  目前最推高預測的是 <strong>{labels[strongestUp.key] ?? strongestUp.key}</strong>（{formatSigned(strongestUp.value, 1)} AQI）
+                </>
+              )}
+              {strongestUp && strongestDown && "；"}
+              {strongestDown && (
+                <>
+                  最拉低的是 <strong>{labels[strongestDown.key] ?? strongestDown.key}</strong>（{formatSigned(strongestDown.value, 1)} AQI）
+                </>
+              )}
+              。
+            </p>
+          )}
           <p className="muted small">基準是訓練資料的平均狀態（AQI 約 {formatNumber(model.intercept)}）；基準加上各項貢獻才是預測值。</p>
         </section>
 

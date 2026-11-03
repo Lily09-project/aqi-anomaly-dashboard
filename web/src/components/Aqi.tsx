@@ -2,12 +2,15 @@ import { categoryOf, DEFAULT_CATEGORIES } from "../lib/air";
 import { formatNumber } from "../lib/format";
 import type { Category } from "../lib/types";
 
-/** AQI value with its category name; the colour is never the only cue. */
-export function AqiChip({ value, categories = DEFAULT_CATEGORIES }: { value: number | null; categories?: Category[] }) {
+/**
+ * AQI value with its category name; the colour is never the only cue.
+ * `labelOnly` drops the number when a large figure right above already shows it.
+ */
+export function AqiChip({ value, categories = DEFAULT_CATEGORIES, labelOnly = false }: { value: number | null; categories?: Category[]; labelOnly?: boolean }) {
   const category = categoryOf(value, categories);
   return (
     <span className="aqi-chip" data-category={category?.key ?? "none"}>
-      {formatNumber(value)}
+      {!labelOnly && formatNumber(value)}
       <small>{category?.label ?? "無資料"}</small>
     </span>
   );

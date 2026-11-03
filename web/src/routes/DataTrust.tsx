@@ -53,7 +53,7 @@ function Trust({ provenance, anomalies, propagation }: { provenance: Provenance;
       <section className="grid grid-3">
         <div className="card">
           <span className="stat-label">資料來源</span>
-          <p className="stat-value" data-testid="data-source">
+          <p className="stat-value stat-text" data-testid="data-source">
             {provenance.is_model_estimate ? "Open-Meteo · CAMS Global" : provenance.is_simulated ? "測試資料" : provenance.data_source}
           </p>
           <span className="muted small">
