@@ -39,6 +39,14 @@ test.describe("正式公開空品模型資料", () => {
     expect(provenance.input_sha256).toMatch(/^[a-f0-9]{64}$/);
     expect(overview.stations.length).toBeGreaterThan(0);
 
+    // The forecast must start near the build. An archive ending at yesterday 23:00 still passes the
+    // pinned-clock checks below while the live site shows only a few future hours (2026-11-03).
+    const buildTime = Date.now();
+    for (const station of overview.stations) {
+      const remaining = station.forecast.filter((hour) => forecastInstant(hour.t) >= buildTime).length;
+      expect(remaining, `${station.station}: future forecast hours at build time`).toBeGreaterThanOrEqual(18);
+    }
+
     const firstForecast = overview.stations[0]!.forecast[0]!;
     const evaluationTime = forecastInstant(firstForecast.t) + 30 * 60_000;
     expect(Number.isFinite(evaluationTime)).toBe(true);
