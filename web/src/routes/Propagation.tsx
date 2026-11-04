@@ -186,7 +186,7 @@ function PropagationView({ overview, propagation, frame }: { overview: Overview;
 
       <section className="kpis" aria-label="摘要">
         <div className="card kpi">
-          <span className="stat-label">顯著的領先關係</span>
+          <span className="stat-label">達門檻的領先關係</span>
           <span className="stat-value">{propagation.links.length}</span>
           <span className="muted small">落後 1–{propagation.max_lag} 小時、相關係數 ≥ {propagation.min_correlation}，且優於同時相關</span>
         </div>
@@ -200,7 +200,7 @@ function PropagationView({ overview, propagation, frame }: { overview: Overview;
           </div>
         )}
         <div className="card kpi">
-          <span className="stat-label">未形成顯著關聯的地點</span>
+          <span className="stat-label">未形成達門檻關聯的地點</span>
           <span className="stat-value stat-text" data-testid="isolated">
             {isolated.length ? isolated.map((s) => shortName(s.station)).join("、") : "無"}
           </span>
@@ -247,7 +247,7 @@ function PropagationView({ overview, propagation, frame }: { overview: Overview;
           </ChartFrame>
         </div>
         <div className="card">
-          <h2>所有顯著關係</h2>
+          <h2>所有達門檻的關係</h2>
           <ScrollRegion label="地點領先落後關係">
             <table data-testid="links-table">
               <thead>

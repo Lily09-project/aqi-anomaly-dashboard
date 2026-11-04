@@ -1,6 +1,7 @@
 import { useDataset, useDocumentTitle, useNow, useRoute } from "../app/hooks";
 import { AqiChip } from "../components/Aqi";
 import { ChartFrame, ForecastBand, Legend, type LegendItem } from "../components/charts";
+import { DataTime, StaleNotice } from "../components/Freshness";
 import { EmptyState, Gate } from "../components/States";
 import { ADVICE, bestWindow, categoryOf, exceedanceProbability, futureForecast, windowRisks } from "../lib/air";
 import { addHours, formatClock, formatHour, formatNumber, formatPercent } from "../lib/format";
@@ -27,7 +28,7 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
   const locationLabel = provenance.is_model_estimate ? "模型格點" : "測站";
   if (!station) {
     return (
-      <EmptyState title={"找不到這個" + locationLabel}>
+      <EmptyState title={"找不到這個" + locationLabel} asPageTitle>
         <p>
           「{name}」不在資料中。<a href={routeToHash({ name: "home" })}>回到總覽</a>選擇{locationLabel}。
         </p>
@@ -63,7 +64,9 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
     <div className="stack">
       <header className="station-head">
         <div>
-          <span className="eyebrow">{station.county} · 資料時間 {formatHour(overview.latest)}</span>
+          <span className="eyebrow">
+            {station.county} · <DataTime latest={overview.latest} nowMs={nowMs} />
+          </span>
           <h1>{station.station}</h1>
         </div>
         <label className="field station-switch">
@@ -81,6 +84,8 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
           </select>
         </label>
       </header>
+
+      {provenance.is_model_estimate && <StaleNotice latest={overview.latest} nowMs={nowMs} />}
 
       <section className="grid grid-3" aria-label="目前狀態">
         <div className="card kpi">
@@ -205,8 +210,8 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
           )}
         </ChartFrame>
         <p className="muted small">
-          區間怎麼來：每個預報時距各有一個 ridge 迴歸模型，再用保留的校準期殘差（分割式保形預測）決定 P10／P90。測試期的 80% 區間實際涵蓋{" "}
-          {formatPercent(Math.min(...coverage), 0)}–{formatPercent(Math.max(...coverage), 0)} 的觀測值。
+          區間怎麼來：每個預報時距各有一個 ridge 迴歸模型，再用保留的校準期殘差（分割式保形預測）決定 P10／P90。測試期各時距實際值落在 80% 區間內的比例為{" "}
+          {formatPercent(Math.min(...coverage), 0)}–{formatPercent(Math.max(...coverage), 0)}。
           <a href={routeToHash({ name: "model" })}>查看模型監控</a>
         </p>
       </section>

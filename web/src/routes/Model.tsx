@@ -56,7 +56,9 @@ function ModelView({ model }: { model: Model }) {
           <span className="stat-value" data-testid="beats-persistence">
             {beatsPersistence}/{horizons.length}
           </span>
-          <span className="muted small">1 小時預報的技術分數 {formatPercent(skill(horizons[0]?.mae ?? 0, horizons[0]?.persistence_mae ?? 0), 0)}</span>
+          <span className="muted small">
+            1 小時預報的技術分數 {formatPercent(skill(horizons[0]?.mae ?? 0, horizons[0]?.persistence_mae ?? 0), 0)}（相對「維持現狀」的誤差降幅，負值代表誤差較大）
+          </span>
         </div>
         <div className="card kpi">
           <span className="stat-label">優於氣候值基準的時距</span>
@@ -80,6 +82,13 @@ function ModelView({ model }: { model: Model }) {
           <span className="muted small">1–6 小時的平均誤差降幅；正值代表誤差較低，負值代表較高</span>
         </div>
       </section>
+
+      {horizons[0] && beatsPersistence * 2 < horizons.length && (
+        <p className="callout" data-testid="persistence-note">
+          本模型在 {horizons.length - beatsPersistence}/{horizons.length} 個時距沒有贏過「維持現狀」。這份資料的 AQI 逐時變化很平滑（1 小時後與現在平均只差{" "}
+          {formatNumber(horizons[0].persistence_mae, 2)}），維持現狀本身就是很強的基準；這裡的預報較適合用 80% 區間了解不確定性，而不是取代目前數值。
+        </p>
+      )}
 
       <section className="card">
         <ChartFrame
@@ -201,12 +210,12 @@ function ModelView({ model }: { model: Model }) {
       <section className="split">
         <div className="card">
           <h2>分布漂移（PM2.5）</h2>
-          <p className="muted small">最近 7 天的平均值，相對前 14 天偏移了幾個標準差。超過 0.5 留意、超過 1 警示，代表模型可能需要重新訓練。</p>
+          <p className="muted small">最近 7 天的平均值，相對前 14 天偏移了幾個標準差。達 0.5 為留意、達 1 為警示，代表模型可能需要重新訓練。</p>
           <ScrollRegion label="分布漂移">
             <table data-testid="drift-table">
               <thead>
                 <tr>
-                  <th scope="col">測站</th>
+                  <th scope="col">地點</th>
                   <th scope="col">前 14 天</th>
                   <th scope="col">最近 7 天</th>
                   <th scope="col">偏移（SD）</th>

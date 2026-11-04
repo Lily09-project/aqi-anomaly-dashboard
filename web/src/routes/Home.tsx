@@ -1,9 +1,10 @@
 import { useDataset, useDocumentTitle, useNow } from "../app/hooks";
 import { AqiChip, ScaleLegend } from "../components/Aqi";
 import { ChartFrame, TaiwanMap } from "../components/charts";
+import { DataTime, StaleNotice } from "../components/Freshness";
 import { Gate } from "../components/States";
 import { categoryOf, futureForecast } from "../lib/air";
-import { formatHour, formatNumber, formatSigned } from "../lib/format";
+import { formatNumber, formatSigned } from "../lib/format";
 import { routeToHash } from "../lib/router";
 import type { Overview, Propagation, Provenance, QuantileHour, Station } from "../lib/types";
 import "./Home.css";
@@ -42,7 +43,9 @@ function Dashboard({ overview, propagation, provenance }: { overview: Overview; 
   return (
     <div className="stack">
       <header className="hero">
-        <span className="eyebrow">空氣品質實驗室 · 資料時間 {formatHour(overview.latest)}</span>
+        <span className="eyebrow">
+          空氣品質實驗室 · <DataTime latest={overview.latest} nowMs={nowMs} />
+        </span>
         <h1>空氣會移動，預報也該告訴你不確定性。</h1>
         <p className="lede">
           {provenance.is_model_estimate
@@ -61,6 +64,7 @@ function Dashboard({ overview, propagation, provenance }: { overview: Overview; 
             </a>
           </div>
         )}
+        {provenance.is_model_estimate && <StaleNotice latest={overview.latest} nowMs={nowMs} />}
         <p className="hero-source small">
           {provenance.is_model_estimate
             ? "資料：Open-Meteo · CAMS Global 模型估算，非環境部測站實測，也不是健康警示。"
@@ -121,7 +125,7 @@ function Dashboard({ overview, propagation, provenance }: { overview: Overview; 
               <span>哪個地點的 PM2.5 先變化？</span>
               <span className="muted small">
                 {propagation.links.length
-                  ? `目前找到 ${propagation.links.length} 組顯著的領先關係，可逐時回放。`
+                  ? `目前找到 ${propagation.links.length} 組達門檻的領先關係，可逐時回放。`
                   : "目前沒有達門檻的領先關係；仍可逐時回放各地點變化。"}
               </span>
             </a>

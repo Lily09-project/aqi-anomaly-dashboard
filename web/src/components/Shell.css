@@ -192,3 +192,8 @@
     white-space: nowrap;
   }
 }
+
+.state-title {
+  margin: 0;
+  font-size: var(--step-1);
+}

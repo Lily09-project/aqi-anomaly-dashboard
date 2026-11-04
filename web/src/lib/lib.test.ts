@@ -4,7 +4,7 @@ import { coverageStatus, episodeFrame, eventRows, filterEvents, lagAgreement, pe
 import { escapeCell, toCsv } from "./csv";
 import { createLoader, IntegrityError, sha256Hex } from "./data";
 import whatifFixture from "./fixtures/whatif.json";
-import { addHours, formatClock, formatDay, formatHour, formatNumber, formatPercent, formatSigned, taiwanLocalTimestampMs } from "./format";
+import { addHours, formatAge, formatClock, formatDay, formatHour, formatNumber, formatPercent, formatSigned, hoursSince, taiwanLocalTimestampMs } from "./format";
 import { makeProjection, outlinePath, TAIWAN_OUTLINE } from "./geo";
 import { parseRoute, routeToHash, type Route } from "./router";
 import type { AnomalyEvent, HorizonMetrics, Link, Propagation, WhatIf } from "./types";
@@ -350,5 +350,22 @@ describe("data loader", () => {
     deployed = newBody; // the site is redeployed while the tab still holds the old manifest
     await expect(loader.load("model.json")).resolves.toEqual({ v: 2 });
     expect(calls.filter(([, init]) => init?.cache === "reload").map(([url]) => url).sort()).toEqual(["./data/manifest.json", "./data/model.json"]);
+  });
+});
+
+describe("data age", () => {
+  it("measures whole hours since a Taiwan-local timestamp, whatever the viewer's zone", () => {
+    const now = Date.parse("2026-11-03T20:30:00+08:00");
+    expect(hoursSince("2026-11-03T20:00", now)).toBe(0);
+    expect(hoursSince("2026-11-02T23:00", now)).toBe(21);
+    expect(hoursSince("2026-11-03T23:00:00+08:00", now)).toBe(0);
+    expect(hoursSince("not a time", now)).toBeNull();
+    expect(hoursSince("2026-11-03T20:00", Number.NaN)).toBeNull();
+  });
+
+  it("formats ages in Traditional Chinese", () => {
+    expect(formatAge(0)).toBe("不到 1 小時前");
+    expect(formatAge(21)).toBe("約 21 小時前");
+    expect(formatAge(50)).toBe("約 2 天前");
   });
 });

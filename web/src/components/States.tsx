@@ -20,10 +20,11 @@ export function ErrorState({ error }: { error: Error }) {
   );
 }
 
-export function EmptyState({ title, children }: { title: string; children?: ReactNode }) {
+/** `asPageTitle` makes the title the page's h1 when the empty state is the whole page. */
+export function EmptyState({ title, children, asPageTitle = false }: { title: string; children?: ReactNode; asPageTitle?: boolean }) {
   return (
     <div className="state state-empty">
-      <strong>{title}</strong>
+      {asPageTitle ? <h1 className="state-title">{title}</h1> : <strong>{title}</strong>}
       {children}
     </div>
   );
