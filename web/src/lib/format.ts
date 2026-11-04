@@ -86,3 +86,17 @@ export function addHours(iso: string, hours: number): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}T${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
 }
+
+/** Whole hours since a Taiwan-local data timestamp; null when either side is unusable. */
+export function hoursSince(iso: string, nowMs: number): number | null {
+  const at = taiwanLocalTimestampMs(iso);
+  if (at === null || !Number.isFinite(nowMs)) return null;
+  return Math.max(0, Math.floor((nowMs - at) / 3_600_000));
+}
+
+/** "不到 1 小時前", "約 5 小時前", "約 3 天前". */
+export function formatAge(hours: number): string {
+  if (hours < 1) return "不到 1 小時前";
+  if (hours < 48) return `約 ${hours} 小時前`;
+  return `約 ${Math.floor(hours / 24)} 天前`;
+}

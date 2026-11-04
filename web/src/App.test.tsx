@@ -143,3 +143,38 @@ describe("propagation replay and the URL", () => {
     expect(window.location.hash).toBe(`#/propagation?frame=${paused}`);
   });
 });
+
+describe("stale model data", () => {
+  const modelled = (stations: Station[]) => {
+    const files = datasets(stations);
+    return { ...files, "provenance.json": { ...files["provenance.json"]!, is_simulated: false, is_model_estimate: true } };
+  };
+
+  it("shows the data age and warns once the daily refresh has been missed", async () => {
+    // Data time 2026-10-20 23:00; 31 hours later.
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.parse("2026-10-22T06:30:00+08:00") });
+    window.history.replaceState(null, "", "#/");
+    render(<App loader={fakeLoader(modelled(TWO_STATIONS))} />);
+    expect(await screen.findByTestId("stale-notice")).toHaveTextContent("約 31 小時前");
+    expect(screen.getByText(/資料時間 10\/20 23:00（約 31 小時前）/)).toBeInTheDocument();
+  });
+
+  it("stays quiet while the snapshot is fresh", async () => {
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.parse("2026-10-21T01:10:00+08:00") });
+    window.history.replaceState(null, "", "#/");
+    render(<App loader={fakeLoader(modelled(TWO_STATIONS))} />);
+    expect(await screen.findByText(/約 2 小時前/)).toBeInTheDocument();
+    expect(screen.queryByTestId("stale-notice")).toBeNull();
+  });
+});
+
+describe("not-found page", () => {
+  it("has its own h1 and document title instead of keeping the previous page's", async () => {
+    window.history.replaceState(null, "", "#/nope");
+    document.title = "資料可信度｜Taiwan Air Lab";
+    render(<App loader={fakeLoader(datasets(TWO_STATIONS))} />);
+    expect(await screen.findByRole("heading", { level: 1, name: "找不到這個頁面" })).toBeInTheDocument();
+    expect(document.title).toBe("找不到這個頁面｜Taiwan Air Lab");
+    expect(screen.getByRole("link", { name: "回到空品總覽" })).toHaveAttribute("href", "#/");
+  });
+});

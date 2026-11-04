@@ -19,6 +19,7 @@ import pandas as pd
 
 from src.analytics import aqi_scale, attribution, drift, forecast, planner, propagation, whatif
 from src.analytics.panel import build_panels
+from src.display_names import to_chinese_location_name
 from src.station_registry import get_station_location
 from src.utils import load_config, project_path, resolve_path
 
@@ -76,7 +77,8 @@ def _station_meta(cleaned: pd.DataFrame) -> dict[str, dict[str, Any]]:
     for station, county in cleaned[["site_name", "county"]].drop_duplicates().itertuples(index=False):
         location = grid_coordinates.get(station) or get_station_location(station, county) or {}
         meta[station] = {
-            "county": county,
+            # Open-Meteo rows carry English county keys ("Taichung City"); the site is Traditional Chinese.
+            "county": to_chinese_location_name(county),
             "latitude": _num(location.get("latitude"), 3),
             "longitude": _num(location.get("longitude"), 3),
             "coordinate_source": location.get("coordinate_source", "unknown"),
@@ -257,7 +259,7 @@ def build_provenance(cleaned: pd.DataFrame, config: dict[str, Any], sample_dir: 
         [
             {"label": "Open-Meteo Air Quality API · CAMS Global", "url": "https://open-meteo.com/en/docs/air-quality-api"},
             {"label": "CAMS Global Atmospheric Composition Forecasts · Copernicus Atmosphere Monitoring Service", "url": "https://atmosphere.copernicus.eu/"},
-            {"label": "Open-Meteo Forecast API (wind fields)", "url": "https://open-meteo.com/en/docs"},
+            {"label": "Open-Meteo Forecast API（風場）", "url": "https://open-meteo.com/en/docs"},
         ]
         if modelled
         else [

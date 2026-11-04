@@ -127,7 +127,7 @@ function Simulator({ model, overview }: { model: WhatIf; overview: Overview }) {
             80% 預測區間 <strong data-testid="whatif-interval">{formatNumber(low)}–{formatNumber(high)}</strong>
           </p>
           <p className="muted small">
-            區間寬度來自 {model.calibration_size.toLocaleString("zh-TW")} 筆保留校準資料的殘差分位數；模型在你的瀏覽器裡計算，與 Python 版本逐位一致（誤差 &lt; 10⁻⁶）。
+            區間寬度來自 {model.calibration_size.toLocaleString("zh-TW")} 筆保留校準資料的殘差分位數；模型在你的瀏覽器裡計算，與 Python 版本的結果一致（差異 &lt; 10⁻⁶）。
           </p>
         </section>
 

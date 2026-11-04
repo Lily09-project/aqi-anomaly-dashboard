@@ -63,7 +63,7 @@ export function Shell({ children }: { children: ReactNode }) {
               <>
                 資料期間 {formatDay(provenance.data.range.start)} 至 {formatDay(provenance.data.range.end)}
                 {modelled
-                  ? "（約 " + (provenance.data.native_temporal_resolution_hours ?? 3) + " 小時、" + (provenance.data.spatial_resolution_km ?? 45) + " 公里網格；非測站實測）"
+                  ? "（CAMS 模型原生約每 " + (provenance.data.native_temporal_resolution_hours ?? 3) + " 小時一筆、約 " + (provenance.data.spatial_resolution_km ?? 45) + " 公里網格；非測站實測）"
                   : provenance.data.is_simulated ? "（可重現的測試資料）" : "（公開資料快照）"}。
               </>
             )}

@@ -95,7 +95,7 @@ def test_open_meteo_snapshot_is_unregistered_model_data_with_grid_metadata(tmp_p
     assert weather_call["params"]["wind_speed_unit"] == "ms"
     assert air_call["params"]["domains"] == "cams_global"
     assert air_call["params"]["past_days"] == 60
-    assert air_call["params"]["forecast_days"] == 0
+    assert air_call["params"]["forecast_days"] == 1
     assert "apikey" not in air_call["params"] and "api_key" not in air_call["params"]
     frame = pd.read_csv(output)
     assert frame["site_name"].nunique() == len(LOCATIONS)
@@ -216,3 +216,30 @@ def test_open_meteo_still_rejects_non_numeric_values(tmp_path):
         assert result is None
         assert not output.exists()
         assert saved["status"] == "fallback"
+
+
+def test_open_meteo_requests_today_and_keeps_only_started_hours(tmp_path):
+    """The archive must reach the current hour, or the 24-hour forecast starts at
+    yesterday 23:00 and is mostly in the past by the time the daily build runs."""
+    client = FakeClient()
+    # Like the live API with forecast_days=1: the series runs to 23:00 of the current day.
+    end = pd.Timestamp("2026-10-21T23:00:00+08:00")
+    extra = pd.date_range(pd.Timestamp(client.air[0]["hourly"]["time"][-1]) + pd.Timedelta(hours=1), end, freq="h")
+    for item in (*client.air, *client.weather):
+        hourly = item["hourly"]
+        hourly["time"] += [stamp.isoformat(timespec="minutes") for stamp in extra]
+        for key, values in hourly.items():
+            if key != "time":
+                values += [values[-1]] * len(extra)
+    now = datetime(2026, 10, 21, 20, 25, tzinfo=ZoneInfo("Asia/Taipei"))
+    output = tmp_path / "raw" / "aqi_open_meteo.csv"
+    metadata = tmp_path / "source_metadata.json"
+    result = fetch_open_meteo(_config(tmp_path), output, metadata, client=client, now=now)
+
+    assert result == output
+    for _, call in client.calls:
+        assert call["params"]["forecast_days"] == 1
+    frame = pd.read_csv(output)
+    assert set(frame.groupby("site_name")["datetime"].max()) == {"2026-10-21T20:00+08:00"}
+    saved = json.loads(metadata.read_text(encoding="utf-8"))
+    assert saved["datetime_range"]["max"] == "2026-10-21T12:00:00Z"  # 20:00 Asia/Taipei

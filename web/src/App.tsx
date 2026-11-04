@@ -1,5 +1,5 @@
 import { Component, lazy, Suspense, useEffect, useMemo, useRef, type ReactNode } from "react";
-import { LoaderContext, useRoute } from "./app/hooks";
+import { LoaderContext, useDocumentTitle, useRoute } from "./app/hooks";
 import { Shell } from "./components/Shell";
 import { EmptyState, ErrorState, Loading } from "./components/States";
 import { createLoader, type Loader } from "./lib/data";
@@ -12,6 +12,19 @@ const AnomaliesPage = lazy(() => import("./routes/Anomalies"));
 const WhatIfPage = lazy(() => import("./routes/WhatIf"));
 const ModelPage = lazy(() => import("./routes/Model"));
 const DataTrust = lazy(() => import("./routes/DataTrust"));
+
+function NotFound({ path }: { path: string }) {
+  useDocumentTitle("找不到這個頁面");
+  return (
+    <div className="page">
+      <EmptyState title="找不到這個頁面" asPageTitle>
+        <p>
+          網址 <code>{path}</code> 不存在。<a href={routeToHash({ name: "home" })}>回到空品總覽</a>
+        </p>
+      </EmptyState>
+    </div>
+  );
+}
 
 const routeKey = (route: Route) => (route.name === "station" ? `station-${route.station}` : route.name);
 
@@ -69,15 +82,7 @@ function Routes() {
     case "data":
       return <DataTrust />;
     case "not-found":
-      return (
-        <div className="page">
-          <EmptyState title="找不到這個頁面">
-            <p>
-              網址 <code>{route.path}</code> 不存在。<a href={routeToHash({ name: "home" })}>回到即時總覽</a>
-            </p>
-          </EmptyState>
-        </div>
-      );
+      return <NotFound path={route.path} />;
   }
 }
 

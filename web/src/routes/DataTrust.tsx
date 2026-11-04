@@ -1,5 +1,6 @@
 import { useContext, useEffect, useState } from "react";
 import { LoaderContext, useDataset, useDocumentTitle } from "../app/hooks";
+import { IntegrityError } from "../lib/data";
 import { ScrollRegion } from "../components/ScrollRegion";
 import { Gate } from "../components/States";
 import { formatDay, formatPercent } from "../lib/format";
@@ -8,7 +9,8 @@ import "./DataTrust.css";
 
 const FILES: (keyof DataFiles)[] = ["overview.json", "propagation.json", "anomalies.json", "whatif.json", "model.json", "provenance.json"];
 
-type Check = { file: string; status: "pending" | "ok" | "failed"; hash?: string };
+/** "failed" is a SHA-256 mismatch; "unavailable" means the file or manifest could not be fetched at all. */
+type Check = { file: string; status: "pending" | "ok" | "failed" | "unavailable"; hash?: string };
 
 function useIntegrityChecks(): { manifest: Manifest | null; checks: Check[] } {
   const loader = useContext(LoaderContext);
@@ -17,11 +19,16 @@ function useIntegrityChecks(): { manifest: Manifest | null; checks: Check[] } {
   useEffect(() => {
     if (!loader) return;
     let alive = true;
-    loader.manifest().then((m) => alive && setManifest(m));
+    // A manifest failure surfaces through every file check below; do not leave it unhandled.
+    loader.manifest().then(
+      (m) => alive && setManifest(m),
+      () => undefined,
+    );
     FILES.forEach((file, i) => {
       loader.load(file).then(
         () => alive && setChecks((prev) => prev.map((c, j) => (j === i ? { ...c, status: "ok" } : c))),
-        () => alive && setChecks((prev) => prev.map((c, j) => (j === i ? { ...c, status: "failed" } : c))),
+        (error: unknown) =>
+          alive && setChecks((prev) => prev.map((c, j) => (j === i ? { ...c, status: error instanceof IntegrityError ? "failed" : "unavailable" } : c))),
       );
     });
     return () => {
@@ -64,7 +71,7 @@ function Trust({ provenance, anomalies, propagation }: { provenance: Provenance;
           <span className="stat-label">涵蓋範圍</span>
           <p className="stat-value">{provenance.stations} {provenance.is_model_estimate ? "個模型格點" : "站"}</p>
           <span className="muted small">
-            {formatDay(provenance.range.start)} 至 {formatDay(provenance.range.end)} · {provenance.rows.toLocaleString("zh-TW")} 筆{provenance.is_model_estimate ? "API 逐時輸出（底層模型原生約每 " + (provenance.native_temporal_resolution_hours ?? 3) + " 小時）" : "逐時資料"} · 完整度{" "}
+            {formatDay(provenance.range.start)} 至 {formatDay(provenance.range.end)} · {provenance.rows.toLocaleString("zh-TW")} 筆{provenance.is_model_estimate ? " API 逐時輸出（底層模型原生約每 " + (provenance.native_temporal_resolution_hours ?? 3) + " 小時）" : "逐時資料"} · 完整度{" "}
             {formatPercent(provenance.completeness, 2)}
           </span>
         </div>
@@ -95,7 +102,9 @@ function Trust({ provenance, anomalies, propagation }: { provenance: Provenance;
                     {c.file}
                   </th>
                   <td>
-                    <span className={`badge check-${c.status}`}>{c.status === "ok" ? "✓ 相符" : c.status === "failed" ? "✕ 不符" : "驗證中"}</span>
+                    <span className={`badge check-${c.status === "unavailable" ? "failed" : c.status}`}>
+                      {c.status === "ok" ? "✓ 相符" : c.status === "failed" ? "✕ 不符" : c.status === "unavailable" ? "✕ 無法載入" : "驗證中"}
+                    </span>
                   </td>
                   <td className="mono hash">{c.hash ?? "—"}</td>
                 </tr>
@@ -175,10 +184,10 @@ function Trust({ provenance, anomalies, propagation }: { provenance: Provenance;
         <p>
           每個預報時距（1–24 小時）各一個 ridge 迴歸（直接多步預測），以時間順序切出的校準期殘差分位數決定 80% 區間（分割式保形預測），在測試期檢查實際覆蓋率。
         </p>
-        <h3>傳播追蹤</h3>
+        <h3>時序關聯</h3>
         <p>對各地點的 PM2.5 扣除「地點 × 時段」的典型值後，計算 1–{propagation.max_lag} 小時的落後互相關。這只呈現資料的時序相關，不能證明污染傳播或因果。</p>
         <h3>異常歸因</h3>
-        <p>以每個測站、每個時段的中位數與 MAD 計算穩健 z 分數，連續超過門檻的時段合併為事件；以高峰時各因子的 z 分數排序作為解釋，並以同一組 z 分數找出最相似的歷史事件。</p>
+        <p>以每個地點、每個時段的中位數與 MAD 計算穩健 z 分數，連續超過門檻的時段合併為事件；以高峰時各因子的 z 分數排序作為解釋，並以同一組 z 分數找出最相似的歷史事件。</p>
         <h3>不應該怎麼用</h3>
         <ul>
           <li>{provenance.is_model_estimate ? "模型格點不是地面測站，解析度約 45 公里；CAMS 原生約 3 小時，API 逐時輸出含插值。健康決策請查環境部即時資訊。" : "不是即時監測，也不是官方預報；健康決策請以環境部即時資訊為準。"}</li>

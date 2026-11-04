@@ -174,10 +174,14 @@ def fetch_open_meteo(
             raise RuntimeError("requests is not installed")
         lat = ",".join(str(x["latitude"]) for x in LOCATIONS)
         lon = ",".join(str(x["longitude"]) for x in LOCATIONS)
-        shared = {"latitude": lat, "longitude": lon, "past_days": past_days, "forecast_days": 0,
+        # forecast_days=0 ends the series at 23:00 of the previous Taipei day, which left the
+        # published 24-hour forecast mostly in the past by the evening build. Request today
+        # as well and keep only hours that have already started.
+        shared = {"latitude": lat, "longitude": lon, "past_days": past_days, "forecast_days": 1,
                   "timezone": "Asia/Taipei", "cell_selection": "nearest"}
         air = _location_list(_get_json(http, AIR_URL, {**shared, "hourly": ",".join(AIR_FIELDS), "domains": "cams_global"}))
         weather = _location_list(_get_json(http, WEATHER_URL, {**shared, "hourly": ",".join(WEATHER_FIELDS), "wind_speed_unit": "ms"}))
+        current_hour = pd.Timestamp(current_taipei).floor("h")
         grid_cells: set[tuple[float, float]] = set()
         frames = []
         missing_report: list[dict[str, Any]] = []
@@ -200,9 +204,10 @@ def fetch_open_meteo(
             intervals = pd.Series(air_times).diff().dropna()
             if intervals.empty or not intervals.eq(API_STEP).all():
                 raise ValueError("Open-Meteo hourly output is not a continuous one-hour series")
-            if air_times[-1] > current_taipei:
-                raise ValueError("CAMS history includes future data")
-            hourly = {**air_values, **wind_values}
+            # Today's later hours are CAMS forecasts for times that have not happened yet: drop them.
+            started = sum(1 for stamp in air_times if stamp <= current_hour)
+            air_times = air_times[:started]
+            hourly = {field: values[:started] for field, values in {**air_values, **wind_values}.items()}
             values = pd.DataFrame({
                 column: [_nullable_number(v, field) for v in hourly[field]]
                 for column, field in COLUMN_FIELDS

@@ -128,3 +128,33 @@ def test_non_finite_floats_are_written_as_null(tmp_path: Path) -> None:
     text = (tmp_path / "x.json").read_text(encoding="utf-8")
     assert "NaN" not in text and "Infinity" not in text
     assert json.loads(text) == {"drift": [{"current_mean": 1.0, "reference_mean": None}], "links": [{"r_synchronous": None}]}
+
+
+def test_station_meta_shows_counties_in_traditional_chinese() -> None:
+    """Open-Meteo rows carry English county keys; the site must not show them."""
+    from src.export_web import _station_meta
+
+    cleaned = pd.DataFrame(
+        {
+            "site_name": ["臺中網格", "花蓮網格"],
+            "county": ["Taichung City", "Hualien County"],
+            "latitude": [24.1, 24.0],
+            "longitude": [120.7, 121.6],
+            "coordinate_source": ["grid", "grid"],
+        }
+    )
+    meta = _station_meta(cleaned)
+    assert meta["臺中網格"]["county"] == "臺中市"
+    assert meta["花蓮網格"]["county"] == "花蓮縣"
+
+
+def test_model_provenance_source_labels_are_traditional_chinese(tmp_path: Path) -> None:
+    from src.export_web import build_provenance
+
+    metadata = tmp_path / "source_metadata.json"
+    metadata.write_text(json.dumps({"provider": "open_meteo_cams_global", "is_simulated_data": False, "row_count": 2}), encoding="utf-8")
+    config = {"reports": {"source_metadata_file": str(metadata)}}
+    cleaned = pd.DataFrame({"site_name": ["甲", "甲"], "datetime": ["2026-11-01T00:00", "2026-11-01T01:00"]})
+    labels = [source["label"] for source in build_provenance(cleaned, config, tmp_path)["sources"]]
+    assert not any("wind fields" in label for label in labels)
+    assert any("風場" in label for label in labels)
