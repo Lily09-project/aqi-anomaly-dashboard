@@ -51,20 +51,8 @@ class ErrorBoundary extends Component<{ resetKey: string; children: ReactNode },
   }
 }
 
-function Routes() {
-  const [route] = useRoute();
-  const first = useRef(true);
+function Routes({ route }: { route: Route }) {
   const key = routeKey(route);
-
-  // Move focus to the new page for keyboard and screen-reader users.
-  useEffect(() => {
-    if (first.current) {
-      first.current = false;
-      return;
-    }
-    window.scrollTo({ top: 0 });
-    document.getElementById("main")?.focus({ preventScroll: true });
-  }, [key]);
 
   switch (route.name) {
     case "home":
@@ -89,6 +77,17 @@ function Routes() {
 export default function App({ loader }: { loader?: Loader }) {
   const value = useMemo(() => loader ?? createLoader(import.meta.env.BASE_URL), [loader]);
   const [route] = useRoute();
+  const key = routeKey(route);
+  const previousKey = useRef(key);
+
+  // The shell is available even when the next route's module is still loading.
+  useEffect(() => {
+    if (previousKey.current === key) return;
+    previousKey.current = key;
+    window.scrollTo({ top: 0 });
+    document.getElementById("main")?.focus({ preventScroll: true });
+  }, [key]);
+
   return (
     <LoaderContext.Provider value={value}>
       <Shell>
@@ -100,7 +99,7 @@ export default function App({ loader }: { loader?: Loader }) {
               </div>
             }
           >
-            <Routes />
+            <Routes route={route} />
           </Suspense>
         </ErrorBoundary>
       </Shell>
