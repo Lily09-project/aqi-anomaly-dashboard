@@ -1,4 +1,5 @@
 import { useDataset, useDocumentTitle, useRoute } from "../app/hooks";
+import { Chapter, PageHead } from "../components/Chapter";
 import { ChartFrame, DivergingBars, Legend, MultiLine, type Series } from "../components/charts";
 import { ScrollRegion } from "../components/ScrollRegion";
 import { EmptyState, Gate } from "../components/States";
@@ -18,6 +19,18 @@ interface Props {
   kind?: Kind;
 }
 
+/** One sentence comparing the peak hour with the typical value for that hour. */
+function peakVersusBaseline(event: AnomalyEvent) {
+  const at = event.context.find((c) => c.t === event.peak);
+  if (!at || at.pm25 === null || at.baseline === null) {
+    return `高峰時（${formatHour(event.peak)}）PM2.5 為 ${formatNumber(event.peak_pm25, 1)} µg/m³。`;
+  }
+  const ratio = at.baseline > 0 ? at.pm25 / at.baseline : null;
+  return ratio !== null && ratio >= 1.05
+    ? `高峰時（${formatHour(event.peak)}）PM2.5 為 ${formatNumber(at.pm25, 1)} µg/m³，約是同時段典型值 ${formatNumber(at.baseline, 1)} 的 ${ratio.toFixed(1)} 倍。`
+    : `高峰時（${formatHour(event.peak)}）PM2.5 為 ${formatNumber(at.pm25, 1)} µg/m³，同時段典型值為 ${formatNumber(at.baseline, 1)}。`;
+}
+
 function EventDetail({ event, all, filter, windowHours }: { event: AnomalyEvent; all: Map<string, AnomalyEvent>; filter: Props; windowHours: number }) {
   const startIndex = event.context.findIndex((c) => c.t >= event.start);
   const endIndex = event.context.findIndex((c) => c.t > event.end);
@@ -27,9 +40,10 @@ function EventDetail({ event, all, filter, windowHours }: { event: AnomalyEvent;
     { key: "baseline", label: "同地點同時段的典型值（中位數）", values: event.context.map((c) => c.baseline), tone: 4 },
   ];
   const top = event.drivers[0];
+  const closest = event.similar[0] ? all.get(event.similar[0].event_id) : undefined;
   return (
     <article className="card event-detail" aria-labelledby="event-title" data-testid="event-detail">
-      <header>
+      <header className="event-detail-head">
         <span className="eyebrow">
           {formatHour(event.start)}–{formatHour(event.end)} · {event.duration_hours} 小時
         </span>
@@ -39,76 +53,115 @@ function EventDetail({ event, all, filter, windowHours }: { event: AnomalyEvent;
             {KIND_LABEL[event.kind]}事件
           </span>
         </h2>
-        <p className="muted">
+        <dl className="event-facts">
+          <div>
+            <dt>高峰 AQI</dt>
+            <dd>{formatNumber(event.peak_aqi)}</dd>
+          </div>
+          <div>
+            <dt>高峰 PM2.5</dt>
+            <dd>
+              {formatNumber(event.peak_pm25, 1)} <small>µg/m³</small>
+            </dd>
+          </div>
+          <div>
+            <dt>高峰時間</dt>
+            <dd>{formatHour(event.peak)}</dd>
+          </div>
+        </dl>
+        <p className="muted small">
           {event.kind === "local"
             ? `其他地點在高峰前後 ${windowHours} 小時內沒有異常高峰，呈現單一地點高峰；僅憑模型資料無法判斷排放來源。`
             : `其他地點在高峰前後 ${windowHours} 小時內（最大時序落後窗口）也出現異常高峰，呈現多個地點同步高峰；不能據此判定污染來源。`}
-          高峰 AQI {formatNumber(event.peak_aqi)}、PM2.5 {formatNumber(event.peak_pm25, 1)} µg/m³（{formatHour(event.peak)}）。
         </p>
       </header>
 
-      <ChartFrame
-        title="事件期間各因子的偏離程度"
-        summary={event.drivers.map((d) => `${d.label} z=${formatSigned(d.z, 1)}`).join("、")}
-        table={
-          <table data-testid="drivers-table">
-            <thead>
-              <tr>
-                <th scope="col">排名</th>
-                <th scope="col">因子</th>
-                <th scope="col">穩健 z 分數</th>
-              </tr>
-            </thead>
-            <tbody>
-              {event.drivers.map((d, i) => (
-                <tr key={d.variable}>
-                  <td className="num">{i + 1}</td>
-                  <th scope="row">{d.label}</th>
-                  <td className="num">{formatSigned(d.z, 2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <Chapter
+        level={3}
+        no="A"
+        title="哪些因子一起偏離"
+        takeaway={
+          top ? (
+            <>
+              同步偏離最多的是 <strong>{top.label}</strong>：相對同時段典型值偏離 {formatSigned(top.z, 1)} 個穩健標準差。
+            </>
+          ) : undefined
         }
       >
-        <DivergingBars rows={event.drivers.map((d) => ({ key: d.variable, label: d.label, value: d.z }))} format={(v) => formatSigned(v, 1)} />
-      </ChartFrame>
-      {top && (
-        <p className="callout">
-          高峰時同步偏離最多的因子是 <strong>{top.label}</strong>：相對這個地點同時段的典型值偏離 {formatSigned(top.z, 1)} 個穩健標準差（以中位數與 MAD 計算，不受其他極端值影響）。
+        <ChartFrame
+          title="事件期間各因子的偏離程度"
+          summary={event.drivers.map((d) => `${d.label} z=${formatSigned(d.z, 1)}`).join("、")}
+          table={
+            <table data-testid="drivers-table">
+              <thead>
+                <tr>
+                  <th scope="col">排名</th>
+                  <th scope="col">因子</th>
+                  <th scope="col">穩健 z 分數</th>
+                </tr>
+              </thead>
+              <tbody>
+                {event.drivers.map((d, i) => (
+                  <tr key={d.variable}>
+                    <td className="num">{i + 1}</td>
+                    <th scope="row">{d.label}</th>
+                    <td className="num">{formatSigned(d.z, 2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          }
+        >
+          <DivergingBars rows={event.drivers.map((d) => ({ key: d.variable, label: d.label, value: d.z }))} format={(v) => formatSigned(v, 1)} />
+        </ChartFrame>
+        <p className="how-to">
+          <span className="how-to-title">怎麼讀</span>
+          長條往右代表高於這個地點同時段的典型值，往左代表低於；z 分數以中位數與 MAD 計算，不受其他極端值影響。
         </p>
-      )}
+      </Chapter>
 
-      <ChartFrame
-        title="事件前後的 PM2.5（µg/m³）"
-        summary={`紅色區塊是偵測到的事件期間；來源數值高於同時段典型值。`}
-        legend={<Legend series={[...series, { key: "span", label: "偵測到的事件期間", mark: "span" }]} />}
-        table={
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">時間</th>
-                <th scope="col">PM2.5</th>
-                <th scope="col">典型值</th>
-              </tr>
-            </thead>
-            <tbody>
-              {event.context.map((c) => (
-                <tr key={c.t}>
-                  <th scope="row">{formatHour(c.t)}</th>
-                  <td className="num">{formatNumber(c.pm25, 1)}</td>
-                  <td className="num">{formatNumber(c.baseline, 1)}</td>
+      <Chapter level={3} no="B" title="事件前後的 PM2.5" takeaway={peakVersusBaseline(event)}>
+        <ChartFrame
+          title="事件前後的 PM2.5（µg/m³）"
+          summary={`紅色區塊是偵測到的事件期間；來源數值高於同時段典型值。`}
+          legend={<Legend series={[...series, { key: "span", label: "偵測到的事件期間", mark: "span" }]} />}
+          table={
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">時間</th>
+                  <th scope="col">PM2.5</th>
+                  <th scope="col">典型值</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {event.context.map((c) => (
+                  <tr key={c.t}>
+                    <th scope="row">{formatHour(c.t)}</th>
+                    <td className="num">{formatNumber(c.pm25, 1)}</td>
+                    <td className="num">{formatNumber(c.baseline, 1)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          }
+        >
+          <MultiLine series={series} labels={event.context.map((c) => formatHour(c.t))} span={span} format={(v) => String(v)} />
+        </ChartFrame>
+      </Chapter>
+
+      <Chapter
+        level={3}
+        no="C"
+        title="歷史上最相似的事件"
+        takeaway={
+          closest && event.similar[0] ? (
+            <>
+              最像的是 <strong>{closest.station} {formatHour(closest.start)}</strong>（距離 {event.similar[0].distance.toFixed(2)}，主要偏離 {closest.drivers[0]?.label ?? "—"}）。
+            </>
+          ) : undefined
         }
       >
-        <MultiLine series={series} labels={event.context.map((c) => formatHour(c.t))} span={span} format={(v) => String(v)} />
-      </ChartFrame>
-
-      <section aria-labelledby="similar-title">
-        <h3 id="similar-title">歷史上最相似的事件</h3>
         {event.similar.length === 0 ? (
           <p className="muted">沒有其他事件可比較。</p>
         ) : (
@@ -129,8 +182,11 @@ function EventDetail({ event, all, filter, windowHours }: { event: AnomalyEvent;
             })}
           </ol>
         )}
-        <p className="muted small">相似度以高峰時各因子的 z 分數組成的特徵向量計算（歐氏距離越小越像），也就是「異常的樣子」相不相同。</p>
-      </section>
+        <p className="how-to">
+          <span className="how-to-title">怎麼讀</span>
+          相似度以高峰時各因子的 z 分數組成的特徵向量計算（歐氏距離越小越像），也就是「異常的樣子」相不相同。
+        </p>
+      </Chapter>
     </article>
   );
 }
@@ -152,40 +208,27 @@ function AnomaliesView({ data, id, station, kind }: Props & { data: Anomalies })
 
   return (
     <div className="stack">
-      <header>
-        <span className="eyebrow">異常偵測 · 相關因子</span>
-        <h1>異常事件與相關因子</h1>
+      <PageHead kicker="異常偵測 · 相關因子" title="異常事件與相關因子">
         <p className="lede">
           每個地點、每個時段各自的「正常範圍」不同。我們用中位數與 MAD 算出 PM2.5 的穩健 z 分數，超過 {data.threshold} 就標記為異常，再看其他地點有沒有在傳播延遲範圍內同時異常，區分局部與區域事件。
         </p>
-      </header>
-
-      {data.events.length > 0 && highest && (
-        <p className="callout" data-testid="anomaly-takeaway">
-          資料期間共偵測到 <strong>{data.events.length}</strong> 起事件：局部 {localCount}、區域 {data.events.length - localCount}。
-          最常出現在 <strong>{busiest.join("、")}</strong>（{busiestCount} 起）；高峰 AQI 最高的是{" "}
-          <a href={routeToHash({ name: "anomalies", id: highest.id })}>
-            {highest.station} {formatHour(highest.start)}（AQI {formatNumber(highest.peak_aqi)}）
-          </a>
-          。
-        </p>
-      )}
+      </PageHead>
 
       {v && (
         <section className="kpis" aria-label="偵測器驗證">
-          <div className="card kpi">
+          <div className="kpi">
             <span className="stat-label">注入事件的召回率</span>
             <span className="stat-value" data-testid="recall">
               {formatPercent(v.recall, 0)}
             </span>
             <span className="muted small">合成資料中刻意注入 {v.injected_events} 個局部事件，偵測到的比例</span>
           </div>
-          <div className="card kpi">
+          <div className="kpi">
             <span className="stat-label">「局部」標記的精確率</span>
             <span className="stat-value">{formatPercent(v.local_precision, 0)}</span>
             <span className="muted small">{v.local_events} 個被判為局部的事件中，屬於注入事件的比例</span>
           </div>
-          <div className="card kpi">
+          <div className="kpi">
             <span className="stat-label">誠實揭露</span>
             <span className="stat-value">{v.injected_labelled_regional}</span>
             <span className="muted small">個注入的局部事件恰好與區域污染團重疊，被歸為「區域」</span>
@@ -193,50 +236,68 @@ function AnomaliesView({ data, id, station, kind }: Props & { data: Anomalies })
         </section>
       )}
 
-      <section className="card filters" aria-label="篩選">
-        <label className="field">
-          <span className="label">地點</span>
-          <select className="input" value={station ?? ""} onChange={(e) => update({ station: e.target.value || undefined })}>
-            <option value="">全部地點</option>
-            {stations.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
+      <Chapter
+        no="01"
+        title="事件總覽"
+        takeaway={
+          data.events.length > 0 && highest ? (
+            <span data-testid="anomaly-takeaway">
+              資料期間共偵測到 <strong>{data.events.length}</strong> 起事件：局部 {localCount}、區域 {data.events.length - localCount}。最常出現在 <strong>{busiest.join("、")}</strong>（{busiestCount} 起）；高峰 AQI 最高的是{" "}
+              <a href={routeToHash({ name: "anomalies", id: highest.id })}>
+                {highest.station} {formatHour(highest.start)}（AQI {formatNumber(highest.peak_aqi)}）
+              </a>
+              。
+            </span>
+          ) : (
+            "資料期間沒有偵測到異常事件。"
+          )
+        }
+      >
+        <div className="filters">
+          <label className="field">
+            <span className="label">地點</span>
+            <select className="input" value={station ?? ""} onChange={(e) => update({ station: e.target.value || undefined })}>
+              <option value="">全部地點</option>
+              {stations.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </label>
+          <fieldset className="segmented">
+            <legend>類型</legend>
+            {([undefined, "local", "regional"] as (Kind | undefined)[]).map((k) => (
+              <label key={k ?? "all"}>
+                <input type="radio" name="kind" checked={kind === k} onChange={() => update({ kind: k })} />
+                <span>{k ? KIND_LABEL[k] : "全部"}</span>
+              </label>
             ))}
-          </select>
-        </label>
-        <fieldset className="segmented">
-          <legend>類型</legend>
-          {([undefined, "local", "regional"] as (Kind | undefined)[]).map((k) => (
-            <label key={k ?? "all"}>
-              <input type="radio" name="kind" checked={kind === k} onChange={() => update({ kind: k })} />
-              <span>{k ? KIND_LABEL[k] : "全部"}</span>
-            </label>
-          ))}
-        </fieldset>
-        <button
-          type="button"
-          className="btn"
-          onClick={() =>
-            downloadText(
-              "anomaly-events.csv",
-              toCsv(["id", "station", "kind", "start", "end", "duration_hours", "peak_aqi", "peak_pm25", "top_driver"], eventRows(filtered)),
-              "text/csv;charset=utf-8",
-            )
-          }
-          disabled={filtered.length === 0}
-        >
-          下載 CSV（{filtered.length} 筆）
-        </button>
-      </section>
+          </fieldset>
+          <button
+            type="button"
+            className="btn"
+            onClick={() =>
+              downloadText(
+                "anomaly-events.csv",
+                toCsv(["id", "station", "kind", "start", "end", "duration_hours", "peak_aqi", "peak_pm25", "top_driver"], eventRows(filtered)),
+                "text/csv;charset=utf-8",
+              )
+            }
+            disabled={filtered.length === 0}
+          >
+            下載 CSV（{filtered.length} 筆）
+          </button>
+        </div>
+      </Chapter>
 
       {filtered.length === 0 ? (
         <EmptyState title="沒有符合條件的事件">
           <p>換一個地點或類型試試。</p>
         </EmptyState>
       ) : (
-        <div className="split anomalies-layout">
-          <section aria-labelledby="events-title">
+        <div className="anomalies-layout">
+          <section aria-labelledby="events-title" className="event-index">
             <h2 id="events-title">事件列表（{filtered.length}）</h2>
             <p className="muted small event-list-hint">點選事件，查看當時哪些因子一起偏離、前後 PM2.5 走勢與最相似的歷史事件。</p>
             <ScrollRegion label="異常事件列表">
@@ -253,9 +314,10 @@ function AnomaliesView({ data, id, station, kind }: Props & { data: Anomalies })
                         <span className="tag" data-tone={e.kind === "local" ? "warn" : "info"}>
                           {KIND_LABEL[e.kind]}
                         </span>
+                        <span className="event-item-aqi">AQI {formatNumber(e.peak_aqi)}</span>
                       </span>
                       <span className="small">
-                        {formatHour(e.start)} · {e.duration_hours} 小時 · 高峰 AQI {formatNumber(e.peak_aqi)}
+                        {formatHour(e.start)} · {e.duration_hours} 小時
                       </span>
                       <span className="muted small">主要偏離：{e.drivers[0]?.label ?? "—"}</span>
                     </a>

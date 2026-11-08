@@ -4,13 +4,14 @@ import { formatDay } from "../lib/format";
 import { routeToHash, type Route } from "../lib/router";
 import "./Shell.css";
 
-const NAV: { route: Route; label: string; match: Route["name"][] }[] = [
-  { route: { name: "home" }, label: "空品總覽", match: ["home", "station"] },
-  { route: { name: "propagation" }, label: "時序關聯", match: ["propagation"] },
-  { route: { name: "anomalies" }, label: "異常事件", match: ["anomalies"] },
-  { route: { name: "whatif" }, label: "情境模擬", match: ["whatif"] },
-  { route: { name: "model" }, label: "模型監控", match: ["model"] },
-  { route: { name: "data" }, label: "資料可信度", match: ["data"] },
+/** Each page is a chapter of the lab notebook; the number and question help a first-time reader choose. */
+const NAV: { route: Route; label: string; no: string; hint: string; match: Route["name"][] }[] = [
+  { route: { name: "home" }, label: "空品總覽", no: "00", hint: "現在與未來 24 小時", match: ["home", "station"] },
+  { route: { name: "propagation" }, label: "時序關聯", no: "01", hint: "哪裡先變化？", match: ["propagation"] },
+  { route: { name: "anomalies" }, label: "異常事件", no: "02", hint: "何時異常偏高？", match: ["anomalies"] },
+  { route: { name: "whatif" }, label: "情境模擬", no: "03", hint: "條件改變會怎樣？", match: ["whatif"] },
+  { route: { name: "model" }, label: "模型監控", no: "04", hint: "預報值得相信嗎？", match: ["model"] },
+  { route: { name: "data" }, label: "資料可信度", no: "05", hint: "資料從哪裡來？", match: ["data"] },
 ];
 
 export function Shell({ children }: { children: ReactNode }) {
@@ -38,7 +39,9 @@ export function Shell({ children }: { children: ReactNode }) {
               {NAV.map((item) => (
                 <li key={item.label}>
                   <a href={routeToHash(item.route)} aria-current={item.match.includes(route.name) ? "page" : undefined}>
-                    {item.label}
+                    <span className="nav-no" aria-hidden="true">{item.no}</span>
+                    <span className="nav-label">{item.label}</span>
+                    <span className="nav-hint" aria-hidden="true">{item.hint}</span>
                   </a>
                 </li>
               ))}

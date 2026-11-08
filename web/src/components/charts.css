@@ -284,3 +284,42 @@
 .chart-frame .legend {
   margin-bottom: var(--space-1);
 }
+
+/* Map finish (moved from the former polish layer). */
+.taiwan-map .map-land {
+  stroke: color-mix(in srgb, var(--accent) 35%, var(--line-strong));
+  filter: drop-shadow(0 10px 14px rgb(0 107 82 / 0.14));
+}
+
+.taiwan-map .map-land-top {
+  stop-color: var(--land-top);
+}
+
+.taiwan-map .map-land-bottom {
+  stop-color: var(--land-bottom);
+}
+
+.taiwan-map .map-halo {
+  fill: var(--cat, transparent);
+  opacity: 0.22;
+}
+
+/* Static on purpose: an endless pulse never settles, which blocks axe's
+   animation wait and Playwright's stable-element click on the station link. */
+.taiwan-map .is-emphasis .map-halo {
+  opacity: 0.32;
+  stroke: var(--cat, transparent);
+  stroke-width: 1.5;
+  stroke-opacity: 0.8;
+}
+
+.taiwan-map .map-dot {
+  stroke: var(--bg-raised);
+  stroke-width: 2.5;
+  filter: drop-shadow(0 1px 2px rgb(18 35 28 / 0.35));
+}
+
+.taiwan-map a:hover .map-dot,
+.taiwan-map a:focus-visible .map-dot {
+  stroke: var(--ink);
+}

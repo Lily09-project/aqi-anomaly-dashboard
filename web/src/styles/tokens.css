@@ -63,3 +63,20 @@
   --duration: 220ms;
 }
 
+
+/* Layout tokens added in the 2026-11 relayout. Colour entries here are aliases of
+   values that already existed (tokens above or literals in the earlier polish layer). */
+:root {
+  --mint-bright: #00d4a4;
+  --surface-tint: #f6fbf8;
+  --land-top: #e9f8f1;
+  --land-bottom: #cfeadd;
+  --shadow-card: 0 1px 2px rgb(18 35 28 / 0.04), 0 8px 24px -16px rgb(18 35 28 / 0.18);
+
+  --space-8: 64px;
+  --weight-regular: 400;
+  --weight-bold: 700;
+  --rail: 248px;
+  --tabbar: 60px;
+  --measure: 68ch;
+}
