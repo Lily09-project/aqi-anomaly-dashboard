@@ -1,14 +1,29 @@
-.replay {
+.link-panels,
+.replay-panels {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
+  align-items: start;
 }
 
-.replay h2 {
-  margin: 0;
+@media (min-width: 900px) {
+  .link-panels {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  }
+
+  .replay-panels {
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  }
 }
 
-.replay p {
-  margin: 0;
+.link-panels .taiwan-map,
+.replay-panels .taiwan-map {
+  max-width: 320px;
+}
+
+.links-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--step-0);
 }
 
 .replay-controls {
@@ -16,6 +31,10 @@
   flex-wrap: wrap;
   gap: var(--space-2) var(--space-3);
   align-items: end;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background: var(--surface-tint);
 }
 
 .replay-slider {
@@ -25,11 +44,27 @@
 .replay-slider input[type="range"] {
   width: 100%;
   min-height: 44px;
-  accent-color: var(--accent);
 }
 
 .replay-slider output {
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   color: var(--ink);
+}
+
+/* Phones: keep the replay controls in view while the charts scroll past. */
+@media (max-width: 640px) {
+  .replay-controls {
+    position: sticky;
+    top: var(--space-2);
+    z-index: 5;
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-raised);
+    box-shadow: var(--shadow-card);
+  }
+
+  .replay-controls .btn {
+    flex: 1 1 auto;
+    padding-inline: var(--space-2);
+  }
 }

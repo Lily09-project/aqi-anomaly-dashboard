@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useDataset, useDocumentTitle, useRoute } from "../app/hooks";
+import { Chapter, PageHead } from "../components/Chapter";
 import { ArrivalStrips, ChartFrame, TaiwanMap } from "../components/charts";
 import { ScrollRegion } from "../components/ScrollRegion";
 import { EmptyState, Gate } from "../components/States";
@@ -49,13 +50,32 @@ function Replay({ overview, propagation, urlFrame }: { overview: Overview; propa
     : peaks;
   const rows = plume.map((p) => ({ key: p.station, label: shortName(p.station), values: episode.aqi[p.station] ?? [], peak: p.frame }));
   const time = episode.times[frame] ?? "";
+  const first = peaks[0];
+  const lastPeak = peaks.at(-1);
 
   return (
-    <section className="card replay" aria-labelledby="replay-title">
-      <h2 id="replay-title">資料時序回放</h2>
-      <p className="muted">
-        {formatHour(episode.start ?? "")} 至 {formatHour(episode.end ?? "")}。各地點依峰值時間排序；模型原始資料每 3 小時一次，中間時點為插值，不代表污染實際移動。
-      </p>
+    <Chapter
+      no="02"
+      title="資料時序回放"
+      className="replay"
+      takeaway={
+        first && lastPeak && first.station !== lastPeak.station ? (
+          <>
+            這段期間最先到達高峰的是 <strong>{shortName(first.station)}</strong>（{formatHour(episode.times[first.frame] ?? "")}，AQI {formatNumber(first.aqi)}），最後是{" "}
+            <strong>{shortName(lastPeak.station)}</strong>（{formatHour(episode.times[lastPeak.frame] ?? "")}，AQI {formatNumber(lastPeak.aqi)}）。
+          </>
+        ) : first ? (
+          <>
+            這段期間只有 <strong>{shortName(first.station)}</strong> 有可比較的高峰（{formatHour(episode.times[first.frame] ?? "")}，AQI {formatNumber(first.aqi)}）。
+          </>
+        ) : undefined
+      }
+      howTo={
+        <p>
+          回放 {formatHour(episode.start ?? "")} 至 {formatHour(episode.end ?? "")}。右圖每列一個地點、依峰值時間排序，紅點是各自的高峰，直線是目前時間。模型原始資料每 3 小時一次，中間時點為插值，不代表污染實際移動。
+        </p>
+      }
+    >
       <div className="replay-controls" role="group" aria-label="重播控制">
         <button
           type="button"
@@ -95,70 +115,74 @@ function Replay({ overview, propagation, urlFrame }: { overview: Overview; propa
           />
         </label>
       </div>
-      <div className="split">
-        <ChartFrame
-          title={`${formatHour(time)} 各地點 AQI`}
-          summary={overview.stations.map((s) => `${s.station} ${formatNumber(values[s.station] ?? null)}`).join("、")}
-          table={
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">地點</th>
-                  <th scope="col">AQI</th>
-                </tr>
-              </thead>
-              <tbody>
-                {overview.stations.map((s) => (
-                  <tr key={s.station}>
-                    <th scope="row">{s.station}</th>
-                    <td className="num">{formatNumber(values[s.station] ?? null)}</td>
+      <div className="replay-panels">
+        <div className="card">
+          <ChartFrame
+            title={`${formatHour(time)} 各地點 AQI`}
+            summary={overview.stations.map((s) => `${s.station} ${formatNumber(values[s.station] ?? null)}`).join("、")}
+            table={
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">地點</th>
+                    <th scope="col">AQI</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          }
-        >
-          <TaiwanMap
-            stations={overview.stations.map((s) => {
-              const v = values[s.station] ?? null;
-              return {
-                name: s.station,
-                lon: s.longitude,
-                lat: s.latitude,
-                category: categoryOf(v, overview.categories)?.key ?? null,
-                label: `${shortName(s.station)} ${formatNumber(v)}`,
-              };
-            })}
-          />
-        </ChartFrame>
-        <ChartFrame
-          title="各地點 AQI 時序（依峰值時間排序）"
-          summary={plume.map((p) => `${p.station} 在 ${formatHour(episode.times[p.frame] ?? "")} 達高峰 ${formatNumber(p.aqi)}`).join("；")}
-          table={
-            <table data-testid="arrival-table">
-              <thead>
-                <tr>
-                  <th scope="col">地點</th>
-                  <th scope="col">高峰時間</th>
-                  <th scope="col">高峰 AQI</th>
-                </tr>
-              </thead>
-              <tbody>
-                {plume.map((p) => (
-                  <tr key={p.station}>
-                    <th scope="row">{p.station}</th>
-                    <td>{formatHour(episode.times[p.frame] ?? "")}</td>
-                    <td className="num">{formatNumber(p.aqi)}</td>
+                </thead>
+                <tbody>
+                  {overview.stations.map((s) => (
+                    <tr key={s.station}>
+                      <th scope="row">{s.station}</th>
+                      <td className="num">{formatNumber(values[s.station] ?? null)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            }
+          >
+            <TaiwanMap
+              stations={overview.stations.map((s) => {
+                const v = values[s.station] ?? null;
+                return {
+                  name: s.station,
+                  lon: s.longitude,
+                  lat: s.latitude,
+                  category: categoryOf(v, overview.categories)?.key ?? null,
+                  label: `${shortName(s.station)} ${formatNumber(v)}`,
+                };
+              })}
+            />
+          </ChartFrame>
+        </div>
+        <div className="card">
+          <ChartFrame
+            title="各地點 AQI 時序（依峰值時間排序）"
+            summary={plume.map((p) => `${p.station} 在 ${formatHour(episode.times[p.frame] ?? "")} 達高峰 ${formatNumber(p.aqi)}`).join("；")}
+            table={
+              <table data-testid="arrival-table">
+                <thead>
+                  <tr>
+                    <th scope="col">地點</th>
+                    <th scope="col">高峰時間</th>
+                    <th scope="col">高峰 AQI</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          }
-        >
-          <ArrivalStrips rows={rows} labels={episode.times.map(formatHour)} frame={frame} />
-        </ChartFrame>
+                </thead>
+                <tbody>
+                  {plume.map((p) => (
+                    <tr key={p.station}>
+                      <th scope="row">{p.station}</th>
+                      <td>{formatHour(episode.times[p.frame] ?? "")}</td>
+                      <td className="num">{formatNumber(p.aqi)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            }
+          >
+            <ArrivalStrips rows={rows} labels={episode.times.map(formatHour)} frame={frame} />
+          </ChartFrame>
+        </div>
       </div>
-    </section>
+    </Chapter>
   );
 }
 
@@ -173,25 +197,22 @@ function PropagationView({ overview, propagation, frame }: { overview: Overview;
     label: `${u.lag_hours}h`,
   }));
   const links = [...propagation.links].sort((a, b) => a.lag_hours - b.lag_hours || b.r - a.r);
+  const strongest = [...propagation.links].sort((a, b) => b.r - a.r)[0];
 
   return (
     <div className="stack">
-      <header>
-        <span className="eyebrow">空間分析</span>
-        <h1>空品時序關聯</h1>
-        <p className="lede">
-          比較扣除時段基準後的 PM2.5 變化順序。模型原始資料每 3 小時一次，中間時點為插值；相關不代表污染路徑或預警。
-        </p>
-      </header>
+      <PageHead kicker="空間分析" title="空品時序關聯">
+        <p className="lede">比較扣除時段基準後的 PM2.5 變化順序。模型原始資料每 3 小時一次，中間時點為插值；相關不代表污染路徑或預警。</p>
+      </PageHead>
 
       <section className="kpis" aria-label="摘要">
-        <div className="card kpi">
+        <div className="kpi">
           <span className="stat-label">達門檻的領先關係</span>
           <span className="stat-value">{propagation.links.length}</span>
           <span className="muted small">落後 1–{propagation.max_lag} 小時、相關係數 ≥ {propagation.min_correlation}，且優於同時相關</span>
         </div>
         {hasTruth && (
-          <div className="card kpi">
+          <div className="kpi">
             <span className="stat-label">已知延遲比對</span>
             <span className="stat-value" data-testid="lag-agreement">
               {agreement.matched}/{agreement.total}
@@ -199,7 +220,7 @@ function PropagationView({ overview, propagation, frame }: { overview: Overview;
             <span className="muted small">偵測延遲落在測試值 ±1 小時內的關係數</span>
           </div>
         )}
-        <div className="card kpi">
+        <div className="kpi">
           <span className="stat-label">未形成達門檻關聯的地點</span>
           <span className="stat-value stat-text" data-testid="isolated">
             {isolated.length ? isolated.map((s) => shortName(s.station)).join("、") : "無"}
@@ -208,87 +229,113 @@ function PropagationView({ overview, propagation, frame }: { overview: Overview;
         </div>
       </section>
 
-      <section className="split">
-        <div className="card">
-          <ChartFrame
-            title="較早關聯地點與時間差"
-            summary={chain.map((c) => `${c.from} 的變化早於 ${c.to} ${c.label}`).join("、")}
-            table={
-              <table>
+      <Chapter
+        no="01"
+        title="誰的變化比較早"
+        takeaway={
+          strongest ? (
+            <>
+              最明顯的是 <strong>{shortName(strongest.upstream)}</strong> 的變化早於 <strong>{shortName(strongest.downstream)}</strong> 約 {strongest.lag_hours} 小時（r = {strongest.r.toFixed(2)}
+              {strongest.r_synchronous !== null ? `，同時相關 ${strongest.r_synchronous.toFixed(2)}` : ""}）。
+            </>
+          ) : (
+            <>目前沒有地點對同時達到相關係數 ≥ {propagation.min_correlation} 且優於同時相關的領先關係。</>
+          )
+        }
+        howTo={
+          <>
+            <p>地圖箭頭從較早變化的地點指向較晚的地點，數字是延遲小時數。表格列出所有達門檻的關係：r（落後）要高於 r（同時），才算「先變化」。</p>
+            <p>這只呈現資料的時序相關，不能證明污染傳播或因果。</p>
+          </>
+        }
+      >
+        <div className="link-panels">
+          <div className="card">
+            <ChartFrame
+              title="較早關聯地點與時間差"
+              summary={chain.map((c) => `${c.from} 的變化早於 ${c.to} ${c.label}`).join("、")}
+              table={
+                <table>
+                  <thead>
+                    <tr>
+                      <th scope="col">較晚變化地點</th>
+                      <th scope="col">較早關聯地點</th>
+                      <th scope="col">延遲（小時）</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {chain.map((c) => (
+                      <tr key={c.to}>
+                        <th scope="row">{c.to}</th>
+                        <td>{c.from}</td>
+                        <td className="num">{c.label.replace("h", "")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              }
+            >
+              <TaiwanMap
+                stations={overview.stations.map((s) => ({
+                  name: s.station,
+                  lon: s.longitude,
+                  lat: s.latitude,
+                  category: null,
+                  label: shortName(s.station),
+                }))}
+                links={chain}
+              />
+            </ChartFrame>
+          </div>
+          <div className="card">
+            <h3 className="links-title">所有達門檻的關係</h3>
+            <ScrollRegion label="地點領先落後關係">
+              <table data-testid="links-table">
                 <thead>
                   <tr>
-                    <th scope="col">較晚變化地點</th>
-                    <th scope="col">較早關聯地點</th>
-                    <th scope="col">延遲（小時）</th>
+                    <th scope="col">較早變化 → 較晚變化</th>
+                    <th scope="col">偵測延遲</th>
+                    {hasTruth && <th scope="col">測試延遲</th>}
+                    <th scope="col">r（落後）</th>
+                    <th scope="col">r（同時）</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {chain.map((c) => (
-                    <tr key={c.to}>
-                      <th scope="row">{c.to}</th>
-                      <td>{c.from}</td>
-                      <td className="num">{c.label.replace("h", "")}</td>
+                  {links.map((l) => {
+                    const ok = l.truth_lag !== null && Math.abs(l.lag_hours - l.truth_lag) <= 1;
+                    return (
+                      <tr key={`${l.upstream}-${l.downstream}`}>
+                        <th scope="row">
+                          {shortName(l.upstream)} → {shortName(l.downstream)}
+                        </th>
+                        <td className="num">{l.lag_hours} h</td>
+                        {hasTruth && (
+                          <td className="num">
+                            {l.truth_lag === null ? "—" : `${l.truth_lag} h`}{" "}
+                            {l.truth_lag !== null && (
+                              <span className="tag" data-tone={ok ? "good" : "bad"}>
+                                {ok ? "吻合" : "誤差 > 1h"}
+                              </span>
+                            )}
+                          </td>
+                        )}
+                        <td className="num">{l.r.toFixed(2)}</td>
+                        <td className="num">{formatNumber(l.r_synchronous, 2)}</td>
+                      </tr>
+                    );
+                  })}
+                  {links.length === 0 && (
+                    <tr>
+                      <td colSpan={hasTruth ? 5 : 4}>沒有達門檻的關係。</td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
-            }
-          >
-            <TaiwanMap
-              stations={overview.stations.map((s) => ({
-                name: s.station,
-                lon: s.longitude,
-                lat: s.latitude,
-                category: null,
-                label: shortName(s.station),
-              }))}
-              links={chain}
-            />
-          </ChartFrame>
+            </ScrollRegion>
+            {hasTruth && <p className="muted small">測試延遲來自已知答案 fixture，僅供驗證分析方法。</p>}
+          </div>
         </div>
-        <div className="card">
-          <h2>所有達門檻的關係</h2>
-          <ScrollRegion label="地點領先落後關係">
-            <table data-testid="links-table">
-              <thead>
-                <tr>
-                  <th scope="col">較早變化 → 較晚變化</th>
-                  <th scope="col">偵測延遲</th>
-                  {hasTruth && <th scope="col">測試延遲</th>}
-                  <th scope="col">r（落後）</th>
-                  <th scope="col">r（同時）</th>
-                </tr>
-              </thead>
-              <tbody>
-                {links.map((l) => {
-                  const ok = l.truth_lag !== null && Math.abs(l.lag_hours - l.truth_lag) <= 1;
-                  return (
-                    <tr key={`${l.upstream}-${l.downstream}`}>
-                      <th scope="row">
-                        {shortName(l.upstream)} → {shortName(l.downstream)}
-                      </th>
-                      <td className="num">{l.lag_hours} h</td>
-                      {hasTruth && (
-                        <td className="num">
-                          {l.truth_lag === null ? "—" : `${l.truth_lag} h`}{" "}
-                          {l.truth_lag !== null && (
-                            <span className="tag" data-tone={ok ? "good" : "bad"}>
-                              {ok ? "吻合" : "誤差 > 1h"}
-                            </span>
-                          )}
-                        </td>
-                      )}
-                      <td className="num">{l.r.toFixed(2)}</td>
-                      <td className="num">{formatNumber(l.r_synchronous, 2)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </ScrollRegion>
-          {hasTruth && <p className="muted small">測試延遲來自已知答案 fixture，僅供驗證分析方法。</p>}
-        </div>
-      </section>
+      </Chapter>
 
       {propagation.episode.times.length > 0 ? (
         <Replay overview={overview} propagation={propagation} urlFrame={frame} />

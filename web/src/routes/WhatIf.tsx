@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useDataset, useDocumentTitle } from "../app/hooks";
-import { AqiChip } from "../components/Aqi";
+import { Chapter, PageHead } from "../components/Chapter";
 import { ChartFrame, DivergingBars, MultiLine } from "../components/charts";
 import { Gate } from "../components/States";
-import { defaultInputs, predictWhatIf, whatIfContributions } from "../lib/air";
+import { categoryOf, defaultInputs, predictWhatIf, whatIfContributions } from "../lib/air";
 import { formatNumber, formatSigned } from "../lib/format";
 import type { Overview, WhatIf } from "../lib/types";
 import "./WhatIf.css";
@@ -49,9 +49,20 @@ function Simulator({ model, overview }: { model: WhatIf; overview: Overview }) {
   const markerIndex = sweepInput ? ((current - sweepInput.min) / Math.max(sweepInput.max - sweepInput.min, 1e-9)) * (SWEEP_POINTS - 1) : 0;
   const decimals = (key: string) => (key === "hour" ? 0 : 1);
 
+  const resultCategory = categoryOf(prediction, overview.categories);
+  const sweepLow = sweep[0]?.aqi;
+  const sweepHigh = sweep.at(-1)?.aqi;
+
   return (
-    <div className="split whatif-layout">
+    <div className="whatif-layout">
       <section className="card whatif-inputs" aria-labelledby="inputs-title">
+        <div className="whatif-live" aria-hidden="true" data-category={resultCategory?.key ?? "none"}>
+          <span>下一小時預測</span>
+          <strong>{formatNumber(prediction)}</strong>
+          <span>
+            區間 {formatNumber(low)}–{formatNumber(high)}
+          </span>
+        </div>
         <h2 id="inputs-title">設定條件</h2>
         <label className="field">
           <span className="label">從地點目前狀態載入</span>
@@ -116,24 +127,48 @@ function Simulator({ model, overview }: { model: WhatIf; overview: Overview }) {
         <p className="muted small">滑桿範圍涵蓋訓練資料的 1%–99% 區間；模型未見過的範圍不提供預測。</p>
       </section>
 
-      <div className="stack">
-        <section className="card whatif-result" aria-live="polite" aria-labelledby="result-title">
+      <div className="whatif-output">
+        <section className="whatif-result" aria-live="polite" aria-labelledby="result-title" data-category={resultCategory?.key ?? "none"}>
           <h2 id="result-title">下一小時 AQI 預測</h2>
           <p className="aqi-big" data-testid="whatif-prediction">
             {formatNumber(prediction)}
           </p>
-          <AqiChip value={prediction} categories={overview.categories} labelOnly />
+          <p className="whatif-result-cat">{resultCategory?.label ?? "無資料"}</p>
           <p>
             80% 預測區間 <strong data-testid="whatif-interval">{formatNumber(low)}–{formatNumber(high)}</strong>
           </p>
-          <p className="muted small">
+          <p className="small whatif-result-note">
             區間寬度來自 {model.calibration_size.toLocaleString("zh-TW")} 筆保留校準資料的殘差分位數；模型在你的瀏覽器裡計算，與 Python 版本的結果一致（差異 &lt; 10⁻⁶）。
           </p>
         </section>
 
-        <section className="card">
+        <Chapter
+          no="01"
+          title="每個條件把預測推高或拉低多少"
+          takeaway={
+            strongestUp || strongestDown ? (
+              <span data-testid="whatif-takeaway">
+                {strongestUp && (
+                  <>
+                    目前最推高預測的是 <strong>{labels[strongestUp.key] ?? strongestUp.key}</strong>（{formatSigned(strongestUp.value, 1)} AQI）
+                  </>
+                )}
+                {strongestUp && strongestDown && "；"}
+                {strongestDown && (
+                  <>
+                    最拉低的是 <strong>{labels[strongestDown.key] ?? strongestDown.key}</strong>（{formatSigned(strongestDown.value, 1)} AQI）
+                  </>
+                )}
+                。
+              </span>
+            ) : (
+              "目前每個條件都接近訓練資料的平均狀態，沒有明顯推高或拉低預測的條件。"
+            )
+          }
+          liveTakeaway
+        >
           <ChartFrame
-            title="每個條件把預測推高或拉低多少"
+            title="各條件相對平均情況的貢獻（AQI）"
             summary={contributions.map((c) => `${labels[c.key] ?? c.key} ${formatSigned(c.value, 1)}`).join("、")}
             table={
               <table data-testid="contrib-table">
@@ -156,27 +191,25 @@ function Simulator({ model, overview }: { model: WhatIf; overview: Overview }) {
           >
             <DivergingBars rows={contributions.map((c) => ({ key: c.key, label: labels[c.key] ?? c.key, value: c.value }))} format={(v) => formatSigned(v, 1)} />
           </ChartFrame>
-          {(strongestUp || strongestDown) && (
-            <p className="callout" data-testid="whatif-takeaway">
-              {strongestUp && (
-                <>
-                  目前最推高預測的是 <strong>{labels[strongestUp.key] ?? strongestUp.key}</strong>（{formatSigned(strongestUp.value, 1)} AQI）
-                </>
-              )}
-              {strongestUp && strongestDown && "；"}
-              {strongestDown && (
-                <>
-                  最拉低的是 <strong>{labels[strongestDown.key] ?? strongestDown.key}</strong>（{formatSigned(strongestDown.value, 1)} AQI）
-                </>
-              )}
-              。
-            </p>
-          )}
-          <p className="muted small">基準是訓練資料的平均狀態（AQI 約 {formatNumber(model.intercept)}）；基準加上各項貢獻才是預測值。</p>
-        </section>
+          <p className="how-to">
+            <span className="how-to-title">怎麼讀</span>
+            基準是訓練資料的平均狀態（AQI 約 {formatNumber(model.intercept)}）；基準加上各項貢獻才是預測值。往右的長條把預測推高，往左的拉低。
+          </p>
+        </Chapter>
 
-        <section className="card">
-          <label className="field">
+        <Chapter
+          no="02"
+          title="敏感度掃描"
+          takeaway={
+            sweepInput && sweepLow !== undefined && sweepHigh !== undefined ? (
+              <>
+                其他條件固定，{sweepInput.label}從 {sweepInput.min} 調到 {sweepInput.max}，預測從 <strong>{formatNumber(sweepLow)}</strong> 變成{" "}
+                <strong>{formatNumber(sweepHigh)}</strong>（{formatSigned(sweepHigh - sweepLow, 0)}）。
+              </>
+            ) : undefined
+          }
+        >
+          <label className="field sweep-pick">
             <span className="label">敏感度掃描：只改變這一個條件</span>
             <select className="input" value={sweepInput?.key} onChange={(e) => setSweepKey(e.target.value)}>
               {model.inputs.map((i) => (
@@ -189,7 +222,7 @@ function Simulator({ model, overview }: { model: WhatIf; overview: Overview }) {
           {sweepInput && (
             <ChartFrame
               title={`${sweepInput.label}從 ${sweepInput.min} 到 ${sweepInput.max} 時的預測`}
-              summary={`其他條件固定，${sweepInput.label}最低時預測 ${formatNumber(sweep[0]?.aqi)}、最高時預測 ${formatNumber(sweep.at(-1)?.aqi)}。`}
+              summary={`其他條件固定，${sweepInput.label}最低時預測 ${formatNumber(sweepLow)}、最高時預測 ${formatNumber(sweepHigh)}。`}
               table={
                 <table>
                   <thead>
@@ -217,7 +250,11 @@ function Simulator({ model, overview }: { model: WhatIf; overview: Overview }) {
               />
             </ChartFrame>
           )}
-        </section>
+          <p className="how-to">
+            <span className="how-to-title">怎麼讀</span>
+            直線標出目前滑桿的位置。這是線性模型，所以曲線是直的；它反映資料中的關聯，不代表改變這個條件就會改變空氣。
+          </p>
+        </Chapter>
       </div>
     </div>
   );
@@ -229,13 +266,9 @@ export default function WhatIfPage() {
   const overview = useDataset("overview.json");
   return (
     <div className="page stack">
-      <header>
-        <span className="eyebrow">瀏覽器端模型</span>
-        <h1>情境模擬：哪些條件推動下一小時的 AQI？</h1>
-        <p className="lede">
-          拖動條件滑桿，查看下一小時 AQI 預測與各項輸入的影響。模型資料包含三小時模型時點間的逐時插值；結果反映資料關聯，不代表因果。
-        </p>
-      </header>
+      <PageHead kicker="瀏覽器端模型" title="情境模擬：哪些條件推動下一小時的 AQI？">
+        <p className="lede">拖動條件滑桿，查看下一小時 AQI 預測與各項輸入的影響。模型資料包含三小時模型時點間的逐時插值；結果反映資料關聯，不代表因果。</p>
+      </PageHead>
       <Gate<[WhatIf, Overview]> states={[model, overview]}>{(m, o) => <Simulator model={m} overview={o} />}</Gate>
     </div>
   );

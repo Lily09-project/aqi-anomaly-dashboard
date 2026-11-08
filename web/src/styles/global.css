@@ -1,3 +1,6 @@
+/* Base, typography and shared components for Taiwan Air Lab.
+   2026-11 relayout: "weather app × lab notebook". Colours come only from tokens.css. */
+
 *,
 *::before,
 *::after {
@@ -16,9 +19,21 @@ body {
   color: var(--ink);
   font-family: var(--font-sans);
   font-size: var(--step-0);
+  font-weight: var(--weight-regular);
   line-height: 1.65;
   font-feature-settings: "tnum" 1;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Two weights only (400/700): every extra CJK weight costs a system-font match on first layout. */
+b,
+strong,
+th,
+h1,
+h2,
+h3,
+h4 {
+  font-weight: var(--weight-bold);
 }
 
 h1,
@@ -28,28 +43,27 @@ h4 {
   margin: 0 0 var(--space-3);
   line-height: 1.25;
   text-wrap: balance;
+  font-family: var(--font-sans);
 }
 
 h1 {
-  font-family: var(--font-serif);
-  font-size: var(--step-3);
-  font-weight: 800;
-  letter-spacing: 0.01em;
+  font-size: clamp(1.75rem, 1.3rem + 1.6vw, 2.6rem);
+  letter-spacing: -0.02em;
+  line-height: 1.18;
 }
 
 h2 {
   font-size: var(--step-2);
-  font-weight: 750;
+  letter-spacing: -0.01em;
 }
 
 h3 {
   font-size: var(--step-1);
-  font-weight: 700;
 }
 
 p {
   margin: 0 0 var(--space-3);
-  max-width: 72ch;
+  max-width: var(--measure);
   text-wrap: pretty;
 }
 
@@ -68,11 +82,26 @@ a:hover {
   border-radius: 4px;
 }
 
+/* Route changes move focus to <main>; only keyboard users need the ring. */
+main:focus:not(:focus-visible) {
+  outline: none;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
 button,
 input,
 select {
   font: inherit;
   color: inherit;
+  touch-action: manipulation;
+}
+
+code {
+  overflow-wrap: anywhere;
 }
 
 table {
@@ -91,9 +120,20 @@ td {
 
 th {
   font-size: var(--step--1);
-  font-weight: 700;
   color: var(--muted);
   white-space: nowrap;
+}
+
+tbody th {
+  color: var(--ink);
+}
+
+thead th {
+  letter-spacing: 0.03em;
+}
+
+tbody tr:hover > * {
+  background: var(--bg-sunken);
 }
 
 td.num,
@@ -129,31 +169,52 @@ th.num {
   top: var(--space-3);
 }
 
+/* ---- Page frame ---- */
+/* No entrance animation: the 220 ms fade delayed the largest contentful paint. */
 .page {
   width: min(var(--content), 100% - 2 * var(--space-4));
+  min-width: 0;
   margin: 0 auto;
-  padding: var(--space-6) 0 var(--space-7);
-  animation: page-in var(--duration) var(--ease);
+  padding: var(--space-6) 0 var(--space-8);
 }
 
-@keyframes page-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
+.stack > * + * {
+  margin-top: var(--space-6);
+}
+
+.stack-tight > * + * {
+  margin-top: var(--space-4);
+}
+
+/* Analysis page header: kicker, title, one-paragraph brief. */
+.page-head {
+  display: grid;
+  gap: var(--space-2);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--line);
+}
+
+.page-head h1,
+.page-head p {
+  margin: 0;
 }
 
 .eyebrow {
-  display: inline-block;
-  margin-bottom: var(--space-2);
-  font-size: var(--step--1);
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: var(--space-2);
+  padding: 2px var(--space-3);
+  border-radius: 999px;
+  background: var(--accent-soft);
   color: var(--accent);
+  font-size: var(--step--1);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.03em;
 }
 
 .lede {
-  font-size: var(--step-1);
+  font-size: var(--step-0);
   color: var(--ink-soft);
 }
 
@@ -161,6 +222,22 @@ th.num {
   color: var(--muted);
 }
 
+.small {
+  font-size: var(--step--1);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  overflow-wrap: anywhere;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ---- Surfaces ---- */
 .card {
   background: var(--bg-raised);
   border: 1px solid var(--line);
@@ -177,7 +254,7 @@ th.num {
 
 .grid {
   display: grid;
-  gap: var(--space-5);
+  gap: var(--space-4);
 }
 
 .grid-2 {
@@ -185,11 +262,12 @@ th.num {
 }
 
 .grid-3 {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
 }
 
-.stack > * + * {
-  margin-top: var(--space-5);
+.grid > *,
+.split > * {
+  min-width: 0;
 }
 
 .row {
@@ -197,6 +275,20 @@ th.num {
   flex-wrap: wrap;
   gap: var(--space-3);
   align-items: center;
+  min-width: 0;
+}
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .table-scroll {
@@ -204,6 +296,102 @@ th.num {
   border-radius: var(--radius-m);
 }
 
+/* ---- Chapters: takeaway → chart → how to read ---- */
+.chapter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--line);
+}
+
+.chapter-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0 var(--space-3);
+  align-items: baseline;
+}
+
+.chapter-no {
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  font-weight: var(--weight-bold);
+  color: var(--accent);
+  letter-spacing: 0.04em;
+}
+
+.chapter-head h2,
+.chapter-head h3 {
+  margin: 0;
+  font-size: var(--step-1);
+}
+
+.chapter-takeaway {
+  grid-column: 1 / -1;
+  margin: var(--space-2) 0 0;
+  max-width: 46em;
+  font-size: var(--step-1);
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.chapter-takeaway strong {
+  color: var(--accent);
+}
+
+.chapter-body {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* "How to read" margin note: beside the chart on wide screens, below it otherwise. */
+.how-to {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--line-strong);
+  background: var(--surface-tint);
+  border-radius: 0 var(--radius-s) var(--radius-s) 0;
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}
+
+.how-to-title {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-size: var(--step--1);
+  font-weight: var(--weight-bold);
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+.how-to p {
+  margin: 0;
+  max-width: none;
+}
+
+.how-to p + p {
+  margin-top: var(--space-2);
+}
+
+@media (min-width: 1100px) {
+  .chapter.has-note {
+    grid-template-columns: minmax(0, 1fr) 248px;
+    column-gap: var(--space-6);
+  }
+
+  .chapter.has-note > .chapter-head {
+    grid-column: 1 / -1;
+  }
+
+  .chapter.has-note > .how-to {
+    align-self: start;
+    position: sticky;
+    top: var(--space-5);
+  }
+}
+
+/* ---- Controls ---- */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -212,11 +400,11 @@ th.num {
   min-height: 44px;
   padding: var(--space-2) var(--space-4);
   border: 1px solid var(--line-strong);
-  border-radius: var(--radius-m);
+  border-radius: 999px;
   background: var(--bg-raised);
-  font-weight: 650;
+  font-weight: var(--weight-bold);
   cursor: pointer;
-  transition: background var(--duration) var(--ease), border-color var(--duration) var(--ease), transform var(--duration) var(--ease);
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
   text-decoration: none;
   color: var(--ink);
 }
@@ -230,13 +418,14 @@ th.num {
 }
 
 .btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--ink);
+  border-color: var(--ink);
   color: var(--accent-ink);
 }
 
 .btn-primary:hover {
-  border-color: var(--ink);
+  background: var(--ink-soft);
+  border-color: var(--ink-soft);
 }
 
 .btn:disabled {
@@ -253,7 +442,7 @@ th.num {
 .field label,
 .field .label {
   font-size: var(--step--1);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   color: var(--ink-soft);
 }
 
@@ -264,82 +453,14 @@ th.num {
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-m);
   background: var(--bg-raised);
+  font-size: 1rem;
+  transition: border-color 160ms ease;
 }
 
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 2px var(--space-2);
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--bg-sunken);
-  font-size: var(--step--1);
-  font-weight: 650;
-  white-space: nowrap;
-}
-
-.badge-accent {
-  background: var(--accent-soft);
-  border-color: transparent;
-  color: var(--ink);
-}
-
-.badge-teal {
-  background: var(--teal-soft);
-  border-color: transparent;
-  color: var(--ink);
-}
-
-.notice {
-  padding: var(--space-3) var(--space-4);
-  border-left: 4px solid var(--gold);
-  background: var(--bg-sunken);
-  border-radius: var(--radius-s);
-}
-
-.stat-label {
-  font-size: var(--step--1);
-  font-weight: 700;
-  color: var(--muted);
-}
-
-.stat-value {
-  font-size: var(--step-3);
-  font-weight: 800;
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums;
-}
-
-.chart {
-  display: block;
-  width: 100%;
-  height: auto;
-  overflow: visible;
-}
-
-.chart text {
-  fill: var(--muted);
-  font-size: 13px;
-}
-
-.chart .grid-line {
-  stroke: var(--chart-grid);
-}
-
-details.data-table summary {
-  cursor: pointer;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  color: var(--ink-soft);
-  font-weight: 650;
-}
-
-/* Shared form controls (used by several lazily loaded pages). */
 .segmented {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  row-gap: var(--space-2);
   gap: 0;
   margin: 0;
   padding: 0;
@@ -350,7 +471,7 @@ details.data-table summary {
 .segmented legend {
   margin-bottom: var(--space-1);
   font-size: var(--step--1);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   color: var(--ink-soft);
 }
 
@@ -374,7 +495,7 @@ details.data-table summary {
   padding: 0 var(--space-4);
   border: 1px solid var(--line-strong);
   background: var(--bg-raised);
-  font-weight: 650;
+  font-weight: var(--weight-bold);
   margin-left: -1px;
 }
 
@@ -414,46 +535,101 @@ details.data-table summary {
   accent-color: var(--accent);
 }
 
-@media (max-width: 640px) {
-  .page {
-    padding-top: var(--space-5);
-  }
-
-  .card {
-    padding: var(--space-4);
-    border-radius: var(--radius-m);
-  }
+input[type="range"] {
+  accent-color: var(--accent);
 }
 
-/* ---- Taiwan Air Lab shared pieces ---- */
-.hero {
-  padding: var(--space-5) 0 var(--space-3);
+/* ---- Small pieces ---- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg-sunken);
+  font-size: var(--step--1);
+  font-weight: var(--weight-bold);
+  white-space: nowrap;
 }
 
-.hero h1 {
-  max-width: 24em;
+.badge-accent,
+.badge-teal {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--ink);
 }
 
+.notice {
+  padding: var(--space-3) var(--space-4);
+  border-left: 4px solid var(--gold);
+  background: var(--bg-sunken);
+  border-radius: var(--radius-s);
+}
+
+.callout {
+  border-left: 4px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius-m);
+  padding: var(--space-3) var(--space-4);
+  max-width: none;
+}
+
+.callout > :first-child {
+  margin-top: 0;
+}
+
+.callout > :last-child {
+  margin-bottom: 0;
+}
+
+.stat-label {
+  font-size: var(--step--1);
+  font-weight: var(--weight-bold);
+  color: var(--muted);
+}
+
+.stat-value {
+  margin: 0;
+  font-size: clamp(1.75rem, 1.4rem + 1.2vw, 2.4rem);
+  font-weight: var(--weight-bold);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* Word-valued stats (source names, place lists) read as headings, not giant figures. */
+.stat-value.stat-text {
+  font-size: var(--step-1);
+  line-height: 1.3;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Lab-notebook figure row: each stat is a column separated by a rule, not a floating card. */
 .kpis {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
-  gap: var(--space-4);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.kpis > .kpi {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--bg-raised);
+  padding: var(--space-4) var(--space-5);
 }
 
 .kpi {
   display: grid;
   gap: var(--space-1);
   align-content: start;
-}
-
-.small {
-  font-size: var(--step--1);
-}
-
-.mono {
-  font-family: var(--font-mono);
-  font-size: var(--step--1);
-  overflow-wrap: anywhere;
 }
 
 .aqi-chip {
@@ -464,27 +640,28 @@ details.data-table summary {
   border-radius: 999px;
   background: var(--cat, var(--bg-sunken));
   color: var(--cat-ink, var(--ink));
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.4) inset;
 }
 
 .aqi-chip small {
   font-size: 0.8em;
-  font-weight: 650;
 }
 
 .aqi-big {
-  font-size: var(--step-3);
-  font-weight: 800;
+  font-size: clamp(2.6rem, 2rem + 2vw, 3.6rem);
+  font-weight: var(--weight-bold);
   line-height: 1;
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
 }
 
 .scale-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--space-1) var(--space-3);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -512,7 +689,7 @@ details.data-table summary {
   border-radius: 999px;
   border: 1px solid currentColor;
   font-size: var(--step--1);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   white-space: nowrap;
 }
 
@@ -532,35 +709,135 @@ details.data-table summary {
   color: var(--accent);
 }
 
-.split {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-  gap: var(--space-5);
-  align-items: start;
+/* ---- Charts (shared) ---- */
+.chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
 }
 
-@media (max-width: 900px) {
-  .split {
+.chart text {
+  fill: var(--muted);
+  font-size: 13px;
+}
+
+.chart .grid-line {
+  stroke: var(--chart-grid);
+}
+
+details.data-table summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  list-style: none;
+  color: var(--ink-soft);
+  font-weight: var(--weight-bold);
+  font-size: var(--step--1);
+}
+
+details.data-table summary::-webkit-details-marker {
+  display: none;
+}
+
+details.data-table summary::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border-block: 5px solid transparent;
+  border-inline-start: 7px solid currentColor;
+  transition: transform var(--duration) var(--ease);
+}
+
+details.data-table[open] summary::before {
+  transform: rotate(90deg);
+}
+
+details.data-table summary:hover {
+  color: var(--accent);
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding-top: var(--space-4);
+    padding-bottom: var(--space-6);
+  }
+
+  .stack > * + * {
+    margin-top: var(--space-5);
+  }
+
+  .card {
+    padding: var(--space-4);
+    border-radius: var(--radius-m);
+  }
+
+  .kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-radius: var(--radius-m);
+  }
+
+  .kpis > .kpi {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .kpis > .kpi:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  .chapter-takeaway {
+    font-size: 1.05rem;
+  }
+}
+
+@media (max-width: 400px) {
+  .kpis {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
-.callout {
-  border-left: 4px solid var(--accent);
-  background: var(--accent-soft);
-  border-radius: var(--radius-m);
-  padding: var(--space-3) var(--space-4);
+/* ---- Motion preference ---- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
-.callout > :first-child {
-  margin-top: 0;
+.card-title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--step-0);
 }
 
-.callout > :last-child {
-  margin-bottom: 0;
+.feature-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr));
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding-left: 1.2em;
 }
 
-.num {
-  font-variant-numeric: tabular-nums;
-  text-align: right;
+/* The page header already draws a rule; the first chapter does not need a second one. */
+.page-head + .chapter {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.drift-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .drift-grid {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  }
 }

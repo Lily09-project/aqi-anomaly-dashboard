@@ -1,5 +1,5 @@
 import { useDataset, useDocumentTitle, useNow, useRoute } from "../app/hooks";
-import { AqiChip } from "../components/Aqi";
+import { Chapter } from "../components/Chapter";
 import { ChartFrame, ForecastBand, Legend, type LegendItem } from "../components/charts";
 import { DataTime, StaleNotice } from "../components/Freshness";
 import { EmptyState, Gate } from "../components/States";
@@ -60,10 +60,23 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
     ...(best && chartWindowStart >= 0 ? [{ key: "window", label: best.risk >= HIGH_RISK ? "相對最低時段" : "建議時段", mark: "window" as const }] : []),
   ];
 
+  const answer =
+    best && windowStart && windowEnd ? (
+      <>
+        {best.risk >= HIGH_RISK ? "相對最低" : "建議"}{" "}
+        <strong data-testid="best-window" data-window-start={windowStart.t}>
+          {formatHour(windowStart.t)}–{formatClock(addHours(windowEnd.t, 1))}
+        </strong>
+        ，平均超標機率 <strong data-testid="best-risk">{formatPercent(best.risk, 1)}</strong>。
+      </>
+    ) : (
+      <>目前剩餘的未來預報不足以安排 {hours} 小時活動。</>
+    );
+
   return (
     <div className="stack">
       <header className="station-head">
-        <div>
+        <div className="station-title">
           <span className="eyebrow">
             {station.county} · <DataTime latest={overview.latest} nowMs={nowMs} />
           </span>
@@ -87,15 +100,15 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
 
       {provenance.is_model_estimate && <StaleNotice latest={overview.latest} nowMs={nowMs} />}
 
-      <section className="grid grid-3" aria-label="目前狀態">
-        <div className="card kpi">
-          <span className="stat-label">{provenance.is_model_estimate ? "目前美國 AQI" : "目前 AQI"}</span>
+      <section className="now-panel" aria-label="目前狀態">
+        <div className="now-main" data-category={category?.key ?? "none"}>
+          <span className="now-main-label">{provenance.is_model_estimate ? "目前美國 AQI" : "目前 AQI"}</span>
           <span className="aqi-big" data-testid="current-aqi">
             {formatNumber(station.aqi)}
           </span>
-          <AqiChip value={station.aqi} categories={overview.categories} labelOnly />
+          <span className="now-main-cat">{category?.label ?? "無資料"}</span>
         </div>
-        <div className="card kpi">
+        <div className="now-cell">
           <span className="stat-label">污染物與氣象</span>
           <dl className="mini-dl">
             <dt>PM2.5</dt>
@@ -103,20 +116,38 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
             <dt>PM10</dt>
             <dd>{formatNumber(station.pm10, 1)} µg/m³</dd>
             <dt>臭氧</dt>
-            <dd>{formatNumber(station.o3, 1)} {provenance.ozone_unit ?? "ppb"}</dd>
+            <dd>
+              {formatNumber(station.o3, 1)} {provenance.ozone_unit ?? "ppb"}
+            </dd>
             <dt>風速</dt>
             <dd>{formatNumber(station.wind_speed, 1)} m/s</dd>
           </dl>
         </div>
-        <div className="card kpi">
+        <div className="now-cell now-advice">
           <span className="stat-label">{AUDIENCE[sensitivity]}活動建議</span>
           <p data-testid="advice">{advice ? advice[sensitivity] : "無資料"}</p>
           <span className="muted small">{provenance.is_model_estimate ? "參考美國 AQI 分級 · 模型估算" : "依環境部 AQI 分級的活動建議改寫"}</span>
         </div>
       </section>
 
-      <section className="card planner" aria-labelledby="planner-title">
-        <h2 id="planner-title">最佳出門時段</h2>
+      <Chapter
+        no="01"
+        title="最佳出門時段"
+        className="planner"
+        takeaway={answer}
+        liveTakeaway
+        howTo={
+          <>
+            <p>
+              實線是過去 {HISTORY_SHOWN} 小時，虛線是預報中位數，陰影是 80% 預測區間（十次約有八次落在裡面）。紅色虛線是{AUDIENCE[sensitivity]}門檻，綠色區塊是比較後挑出的時段。
+            </p>
+            <p>
+              區間怎麼來：每個預報時距各有一個 ridge 迴歸模型，再用保留的校準期殘差（分割式保形預測）決定 P10／P90。測試期各時距實際值落在 80% 區間內的比例為{" "}
+              {formatPercent(Math.min(...coverage), 0)}–{formatPercent(Math.max(...coverage), 0)}。<a href={routeToHash({ name: "model" })}>查看模型監控</a>
+            </p>
+          </>
+        }
+      >
         <div className="planner-controls">
           <fieldset className="segmented">
             <legend>誰要出門</legend>
@@ -127,9 +158,6 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
               </label>
             ))}
           </fieldset>
-          <p className="muted small planner-threshold">
-            超標門檻：AQI &gt; {threshold}（{AUDIENCE[sensitivity]}）
-          </p>
           <label className="field">
             <span className="label">活動時長</span>
             <select className="input" value={hours} onChange={(e) => update({ hours: Number(e.target.value) })}>
@@ -140,6 +168,9 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
               ))}
             </select>
           </label>
+          <p className="muted small planner-threshold">
+            超標門檻：AQI &gt; {threshold}（{AUDIENCE[sensitivity]}）
+          </p>
         </div>
 
         <div className="planner-result" aria-live="polite" data-testid="planner-result">
@@ -147,13 +178,9 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
             <>
               {best.risk >= HIGH_RISK && (
                 <p className="notice planner-warning" data-testid="planner-warning">
-                  未來每個可選的 {hours} 小時時段{best.risk >= 0.995 ? "都預估會超標" : `的平均超標機率都不低於 ${formatPercent(best.risk, 0)}`}，{AUDIENCE[sensitivity]}可考慮改到室內或縮短時間；下面是相對風險最低的時段。
+                  未來每個可選的 {hours} 小時時段{best.risk >= 0.995 ? "都預估會超標" : `的平均超標機率都不低於 ${formatPercent(best.risk, 0)}`}，{AUDIENCE[sensitivity]}可考慮改到室內或縮短時間；上面是相對風險最低的時段。
                 </p>
               )}
-              <p className="planner-answer">
-                {best.risk >= HIGH_RISK ? "相對最低" : "建議"} <strong data-testid="best-window" data-window-start={windowStart.t}>{formatHour(windowStart.t)}–{formatClock(addHours(windowEnd.t, 1))}</strong>
-                ，平均超標機率 <strong data-testid="best-risk">{formatPercent(best.risk, 1)}</strong>
-              </p>
               <p className="muted">
                 以尚未發生的 {availableForecast.length} 個預報時點比較 {risks.length} 個連續 {hours} 小時候選時段，這一段平均超標機率最低、預估中位數 AQI 約{" "}
                 {formatNumber(best.meanP50)}。
@@ -183,16 +210,20 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
                 </tr>
               </thead>
               <tbody>
-                {availableForecast.length ? availableForecast.map((f) => (
-                  <tr key={f.h} data-forecast-time={f.t}>
-                    <th scope="row">{formatHour(f.t)}</th>
-                    <td className="num">{formatNumber(f.p10)}</td>
-                    <td className="num">{formatNumber(f.p50)}</td>
-                    <td className="num">{formatNumber(f.p90)}</td>
-                    <td className="num">{formatPercent(exceedanceProbability(f, threshold), 1)}</td>
+                {availableForecast.length ? (
+                  availableForecast.map((f) => (
+                    <tr key={f.h} data-forecast-time={f.t}>
+                      <th scope="row">{formatHour(f.t)}</th>
+                      <td className="num">{formatNumber(f.p10)}</td>
+                      <td className="num">{formatNumber(f.p50)}</td>
+                      <td className="num">{formatNumber(f.p90)}</td>
+                      <td className="num">{formatPercent(exceedanceProbability(f, threshold), 1)}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5}>目前沒有尚未發生的預報時段。</td>
                   </tr>
-                )) : (
-                  <tr><td colSpan={5}>目前沒有尚未發生的預報時段。</td></tr>
                 )}
               </tbody>
             </table>
@@ -209,12 +240,7 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
             <p className="muted">目前沒有可繪製的模型預報資料。</p>
           )}
         </ChartFrame>
-        <p className="muted small">
-          區間怎麼來：每個預報時距各有一個 ridge 迴歸模型，再用保留的校準期殘差（分割式保形預測）決定 P10／P90。測試期各時距實際值落在 80% 區間內的比例為{" "}
-          {formatPercent(Math.min(...coverage), 0)}–{formatPercent(Math.max(...coverage), 0)}。
-          <a href={routeToHash({ name: "model" })}>查看模型監控</a>
-        </p>
-      </section>
+      </Chapter>
     </div>
   );
 }

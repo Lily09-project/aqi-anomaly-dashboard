@@ -4,14 +4,67 @@
   justify-content: space-between;
   align-items: end;
   gap: var(--space-4);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--line);
+}
+
+.station-title {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
 }
 
 .station-head h1 {
-  margin: var(--space-1) 0 0;
+  margin: 0;
 }
 
 .station-switch {
   min-width: min(100%, 220px);
+}
+
+/* Weather-app "now" panel: the big reading on its category colour, then the details. */
+.now-panel {
+  display: grid;
+  grid-template-columns: minmax(200px, 0.8fr) minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.now-panel > * {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+  padding: var(--space-5);
+  background: var(--bg-raised);
+  min-width: 0;
+}
+
+.now-main {
+  align-content: center;
+  background: var(--cat, var(--bg-sunken));
+  color: var(--cat-ink, var(--ink));
+}
+
+.now-panel > .now-main {
+  background: var(--cat, var(--bg-sunken));
+}
+
+.now-main-label,
+.now-main-cat {
+  font-weight: var(--weight-bold);
+  font-size: var(--step--1);
+}
+
+.now-main-cat {
+  font-size: var(--step-0);
+}
+
+.now-advice p {
+  margin: 0;
 }
 
 .mini-dl {
@@ -19,11 +72,12 @@
   grid-template-columns: auto 1fr;
   gap: 2px var(--space-3);
   margin: 0;
-  font-size: var(--step--1);
 }
 
 .mini-dl dt {
   color: var(--muted);
+  font-size: var(--step--1);
+  align-self: center;
 }
 
 .mini-dl dd {
@@ -31,42 +85,64 @@
   font-variant-numeric: tabular-nums;
 }
 
-.planner {
-  display: grid;
-  gap: var(--space-4);
+@media (max-width: 900px) {
+  .now-panel {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  }
+
+  .now-advice {
+    grid-column: 1 / -1;
+  }
 }
 
-.planner h2 {
-  margin: 0;
+@media (max-width: 640px) {
+  .now-panel {
+    border-radius: var(--radius-m);
+  }
+
+  .now-panel > * {
+    padding: var(--space-4);
+  }
+}
+
+@media (max-width: 380px) {
+  .now-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .planner-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-4);
+  gap: var(--space-3) var(--space-4);
   align-items: end;
 }
 
+.planner-threshold {
+  margin: 0;
+  align-self: center;
+}
+
 .planner-result {
-  border-left: 4px solid var(--good);
-  background: var(--bg-sunken);
-  border-radius: var(--radius-m);
-  padding: var(--space-3) var(--space-4);
+  display: grid;
+  gap: var(--space-2);
 }
 
 .planner-result p {
   margin: 0;
 }
 
-.planner-result p + p {
-  margin-top: var(--space-2);
+.planner .chart-frame {
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow);
 }
 
-.planner-answer {
-  font-size: var(--step-1);
-}
-
-.planner-threshold {
-  margin: 0;
-  align-self: center;
+@media (max-width: 640px) {
+  .planner .chart-frame {
+    padding: var(--space-3);
+    border-radius: var(--radius-m);
+  }
 }
