@@ -1,6 +1,6 @@
 # 更新與發布檢查
 
-## 每日公開更新
+## 定時公開更新（每天 4 次）
 
 - workflow 使用免註冊 Open-Meteo API 取得 CAMS Global 空品與風場。
 - 確認來源狀態為 Model Estimate，四個格點不同，最少 30 天、最新資料不超過 48 小時。

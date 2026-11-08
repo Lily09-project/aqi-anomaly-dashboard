@@ -1,8 +1,8 @@
 import { formatAge, formatHour, hoursSince } from "../lib/format";
 
 /**
- * The production build refreshes once a day; past this age the "current"
- * values and the 24-hour forecast are visibly out of date.
+ * The production build refreshes four times a day; past this age several refreshes
+ * have been missed and the "current" values and 24-hour forecast are visibly out of date.
  */
 export const STALE_AFTER_HOURS = 30;
 
@@ -17,13 +17,13 @@ export function DataTime({ latest, nowMs }: { latest: string; nowMs: number }) {
   );
 }
 
-/** Warn when the published model snapshot has missed its daily refresh. */
+/** Warn when the published model snapshot has missed its scheduled refreshes. */
 export function StaleNotice({ latest, nowMs }: { latest: string; nowMs: number }) {
   const age = hoursSince(latest, nowMs);
   if (age === null || age < STALE_AFTER_HOURS) return null;
   return (
     <p className="notice" data-testid="stale-notice">
-      這份模型資料是{formatAge(age)}的快照，已超過預定的每日更新時間；「目前」數值與預報可能已經過時，請以環境部即時資訊為準。
+      這份模型資料是{formatAge(age)}的快照，已錯過多次預定更新；「目前」數值與預報可能已經過時，請以環境部即時資訊為準。
     </p>
   );
 }
