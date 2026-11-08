@@ -9,9 +9,34 @@
     />
     <meta name="referrer" content="no-referrer" />
     <meta name="color-scheme" content="light" />
-    <meta name="description" content="Taiwan Air Lab：以 CAMS 模型估算資料，用機率預報、時序關聯、異常事件與情境模擬分析台灣空氣品質的互動實驗室（非環境部測站實測）。" />
-    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#ffffff" />
     <title>Taiwan Air Lab — 台灣空氣實驗室</title>
+    <meta name="description" content="Taiwan Air Lab：以 CAMS 模型估算資料，用機率預報、時序關聯、異常事件與情境模擬分析台灣空氣品質的互動實驗室（非環境部測站實測）。" />
+    <link rel="canonical" href="https://lily09-project.github.io/aqi-anomaly-dashboard/" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <!-- Every page reads the manifest and provenance; the home page also needs overview and propagation.
+         Fetching them alongside the JavaScript removes one network round trip from the first screen. -->
+    <link rel="preload" href="./data/manifest.json" as="fetch" crossorigin />
+    <link rel="preload" href="./data/provenance.json" as="fetch" crossorigin />
+    <link rel="preload" href="./data/overview.json" as="fetch" crossorigin />
+    <link rel="preload" href="./data/propagation.json" as="fetch" crossorigin />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Taiwan Air Lab" />
+    <meta property="og:locale" content="zh_TW" />
+    <meta property="og:title" content="Taiwan Air Lab — 台灣空氣實驗室" />
+    <meta property="og:description" content="用臺北、臺中、高雄、花蓮四個 CAMS 模型格點，看空品趨勢、24 小時預報區間、異常事件與情境模擬（模型估算，非環境部測站實測）。" />
+    <meta property="og:url" content="https://lily09-project.github.io/aqi-anomaly-dashboard/" />
+    <meta property="og:image" content="https://lily09-project.github.io/aqi-anomaly-dashboard/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Taiwan Air Lab 台灣空氣實驗室：空品趨勢、24 小時預報區間、異常事件與情境模擬" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Taiwan Air Lab — 台灣空氣實驗室" />
+    <meta name="twitter:description" content="用四個 CAMS 模型格點，看台灣空品趨勢、24 小時預報區間、異常事件與情境模擬（模型估算，非環境部測站實測）。" />
+    <meta name="twitter:image" content="https://lily09-project.github.io/aqi-anomaly-dashboard/og-image.png" />
+    <meta name="twitter:image:alt" content="Taiwan Air Lab 台灣空氣實驗室：空品趨勢、24 小時預報區間、異常事件與情境模擬" />
   </head>
   <body>
     <noscript>這個網站需要啟用 JavaScript 才能執行預報與情境模擬。</noscript>

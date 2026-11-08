@@ -6,15 +6,22 @@ on:
   pull_request:
     branches: [main]
   schedule:
-    - cron: "25 12 * * *"
+    # Four refreshes a day, about every six hours (Taipei 01:41, 07:41, 13:41, 19:41).
+    # GitHub may start scheduled runs late; an off-the-hour minute avoids the busiest
+    # top-of-hour queue. Each run makes two Open-Meteo requests (air quality + wind) for
+    # four locations, well within the free non-commercial limits.
+    - cron: "41 5,11,17,23 * * *"
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# One run per ref at a time. A newer run waits for the current one instead of cancelling it,
+# so a push or the next schedule never interrupts a Pages deployment half-way; only the most
+# recent queued run is kept. Pull requests never deploy, so a newer commit may cancel them.
 concurrency:
   group: pages-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:

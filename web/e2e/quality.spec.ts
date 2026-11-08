@@ -132,4 +132,48 @@ test.describe("Q6 performance and Q8 security", () => {
     expect(csp).not.toContain("unsafe-eval");
     expect(await page.locator("script:not([src])").count()).toBe(0);
   });
+
+  test("the first screen does not shift when the data arrives", async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as unknown as { __cls: number }).__cls = 0;
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries() as unknown as { value: number; hadRecentInput: boolean }[]) {
+          if (!entry.hadRecentInput) (window as unknown as { __cls: number }).__cls += entry.value;
+        }
+      }).observe({ type: "layout-shift", buffered: true });
+    });
+    await page.goto("./");
+    await expect(page.locator(".hero h1")).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    expect(await page.evaluate(() => (window as unknown as { __cls: number }).__cls)).toBeLessThan(0.02);
+  });
+});
+
+test.describe("sharing metadata", () => {
+  test("title, description, Open Graph, Twitter card and icons are declared and served", async ({ page, request }) => {
+    await page.goto("./");
+    const head = page.locator("head");
+    const attr = (selector: string, name = "content") => head.locator(selector).getAttribute(name);
+    expect(await page.locator("html").getAttribute("lang")).toBe("zh-Hant-TW");
+    await expect(page).toHaveTitle(/Taiwan Air Lab/);
+    expect(await attr('meta[name="description"]')).toContain("非環境部測站實測");
+    expect(await attr('meta[name="theme-color"]')).toMatch(/^#[0-9a-f]{6}$/i);
+    const canonical = await attr('link[rel="canonical"]', "href");
+    expect(canonical).toMatch(/^https:\/\/.+\/$/);
+    expect(await attr('meta[property="og:url"]')).toBe(canonical);
+    expect(await attr('meta[property="og:description"]')).toContain("非環境部測站實測");
+    expect(await attr('meta[name="twitter:card"]')).toBe("summary_large_image");
+    const image = await attr('meta[property="og:image"]');
+    expect(image).toBe(`${canonical}og-image.png`);
+    expect(await attr('meta[name="twitter:image"]')).toBe(image);
+    for (const [path, type] of [["og-image.png", "image/png"], ["apple-touch-icon.png", "image/png"], ["favicon.svg", "image/svg+xml"]]) {
+      const response = await request.get(`./${path}`);
+      expect(response.status(), path).toBe(200);
+      expect(response.headers()["content-type"], path).toContain(type);
+    }
+    // The declared share-image size must match the PNG header (width at byte 16, height at byte 20).
+    const png = await (await request.get("./og-image.png")).body();
+    expect(String(png.readUInt32BE(16))).toBe(await attr('meta[property="og:image:width"]'));
+    expect(String(png.readUInt32BE(20))).toBe(await attr('meta[property="og:image:height"]'));
+  });
 });

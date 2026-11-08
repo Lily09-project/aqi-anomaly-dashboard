@@ -150,7 +150,7 @@ describe("stale model data", () => {
     return { ...files, "provenance.json": { ...files["provenance.json"]!, is_simulated: false, is_model_estimate: true } };
   };
 
-  it("shows the data age and warns once the daily refresh has been missed", async () => {
+  it("shows the data age and warns once the scheduled refreshes have been missed", async () => {
     // Data time 2026-10-20 23:00; 31 hours later.
     vi.useFakeTimers({ toFake: ["Date"], now: Date.parse("2026-10-22T06:30:00+08:00") });
     window.history.replaceState(null, "", "#/");

@@ -182,6 +182,12 @@ thead th {
   border-color: var(--line);
 }
 
+/* While a page is still loading, keep the footer below the fold so the arriving
+   content does not push it out of view (a layout shift on every first load). */
+.page:has(> .state-loading) {
+  min-height: 100vh;
+}
+
 .state-loading {
   position: relative;
   overflow: hidden;
