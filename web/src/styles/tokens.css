@@ -1,7 +1,7 @@
 /* Design tokens for Taiwan Air Lab: one fixed light palette. */
 :root {
   color-scheme: light;
-  --font-sans: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-serif: "Noto Serif TC", "Songti TC", "PMingLiU", Georgia, serif;
   --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 
