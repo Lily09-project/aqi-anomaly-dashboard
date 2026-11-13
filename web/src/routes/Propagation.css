@@ -16,8 +16,8 @@
   }
 }
 
-.link-panels .taiwan-map,
-.replay-panels .taiwan-map {
+.link-panels .map-box,
+.replay-panels .map-box {
   max-width: 320px;
 }
 

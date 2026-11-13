@@ -1,6 +1,7 @@
 import { scaleLinear } from "d3-scale";
 import { area, line } from "d3-shape";
 import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
+import { axisTicks, placeLabels, textWidth } from "../lib/chart-layout";
 import { makeProjection, outlinePath } from "../lib/geo";
 import "./charts.css";
 import { ScrollRegion } from "./ScrollRegion";
@@ -12,9 +13,9 @@ const W = 520;
  * Measure the chart's container so the viewBox matches real pixels: text stays
  * 13px on a wide desktop card and on a phone instead of scaling with the card.
  */
-function useChartWidth(): [RefObject<HTMLDivElement | null>, number] {
+function useChartWidth(initial = W): [RefObject<HTMLDivElement | null>, number] {
   const ref = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(W);
+  const [width, setWidth] = useState(initial);
   useEffect(() => {
     const element = ref.current;
     if (!element || typeof ResizeObserver === "undefined") return;
@@ -81,15 +82,11 @@ export interface MapLink {
   label: string;
 }
 
-/** Hand-placed labels for the dense northern cluster; others follow the coast. */
-const LABEL_PLACEMENT: Record<string, [number, number, "start" | "end"]> = {
-  松山測站: [13, -9, "start"],
-  板橋測站: [12, 17, "start"],
-  桃園測站: [-12, -9, "end"],
-};
-
 const MAP_WIDTH = 380;
 const MAP_PAD = 76;
+/** Rendered sizes in CSS px; the map scales its viewBox, so these are divided by the scale. */
+const MAP_LABEL_PX = 12.5;
+const MAP_DOT_PX = 5.5;
 
 export function TaiwanMap({
   stations,
@@ -102,77 +99,97 @@ export function TaiwanMap({
   hrefFor?: (station: string) => string;
 }) {
   const projection = makeProjection(MAP_WIDTH);
+  const [box, rendered] = useChartWidth(340);
   const markerId = useId().replace(/:/g, "");
+  const viewWidth = MAP_WIDTH + 2 * MAP_PAD;
+  const viewHeight = projection.height + 16;
+  // Keep labels and dots at a readable on-screen size however wide the map renders.
+  const k = viewWidth / rendered;
+  const fontSize = MAP_LABEL_PX * k;
   const placed = stations.flatMap((s) => (s.lon === null || s.lat === null ? [] : [{ ...s, lon: s.lon, lat: s.lat }]));
   const position = new Map(placed.map((s) => [s.name, projection.project(s.lon, s.lat)]));
+  const radius = (s: MapStation) => (s.emphasis ? MAP_DOT_PX + 1.5 : MAP_DOT_PX) * k;
+  const labels = placeLabels(
+    placed.map((s) => {
+      const [x, y] = position.get(s.name) ?? [0, 0];
+      return { x, y, label: s.label, r: radius(s) + 2 * k };
+    }),
+    { x: -MAP_PAD, y: -8, w: viewWidth, h: viewHeight },
+    fontSize,
+  );
   return (
-    <svg
-      className="chart taiwan-map"
-      viewBox={`${-MAP_PAD} -8 ${MAP_WIDTH + 2 * MAP_PAD} ${projection.height + 16}`}
-      preserveAspectRatio="xMidYMid meet"
-      aria-hidden={hrefFor ? undefined : "true"}
-    >
-      <defs>
-        <marker id={`arrow-${markerId}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-          <path d="M0,0 L10,5 L0,10 z" className="map-arrow-head" />
-        </marker>
-        <linearGradient id={`land-${markerId}`} x1="0" y1="0" x2="0.4" y2="1">
-          <stop offset="0" className="map-land-top" />
-          <stop offset="1" className="map-land-bottom" />
-        </linearGradient>
-      </defs>
-      <path className="map-land" d={outlinePath(projection)} style={{ fill: `url(#land-${markerId})` }} aria-hidden="true" />
-      {links.map((link) => {
-        const a = position.get(link.from);
-        const b = position.get(link.to);
-        if (!a || !b) return null;
-        const [x1, y1] = a;
-        const [x2, y2] = b;
-        const length = Math.hypot(x2 - x1, y2 - y1) || 1;
-        // Stop short of the marker and bow the arrow so parallel links stay readable.
-        const ux = (x2 - x1) / length;
-        const uy = (y2 - y1) / length;
-        const sx = x1 + ux * 10;
-        const sy = y1 + uy * 10;
-        const ex = x2 - ux * 11;
-        const ey = y2 - uy * 11;
-        const cx = (sx + ex) / 2 - uy * length * 0.18;
-        const cy = (sy + ey) / 2 + ux * length * 0.18;
-        return (
-          <g key={`${link.from}-${link.to}`} className="map-link" aria-hidden="true">
-            <path d={`M${sx},${sy} Q${cx},${cy} ${ex},${ey}`} markerEnd={`url(#arrow-${markerId})`} />
-            <text x={cx} y={cy} textAnchor="middle" className="map-link-label">
-              {link.label}
-            </text>
-          </g>
-        );
-      })}
-      {placed.map((s) => {
-        const [x, y] = position.get(s.name) ?? [0, 0];
-        const [dx, dy, anchor] = LABEL_PLACEMENT[s.name] ?? (s.lon < 121 ? [-12, 4, "end"] : [12, 4, "start"]);
-        const marker = (
-          <>
-            <circle cx={x} cy={y} r={s.emphasis ? 18 : 13} className="map-halo" data-category={s.category ?? "none"} />
-            <circle cx={x} cy={y} r={s.emphasis ? 9 : 7} className="map-dot" data-category={s.category ?? "none"} />
-            {/* An invisible larger target keeps touch hits ≥ 24px. */}
-            <circle cx={x} cy={y} r={13} className="map-hit" />
-            <text x={x + dx} y={y + dy} textAnchor={anchor} className="map-label">
-              {s.label}
-            </text>
-          </>
-        );
-        const className = s.emphasis ? "map-station is-emphasis" : "map-station";
-        return hrefFor ? (
-          <a key={s.name} href={hrefFor(s.name)} className={className} aria-label={`${s.name}：${s.label}`}>
-            {marker}
-          </a>
-        ) : (
-          <g key={s.name} className={className}>
-            {marker}
-          </g>
-        );
-      })}
-    </svg>
+    <div ref={box} className="map-box">
+      <svg
+        className="chart taiwan-map"
+        viewBox={`${-MAP_PAD} -8 ${viewWidth} ${viewHeight}`}
+        preserveAspectRatio="xMidYMid meet"
+        aria-hidden={hrefFor ? undefined : "true"}
+        style={{ fontSize: `${fontSize.toFixed(2)}px` }}
+      >
+        <defs>
+          <marker id={`arrow-${markerId}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" className="map-arrow-head" />
+          </marker>
+          <linearGradient id={`land-${markerId}`} x1="0" y1="0" x2="0.4" y2="1">
+            <stop offset="0" className="map-land-top" />
+            <stop offset="1" className="map-land-bottom" />
+          </linearGradient>
+        </defs>
+        <path className="map-land" d={outlinePath(projection)} style={{ fill: `url(#land-${markerId})` }} aria-hidden="true" />
+        {links.map((link) => {
+          const a = position.get(link.from);
+          const b = position.get(link.to);
+          if (!a || !b) return null;
+          const [x1, y1] = a;
+          const [x2, y2] = b;
+          const length = Math.hypot(x2 - x1, y2 - y1) || 1;
+          // Stop short of the marker and bow the arrow so parallel links stay readable.
+          const ux = (x2 - x1) / length;
+          const uy = (y2 - y1) / length;
+          const inset = (MAP_DOT_PX + 4) * k;
+          const sx = x1 + ux * inset;
+          const sy = y1 + uy * inset;
+          const ex = x2 - ux * (inset + k);
+          const ey = y2 - uy * (inset + k);
+          const cx = (sx + ex) / 2 - uy * length * 0.18;
+          const cy = (sy + ey) / 2 + ux * length * 0.18;
+          return (
+            <g key={`${link.from}-${link.to}`} className="map-link" aria-hidden="true">
+              <path d={`M${sx},${sy} Q${cx},${cy} ${ex},${ey}`} markerEnd={`url(#arrow-${markerId})`} />
+              <text x={cx} y={cy} textAnchor="middle" dy="0.35em" className="map-link-label">
+                {link.label}
+              </text>
+            </g>
+          );
+        })}
+        {placed.map((s, index) => {
+          const [x, y] = position.get(s.name) ?? [0, 0];
+          const label = labels[index] ?? { x: x + radius(s) + 4 * k, y, anchor: "start" as const };
+          const r = radius(s);
+          const marker = (
+            <>
+              <circle cx={x} cy={y} r={r * 2} className="map-halo" data-category={s.category ?? "none"} />
+              <circle cx={x} cy={y} r={r} className="map-dot" data-category={s.category ?? "none"} />
+              {/* An invisible larger target keeps touch hits at least 24px. */}
+              <circle cx={x} cy={y} r={Math.max(12 * k, r * 2)} className="map-hit" />
+              <text x={label.x} y={label.y} textAnchor={label.anchor} className="map-label">
+                {s.label}
+              </text>
+            </>
+          );
+          const className = s.emphasis ? "map-station is-emphasis" : "map-station";
+          return hrefFor ? (
+            <a key={s.name} href={hrefFor(s.name)} className={className} aria-label={`${s.name}：${s.label}`}>
+              {marker}
+            </a>
+          ) : (
+            <g key={s.name} className={className}>
+              {marker}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
   );
 }
 
@@ -221,15 +238,31 @@ export function ForecastBand({
   const medianPath = line<BandPoint>()
     .x((_, i) => x(offset + i))
     .y((d) => y(d.p50))(forecast);
-  const ticks = [0, Math.floor(offset / 2), offset, total - 1].filter((v, i, a) => a.indexOf(v) === i);
-  const labelAt = (i: number) => (i < offset ? history[i]?.label : forecast[i - offset]?.label) ?? "";
+  const p10Path = line<BandPoint>()
+    .x((_, i) => x(offset + i))
+    .y((d) => y(d.p10))(forecast);
+  const p90Path = line<BandPoint>()
+    .x((_, i) => x(offset + i))
+    .y((d) => y(d.p90))(forecast);
+  const labels = [...history.map((h) => h.label), ...forecast.map((f) => f.label)];
+  const ticks = axisTicks(labels, x, 0, width);
+  const base = height - 26;
+  const nowX = x(offset - 0.5);
+  const nowLabel = { x: nowX + 6, y: 16, w: textWidth("預報開始", 12) };
+  // The threshold label sits above its line at the right edge, or below it when it would hit "預報開始".
+  const thresholdText = threshold === undefined ? "" : `門檻 ${threshold}`;
+  const thresholdY = threshold === undefined ? 0 : y(threshold);
+  const thresholdW = textWidth(thresholdText, 12);
+  const thresholdBelow =
+    threshold !== undefined && Math.abs(thresholdY - 6 - nowLabel.y) < 16 && right - thresholdW < nowLabel.x + nowLabel.w + 8;
   return (
     <div ref={box} className="chart-box">
       <svg className="chart forecast-band" viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
+        <rect className="forecast-zone" x={nowX} y={6} width={Math.max(right - nowX, 0)} height={base - 6} />
         {y.ticks(4).map((t) => (
           <g key={t}>
-            <line className="grid-line" x1={left} x2={right} y1={y(t)} y2={y(t)} />
-            <text x={left - 6} y={y(t) + 4} textAnchor="end">
+            <line className={t === 0 ? "axis-line" : "grid-line"} x1={left} x2={right} y1={Math.round(y(t)) + 0.5} y2={Math.round(y(t)) + 0.5} />
+            <text x={left - 8} y={y(t)} dy="0.35em" textAnchor="end" className="axis-label">
               {t}
             </text>
           </g>
@@ -241,28 +274,33 @@ export function ForecastBand({
             width={Math.max(x(offset + window.start + window.hours - 1) - x(offset + window.start) + 8, 8)}
             y={10}
             height={height - 36}
-            rx={4}
+            rx={6}
           />
         )}
-        <line className="now-line" x1={x(offset - 0.5)} x2={x(offset - 0.5)} y1={6} y2={height - 26} />
-        <text x={x(offset - 0.5) + 4} y={18} className="now-label">
+        <path className="band" d={bandPath ?? ""} />
+        <path className="band-edge" d={p10Path ?? ""} />
+        <path className="band-edge" d={p90Path ?? ""} />
+        <line className="now-line" x1={nowX} x2={nowX} y1={6} y2={base} />
+        <text x={nowLabel.x} y={nowLabel.y} className="now-label">
           預報開始
         </text>
         {threshold !== undefined && (
           <g>
-            <line className="threshold-line" x1={left} x2={right} y1={y(threshold)} y2={y(threshold)} />
-            <text x={right} y={y(threshold) - 5} textAnchor="end" className="threshold-label">
-              門檻 {threshold}
+            <line className="threshold-line" x1={left} x2={right} y1={Math.round(thresholdY) + 0.5} y2={Math.round(thresholdY) + 0.5} />
+            <text x={right} y={thresholdBelow ? thresholdY + 15 : thresholdY - 6} textAnchor="end" className="threshold-label">
+              {thresholdText}
             </text>
           </g>
         )}
-        <path className="band" d={bandPath ?? ""} />
         <path className="history-line" d={historyPath ?? ""} />
         <path className="median-line" d={medianPath ?? ""} />
-        {ticks.map((i) => (
-          <text key={i} x={x(i)} y={height - 8} textAnchor={i === 0 ? "start" : i === total - 1 ? "end" : "middle"}>
-            {labelAt(i)}
-          </text>
+        {ticks.map((t) => (
+          <g key={t.i}>
+            <line className="tick-mark" x1={Math.round(x(t.i)) + 0.5} x2={Math.round(x(t.i)) + 0.5} y1={base} y2={base + 4} />
+            <text x={x(t.i)} y={height - 6} textAnchor={t.anchor} className="axis-label">
+              {t.label}
+            </text>
+          </g>
         ))}
       </svg>
     </div>
@@ -305,14 +343,16 @@ export function MultiLine({
   const hi = Math.max(...values, lo + 1);
   const x = scaleLinear().domain([0, Math.max(labels.length - 1, 1)]).range([left, right]);
   const y = scaleLinear().domain([lo, hi + (hi - lo) * 0.08]).range([height - 26, 10]).nice();
-  const ticks = [0, Math.floor((labels.length - 1) / 2), labels.length - 1].filter((v, i, a) => a.indexOf(v) === i);
+  const ticks = axisTicks(labels, x, 0, width);
+  const base = height - 26;
+  const [bottom] = y.domain();
   return (
     <div ref={box} className="chart-box">
       <svg className="chart multi-line" viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
         {y.ticks(4).map((t) => (
           <g key={t}>
-            <line className="grid-line" x1={left} x2={right} y1={y(t)} y2={y(t)} />
-            <text x={left - 6} y={y(t) + 4} textAnchor="end">
+            <line className={t === bottom ? "axis-line" : "grid-line"} x1={left} x2={right} y1={Math.round(y(t)) + 0.5} y2={Math.round(y(t)) + 0.5} />
+            <text x={left - 8} y={y(t)} dy="0.35em" textAnchor="end" className="axis-label">
               {format(t)}
             </text>
           </g>
@@ -320,8 +360,8 @@ export function MultiLine({
         {span && <rect className="span" x={x(span[0])} width={Math.max(x(span[1]) - x(span[0]), 3)} y={10} height={height - 36} rx={3} />}
         {reference && (
           <g>
-            <line className="threshold-line" x1={left} x2={right} y1={y(reference.value)} y2={y(reference.value)} />
-            <text x={right} y={y(reference.value) - 5} textAnchor="end" className="threshold-label">
+            <line className="threshold-line" x1={left} x2={right} y1={Math.round(y(reference.value)) + 0.5} y2={Math.round(y(reference.value)) + 0.5} />
+            <text x={right} y={y(reference.value) - 6} textAnchor="end" className="threshold-label">
               {reference.label}
             </text>
           </g>
@@ -338,11 +378,14 @@ export function MultiLine({
             }
           />
         ))}
-        {marker !== undefined && <line className="now-line" x1={x(marker)} x2={x(marker)} y1={6} y2={height - 26} />}
-        {ticks.map((i) => (
-          <text key={i} x={x(i)} y={height - 8} textAnchor={i === 0 ? "start" : i === labels.length - 1 ? "end" : "middle"}>
-            {labels[i]}
-          </text>
+        {marker !== undefined && <line className="now-line" x1={x(marker)} x2={x(marker)} y1={6} y2={base} />}
+        {ticks.map((t) => (
+          <g key={t.i}>
+            <line className="tick-mark" x1={Math.round(x(t.i)) + 0.5} x2={Math.round(x(t.i)) + 0.5} y1={base} y2={base + 4} />
+            <text x={x(t.i)} y={height - 6} textAnchor={t.anchor} className="axis-label">
+              {t.label}
+            </text>
+          </g>
         ))}
       </svg>
     </div>
@@ -416,7 +459,7 @@ export function ArrivalStrips({
             .y1((v) => y(v ?? 0))(r.values);
           return (
             <g key={r.key}>
-              <line className="grid-line" x1={left} x2={right} y1={base} y2={base} />
+              <line className="axis-line" x1={left} x2={right} y1={base + 0.5} y2={base + 0.5} />
               <path className="strip" d={path ?? ""} />
               <path className="strip-edge" d={line<number | null>().defined((v) => v !== null).x((_, i) => x(i)).y((v) => y(v ?? 0))(r.values) ?? ""} />
               {r.peak !== null && <circle className="strip-peak" cx={x(r.peak)} cy={y(r.values[r.peak] ?? 0)} r={3.5} />}
@@ -427,12 +470,14 @@ export function ArrivalStrips({
           );
         })}
         <line className="now-line" x1={x(frame)} x2={x(frame)} y1={4} y2={height - 22} />
-        <text x={left} y={height - 6}>
-          {labels[0]}
-        </text>
-        <text x={right} y={height - 6} textAnchor="end">
-          {labels.at(-1)}
-        </text>
+        {axisTicks(labels, x, left, width).map((t) => (
+          <g key={t.i}>
+            <line className="tick-mark" x1={Math.round(x(t.i)) + 0.5} x2={Math.round(x(t.i)) + 0.5} y1={height - 24} y2={height - 20} />
+            <text x={x(t.i)} y={height - 6} textAnchor={t.anchor} className="axis-label">
+              {t.label}
+            </text>
+          </g>
+        ))}
       </svg>
     </div>
   );

@@ -96,12 +96,21 @@ html {
   font-weight: var(--weight-bold);
   text-decoration: none;
   white-space: nowrap;
-  transition: background 160ms ease, color 160ms ease;
+  transition: background var(--duration) var(--ease), color var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
 }
 
 .site-nav a:hover {
   background: var(--bg-sunken);
   color: var(--ink);
+}
+
+.site-nav a:active {
+  background: var(--accent-soft);
+}
+
+/* Only the wide rail shows the index title. */
+.nav-title {
+  display: none;
 }
 
 .site-nav a:focus-visible {
@@ -118,6 +127,8 @@ html {
   font-family: var(--font-mono);
   font-size: 0.75rem;
   color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  transition: color var(--duration) var(--ease);
 }
 
 .site-nav a[aria-current="page"] .nav-no {
@@ -146,8 +157,14 @@ html {
   color: var(--accent);
   font-size: var(--step--1);
   font-weight: var(--weight-bold);
+  line-height: 1.35;
   text-decoration: none;
   white-space: nowrap;
+  transition: border-color var(--duration) var(--ease), background var(--duration) var(--ease);
+}
+
+.data-badge:hover {
+  border-color: var(--accent);
 }
 
 .data-badge[data-simulated="true"] {
@@ -157,14 +174,81 @@ html {
 
 .site-footer {
   border-top: 1px solid var(--line);
+  background: var(--surface-tint);
 }
 
 .site-footer-inner {
   width: min(var(--content), 100% - 2 * var(--space-4));
   margin: 0 auto;
-  padding: var(--space-5) 0;
+  padding: var(--space-6) 0 var(--space-7);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
   font-size: var(--step--1);
+  line-height: 1.75;
   color: var(--ink-soft);
+}
+
+.site-footer-inner p {
+  margin: 0;
+}
+
+.footer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.footer-brand .brand-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  font-size: 10px;
+  box-shadow: none;
+}
+
+.footer-brand .brand-text strong {
+  font-size: 0.9375rem;
+  color: var(--ink);
+}
+
+.footer-brand .brand-text span {
+  font-size: 0.75rem;
+}
+
+.footer-note {
+  max-width: 60ch;
+  text-wrap: pretty;
+}
+
+.footer-links {
+  max-width: none;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+
+.footer-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: var(--weight-bold);
+  text-decoration: none;
+}
+
+.footer-links a:hover {
+  text-decoration: underline;
+}
+
+@media (min-width: 900px) {
+  .site-footer-inner {
+    grid-template-columns: 220px minmax(0, 1fr);
+    column-gap: var(--space-6);
+    align-items: start;
+  }
+
+  .footer-brand {
+    grid-row: 1 / span 2;
+  }
 }
 
 /* ---- Wide: the notebook rail ---- */
@@ -196,6 +280,17 @@ html {
 
   .site-nav {
     overflow: visible;
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--line);
+  }
+
+  .nav-title {
+    display: block;
+    margin: 0 var(--space-2) var(--space-2);
+    font-size: 0.75rem;
+    font-weight: var(--weight-bold);
+    letter-spacing: 0.12em;
+    color: var(--muted);
   }
 
   .site-nav ul {
@@ -212,7 +307,13 @@ html {
     width: 100%;
     min-height: 52px;
     padding: var(--space-2) var(--space-3) var(--space-2) var(--space-2);
+    border-radius: var(--radius-m);
     white-space: normal;
+  }
+
+  .site-nav a:hover {
+    background: var(--bg-raised);
+    box-shadow: inset 0 0 0 1px var(--line);
   }
 
   .site-nav a[aria-current="page"] {
@@ -236,7 +337,8 @@ html {
   .site-tools {
     display: block;
     margin-top: auto;
-    padding-inline: var(--space-2);
+    padding: var(--space-4) var(--space-2) 0;
+    border-top: 1px solid var(--line);
   }
 
   .data-badge {
@@ -303,7 +405,7 @@ html {
     background: var(--bg-raised);
     border-top: 1px solid var(--line);
     box-shadow: 0 -6px 18px -14px rgb(18 35 28 / 0.35);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
   }
 
   .site-nav ul {
@@ -322,18 +424,63 @@ html {
     gap: 0;
     width: 100%;
     min-height: var(--tabbar);
-    padding: var(--space-1) 2px;
+    padding: 6px 2px;
     border-radius: 0;
     font-size: 0.75rem;
     line-height: 1.25;
+    position: relative;
+    -webkit-tap-highlight-color: transparent;
   }
 
+  /* Active tab: a short accent bar on the top edge plus a soft pill behind the number. */
   .site-nav a[aria-current="page"] {
-    box-shadow: inset 0 3px var(--accent);
+    background: transparent;
+    box-shadow: none;
+    color: var(--accent);
+  }
+
+  .site-nav a[aria-current="page"]::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 28px;
+    height: 3px;
+    margin-left: -14px;
+    border-radius: 0 0 3px 3px;
+    background: var(--accent);
+  }
+
+  .site-nav a:hover {
+    background: transparent;
+  }
+
+  .site-nav a:active {
+    background: var(--bg-sunken);
+  }
+
+  .site-nav a:focus-visible {
+    outline-offset: -4px;
+    border-radius: var(--radius-m);
+  }
+
+  .site-footer-inner {
+    padding: var(--space-5) 0;
   }
 
   .nav-no {
+    display: inline-grid;
+    place-items: center;
+    min-width: 30px;
+    height: 18px;
+    margin-bottom: 2px;
+    border-radius: 999px;
     font-size: 0.6875rem;
+    transition: background var(--duration) var(--ease), color var(--duration) var(--ease);
+  }
+
+  .site-nav a[aria-current="page"] .nav-no {
+    background: var(--accent-soft);
   }
 
   main,
@@ -347,19 +494,52 @@ html {
   display: grid;
   gap: var(--space-2);
   justify-items: start;
-  padding: var(--space-6) var(--space-4);
+  padding: var(--space-6) var(--space-5);
   border: 1px solid var(--line);
   border-radius: var(--radius-l);
   background: var(--bg-raised);
+  box-shadow: var(--shadow);
+}
+
+.state p {
+  margin: 0;
 }
 
 .state-title {
   margin: 0;
   font-size: var(--step-1);
+  line-height: 1.35;
+}
+
+.state-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-bottom: var(--space-1);
+  border-radius: 50%;
+  background: var(--bg-sunken);
+  color: var(--muted);
+  font-weight: var(--weight-bold);
+  font-size: 1.125rem;
+  line-height: 1;
+}
+
+.state-empty {
+  border-style: dashed;
+  border-color: var(--line-strong);
+  background: var(--surface-tint);
+  box-shadow: none;
 }
 
 .state-error {
-  border-color: var(--bad);
+  border-color: var(--line);
+  border-left: 4px solid var(--bad);
+}
+
+.state-error .state-icon {
+  background: var(--bad);
+  color: var(--accent-ink);
 }
 
 /* While a page is still loading, keep the footer below the fold so the arriving
@@ -371,11 +551,47 @@ html {
 .state-loading {
   position: relative;
   overflow: hidden;
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
   min-height: 160px;
   color: var(--muted);
+  box-shadow: none;
+}
+
+.state-loading-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--step--1);
+  font-weight: var(--weight-bold);
+}
+
+/* Placeholder lines hint at the shape of the page that is on its way. */
+.skeleton {
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.skeleton span {
+  display: block;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--bg-sunken);
+}
+
+.skeleton span:nth-child(1) {
+  width: 62%;
+  height: 18px;
+}
+
+.skeleton span:nth-child(2) {
+  width: 88%;
+}
+
+.skeleton span:nth-child(3) {
+  width: 74%;
 }
 
 .state-loading::after {
