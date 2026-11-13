@@ -150,8 +150,9 @@
 .outlook-axis-ticks span {
   white-space: nowrap;
   border-left: 1px solid var(--line-strong);
-  padding-left: 3px;
+  padding-left: 4px;
   line-height: 1.2;
+  font-variant-numeric: tabular-nums;
 }
 
 .station-list {
@@ -169,7 +170,16 @@
   border-radius: var(--radius-m);
   color: var(--ink);
   text-decoration: none;
-  transition: background 160ms ease, border-color 160ms ease;
+  transition: background var(--duration) var(--ease), border-color var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
+}
+
+.outlook .station-card:active {
+  background: var(--bg-sunken);
+}
+
+.outlook .station-card:focus-visible {
+  outline-offset: 0;
+  border-radius: var(--radius-m);
 }
 
 .outlook .station-card:hover {
@@ -223,6 +233,11 @@
 
 .strip {
   height: 30px;
+}
+
+/* No future hours left (stale snapshot): drop the empty strip instead of leaving a gap. */
+.strip:empty {
+  display: none;
 }
 
 .cell {
@@ -315,7 +330,11 @@
   color: var(--ink);
   text-decoration: none;
   border-top: 3px solid var(--accent);
-  transition: transform 160ms ease, box-shadow 160ms ease;
+  transition: transform var(--duration) var(--ease), box-shadow var(--duration) var(--ease), border-color var(--duration) var(--ease);
+}
+
+a.insight:active {
+  transform: translateY(0);
 }
 
 a.insight:hover {
@@ -350,7 +369,7 @@ a.insight:hover {
   }
 }
 
-.home-map .taiwan-map {
+.home-map .map-box {
   max-width: 340px;
 }
 
@@ -372,12 +391,23 @@ a.insight:hover {
   background: var(--bg-raised);
   color: var(--ink);
   text-decoration: none;
-  transition: border-color 160ms ease, background 160ms ease;
+  transition: border-color var(--duration) var(--ease), background var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
 }
 
 .tour-card:hover {
   border-color: var(--accent);
   background: var(--surface-tint);
+  box-shadow: var(--shadow-card);
+}
+
+.tour-card:active {
+  background: var(--accent-soft);
+  box-shadow: none;
+}
+
+.tour-card:focus-visible {
+  outline-offset: 3px;
+  border-radius: var(--radius-m);
 }
 
 .tour-card > :not(.tour-no) {
@@ -400,6 +430,12 @@ a.insight:hover {
 .tour-q {
   font-size: var(--step-1);
   line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.tour-card .muted {
+  margin-top: var(--space-1);
+  text-wrap: pretty;
 }
 
 @media (max-width: 640px) {

@@ -60,11 +60,17 @@
   background: var(--bg-raised);
   color: var(--ink);
   text-decoration: none;
-  transition: border-color 160ms ease;
+  transition: border-color var(--duration) var(--ease), background var(--duration) var(--ease);
 }
 
 .event-item:hover {
   border-color: var(--accent);
+  background: var(--surface-tint);
+}
+
+.event-item:focus-visible {
+  outline-offset: 1px;
+  border-radius: var(--radius-m);
 }
 
 .event-item[aria-current="true"] {

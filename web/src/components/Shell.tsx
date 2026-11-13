@@ -35,6 +35,9 @@ export function Shell({ children }: { children: ReactNode }) {
             </span>
           </a>
           <nav aria-label="主要頁面" className="site-nav">
+            <span className="nav-title" aria-hidden="true">
+              筆記目錄
+            </span>
             <ul>
               {NAV.map((item) => (
                 <li key={item.label}>
@@ -61,7 +64,14 @@ export function Shell({ children }: { children: ReactNode }) {
       </main>
       <footer className="site-footer">
         <div className="site-footer-inner">
-          <p>
+          <p className="footer-brand">
+            <span className="brand-mark" aria-hidden="true">AIR</span>
+            <span className="brand-text">
+              <strong>Taiwan Air Lab</strong>
+              <span>台灣空氣實驗室</span>
+            </span>
+          </p>
+          <p className="footer-note">
             {provenance.status === "ready" && (
               <>
                 資料期間 {formatDay(provenance.data.range.start)} 至 {formatDay(provenance.data.range.end)}
@@ -72,8 +82,8 @@ export function Shell({ children }: { children: ReactNode }) {
             )}
             本站不是即時空品服務，也不是官方預報；所有預測與機率皆為分析示範，健康決策請以環境部即時資訊為準。
           </p>
-          <p className="muted">
-            <a href={routeToHash({ name: "data" })}>方法、限制與資料完整性</a>
+          <p className="footer-links">
+            <a href={routeToHash({ name: "data" })}>方法、限制與資料完整性 →</a>
           </p>
         </div>
       </footer>
