@@ -63,6 +63,8 @@ function fakeLoader(files: Partial<DataFiles>): Loader {
     load: (name) => (name in files ? Promise.resolve(files[name]!) : Promise.reject(new Error(`missing ${name}`))),
     manifest: () => Promise.resolve({ schema_version: "2.0", files: {} }),
     verifiedFiles: () => [],
+    subscribe: () => () => undefined,
+    hasDeploymentChanged: () => false,
   } as Loader;
 }
 
