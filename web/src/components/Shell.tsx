@@ -11,6 +11,7 @@ const NAV: { route: Route; label: string; no: string; hint: string; match: Route
   { route: { name: "anomalies" }, label: "異常事件", no: "02", hint: "何時異常偏高？", match: ["anomalies"] },
   { route: { name: "whatif" }, label: "情境模擬", no: "03", hint: "條件改變會怎樣？", match: ["whatif"] },
   { route: { name: "model" }, label: "模型監控", no: "04", hint: "預報值得相信嗎？", match: ["model"] },
+  { route: { name: "planner" }, label: "兩地規劃", no: "06", hint: "比較出發地與目的地", match: ["planner"] },
   { route: { name: "data" }, label: "資料可信度", no: "05", hint: "資料從哪裡來？", match: ["data"] },
 ];
 

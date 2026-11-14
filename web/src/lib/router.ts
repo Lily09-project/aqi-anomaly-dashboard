@@ -4,6 +4,7 @@ export type Sensitivity = "sensitive" | "general";
 export type Route =
   | { name: "home" }
   | { name: "station"; station: string; sensitivity?: Sensitivity; hours?: number }
+  | { name: "planner"; a?: string; b?: string; hours?: number; threshold?: number }
   | { name: "propagation"; frame?: number }
   | { name: "anomalies"; id?: string; station?: string; kind?: "local" | "regional" }
   | { name: "whatif" }
@@ -45,6 +46,17 @@ export function parseRoute(hash: string): Route {
         hours: hours !== undefined && hours >= 1 && hours <= MAX_HOURS ? hours : undefined,
       };
     }
+    case "planner": {
+      const hours = intParam(params, "hours");
+      const threshold = intParam(params, "threshold");
+      return {
+        name: "planner",
+        a: params.get("a")?.slice(0, 80),
+        b: params.get("b")?.slice(0, 80),
+        hours: hours !== undefined && hours >= 1 && hours <= MAX_HOURS ? hours : undefined,
+        threshold: threshold !== undefined && threshold >= 1 && threshold <= 500 ? threshold : undefined,
+      };
+    }
     case "propagation": {
       return { name: "propagation", frame: intParam(params, "frame") };
     }
@@ -75,6 +87,8 @@ export function routeDatasets(route: Route): ("overview.json" | "propagation.jso
       return ["overview.json", "propagation.json"];
     case "station":
       return ["overview.json", "model.json"];
+    case "planner":
+      return ["overview.json"];
     case "propagation":
       return ["overview.json", "propagation.json"];
     case "anomalies":
@@ -102,6 +116,8 @@ export function routeToHash(route: Route): string {
       return "#/";
     case "station":
       return `#/station/${encodeURIComponent(route.station)}${query({ for: route.sensitivity, hours: route.hours })}`;
+    case "planner":
+      return `#/planner${query({ a: route.a, b: route.b, hours: route.hours, threshold: route.threshold })}`;
     case "propagation":
       return `#/propagation${query({ frame: route.frame })}`;
     case "anomalies":
