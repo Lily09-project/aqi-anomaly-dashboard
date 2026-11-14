@@ -239,6 +239,7 @@ function Dashboard({ overview, propagation, provenance }: { overview: Overview; 
             <a className="btn btn-primary" href={routeToHash({ name: "station", station: worst.station })}>
               從{shortName(worst.station)}的 24 小時預報開始 →
             </a>
+            <a className="btn" href={routeToHash({ name: "planner" })}>比較兩地時段</a>
             <a className="btn" href={routeToHash({ name: "anomalies" })}>
               看異常事件
             </a>

@@ -7,6 +7,7 @@ const ROUTES = [
   "/anomalies",
   "/whatif",
   "/model",
+  "/planner",
   "/data",
 ];
 const FIXED_BACKGROUND = "rgb(250, 252, 251)";
