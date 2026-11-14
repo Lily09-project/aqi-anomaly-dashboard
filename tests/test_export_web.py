@@ -77,6 +77,14 @@ def test_model_export_compares_against_baselines(exported: Path) -> None:
     for h in payload["horizons"]:
         assert h["mae"] < h["persistence_mae"]
         assert 0 < h["coverage"] <= 1
+        low, centre, high = h["interval"]
+        assert centre == 0 and low == -high and high > 0
+        assert h["interval_half_width"] == pytest.approx(high, abs=0.051)
+        assert h["calibration_size"] > 0
+        assert h["mae_with_calibration_shift"] > 0
+        assert isinstance(h["calibration_median_residual"], float)
+    assert payload["interval_method"] == "split_conformal_absolute_residual"
+    assert payload["target_coverage"] == 0.8
     assert {d["station"] for d in payload["drift"]} == {s["station"] for s in _load(exported, "overview.json")["stations"]}
 
 

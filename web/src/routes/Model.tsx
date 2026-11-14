@@ -44,6 +44,10 @@ function ModelView({ model }: { model: Model }) {
   const minCoverage = coverages.length ? Math.min(...coverages) : null;
   const maxCoverage = coverages.length ? Math.max(...coverages) : null;
   const meanStatus = horizons.length ? coverageStatus(meanCoverage, model.target_coverage) : null;
+  const longest = horizons.at(-1);
+  const shiftWorse = horizons.filter((h) => h.mae_with_calibration_shift > h.mae).length;
+  const shiftBetter = horizons.filter((h) => h.mae_with_calibration_shift < h.mae).length;
+  const calibrationDays = (Date.parse(model.split.calibration_end) - Date.parse(model.split.train_end)) / 86_400_000;
   const drifting = model.drift.filter((d) => d.status === "alert" || d.status === "watch");
   const alerts = model.drift.filter((d) => d.status === "alert");
 
@@ -101,6 +105,12 @@ function ModelView({ model }: { model: Model }) {
           <>
             <p>縱軸是平均絕對誤差（MAE，單位 AQI），越低越好；橫軸是往後預報幾小時。</p>
             <p>「維持現狀」假設未來和現在一樣；「典型值」用這個時段的歷史平均。贏不過它們的時距，預報就沒有額外價值。</p>
+            {longest && (
+              <p data-testid="shift-note">
+                校準期的誤差中位數（{longest.h} 小時時距為 {formatSigned(longest.calibration_median_residual, 1)}）只列為診斷，沒有加到預報上：它只由約{" "}
+                {formatNumber(calibrationDays, 0)} 天的校準資料估計，不一定延續到之後的時段。若加上去，測試期 {horizons.length} 個時距中有 {shiftWorse} 個誤差變大、{shiftBetter} 個變小。
+              </p>
+            )}
           </>
         }
       >
@@ -158,7 +168,15 @@ function ModelView({ model }: { model: Model }) {
           ) : undefined
         }
         howTo={
-          <p>覆蓋率是測試期實際值落在 80% 區間內的比例。低於目標代表區間太窄、太有自信；略高代表區間保守。判定容許低 5 個百分點、高 10 個百分點。</p>
+          <>
+            <p>覆蓋率是測試期實際值落在 80% 區間內的比例。低於目標代表區間太窄、太有自信；略高代表區間保守。判定容許低 5 個百分點、高 10 個百分點。</p>
+            {longest && (
+              <p data-testid="interval-method">
+                區間怎麼來：P50 是模型算出的預報值，往上下各取同一個寬度就是 P10 與 P90。這個寬度是校準期預報誤差絕對值的第 {Math.round(model.target_coverage * 100)}{" "}
+                百分位（分割式保形預測），{longest.h} 小時時距為 ±{formatNumber(longest.interval_half_width, 1)}。
+              </p>
+            )}
+          </>
         }
       >
         <div className="card">

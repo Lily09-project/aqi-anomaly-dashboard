@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, expectAccessible, fetchJson, openRoute, test } from "./fixtures";
+import type { Model } from "../src/lib/types";
 
 interface Overview {
   stations: { station: string; aqi: number; category_label: string }[];
@@ -142,6 +143,21 @@ test.describe("F6 模型監控", () => {
     await expect(page.getByTestId("drift-table").locator("tbody tr")).toHaveCount(8);
     const coverage = Number((await page.getByTestId("mean-coverage").innerText()).replace("%", ""));
     expect(coverage).toBeGreaterThan(75);
+
+    // The method notes quote the exported numbers: a symmetric band around an unshifted point forecast.
+    const model = await fetchJson<Model>(page, "model.json");
+    const longest = model.horizons.at(-1)!;
+    expect(model.horizons.every((h) => h.interval[0] === -h.interval[2] && h.interval[1] === 0)).toBe(true);
+    await expect(page.getByTestId("interval-method")).toContainText(`${longest.h} 小時時距為 ±${longest.interval_half_width.toFixed(1)}`);
+    const worse = model.horizons.filter((h) => h.mae_with_calibration_shift > h.mae).length;
+    const better = model.horizons.filter((h) => h.mae_with_calibration_shift < h.mae).length;
+    await expect(page.getByTestId("shift-note")).toContainText(`有 ${worse} 個誤差變大、${better} 個變小`);
+    const overview = await fetchJson<{ stations: { forecast: { p10: number; p50: number; p90: number }[] }[] }>(page, "overview.json");
+    for (const hour of overview.stations.flatMap((station) => station.forecast)) {
+      expect(hour.p10).toBeLessThanOrEqual(hour.p50);
+      expect(hour.p50).toBeLessThanOrEqual(hour.p90);
+      if (hour.p10 > 0) expect(hour.p90 - hour.p50).toBeCloseTo(hour.p50 - hour.p10, 0);
+    }
   });
 });
 

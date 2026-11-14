@@ -142,7 +142,7 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
               實線是過去 {HISTORY_SHOWN} 小時，虛線是預報中位數，陰影是 80% 預測區間（十次約有八次落在裡面）。紅色虛線是{AUDIENCE[sensitivity]}門檻，綠色區塊是比較後挑出的時段。
             </p>
             <p>
-              區間怎麼來：每個預報時距各有一個 ridge 迴歸模型，再用保留的校準期殘差（分割式保形預測）決定 P10／P90。測試期各時距實際值落在 80% 區間內的比例為{" "}
+              區間怎麼來：每個預報時距各有一個 ridge 迴歸模型，P50 就是它的預報值；P10／P90 是往上下各取校準期預報誤差絕對值的第 80 百分位（分割式保形預測）。測試期各時距實際值落在 80% 區間內的比例為{" "}
               {formatPercent(Math.min(...coverage), 0)}–{formatPercent(Math.max(...coverage), 0)}。<a href={routeToHash({ name: "model" })}>查看模型監控</a>
             </p>
           </>

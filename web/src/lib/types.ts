@@ -121,7 +121,15 @@ export interface HorizonMetrics {
   climatology_mae: number;
   downstream_mae: number | null;
   downstream_mae_without_upstream: number | null;
+  /** Offsets of P10/P50/P90 from the point forecast: [−half width, 0, +half width]. */
   interval: [number, number, number];
+  /** Split-conformal half width: P90 − P50 = P50 − P10 before clipping at zero. */
+  interval_half_width: number;
+  /** Median calibration residual. A diagnostic: it is not added to the forecast. */
+  calibration_median_residual: number;
+  /** Test MAE had that median been added to the forecast. */
+  mae_with_calibration_shift: number;
+  calibration_size: number;
   test_size: number;
 }
 
@@ -129,6 +137,7 @@ export interface Model {
   split: { train_end: string; calibration_end: string; test_end: string };
   features: string[];
   target_coverage: number;
+  interval_method: string;
   horizons: HorizonMetrics[];
   downstream_stations: string[];
   drift: { station: string; reference_mean: number | null; current_mean: number | null; shift_sd: number | null; status: string }[];
