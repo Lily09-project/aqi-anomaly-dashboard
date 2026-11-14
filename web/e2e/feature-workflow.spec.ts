@@ -8,4 +8,8 @@ test("兩地出門規劃 keeps settings after reload", async ({ page }) => {
   await expect(page).toHaveURL(/threshold=150/);
   await page.reload();
   await expect(page.getByLabel("AQI 門檻")).toHaveValue("150");
+  const date = new Date("2030-01-01T00:00:00Z");
+  await page.clock.setFixedTime(date);
+  await page.reload();
+  await expect(page.getByText(/共同預報時數不足|暫停提供共同時段/)).toBeVisible();
 });

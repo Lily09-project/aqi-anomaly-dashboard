@@ -6,6 +6,7 @@ const ROUTES = [
   "/anomalies",
   "/whatif",
   "/model",
+  "/planner",
   "/data",
 ];
 test("redesigned pages reflow with 200 percent text and retain reachable navigation", async ({ page }, testInfo) => {

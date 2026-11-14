@@ -7,6 +7,7 @@ const ROUTES = [
   "/anomalies",
   "/whatif",
   "/model",
+  "/planner",
   "/data",
 ];
 const FIXED_BACKGROUND = "rgb(250, 252, 251)";
@@ -95,7 +96,7 @@ test.describe("Q4/Q5 navigation, keyboard and accessibility", () => {
     for (const route of ROUTES) {
       await openRoute(page, route);
       const figures = page.locator("figure.chart-frame");
-      if (route === "/data") continue;
+      if (route === "/data" || route === "/planner") continue;
       // Some pages render their h1 before the data gate resolves; wait for the charts, not just the heading.
       await expect(figures.first()).toBeVisible();
       const count = await figures.count();

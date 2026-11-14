@@ -30,6 +30,7 @@ AIR_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
 WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
 TAIPEI = ZoneInfo("Asia/Taipei")
 RETRY_DELAYS = (1, 2)
+REQUEST_TIMEOUT = (12, 40)
 RETRYABLE_STATUS = {500, 502, 503, 504}
 MAX_BYTES = 12 * 1024 * 1024
 LOCATIONS = (
@@ -69,7 +70,7 @@ class _TemporaryResponseError(RuntimeError):
 
 
 def _get_json_once(client: Any, url: str, params: dict[str, Any]) -> Any:
-    response = client.get(url, params=params, timeout=(5, 40), stream=True, allow_redirects=False)
+    response = client.get(url, params=params, timeout=REQUEST_TIMEOUT, stream=True, allow_redirects=False)
     try:
         if 300 <= int(getattr(response, "status_code", 0)) < 400:
             raise ValueError("redirects are not allowed")

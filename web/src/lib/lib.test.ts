@@ -334,7 +334,7 @@ describe("data loader", () => {
     expect(manifestCalls).toBe(2);
   });
 
-  it("refetches a stale manifest and file once, bypassing the cache, before reporting tampering", async () => {
+  it("detects a replaced deployment and reads the new data after reloading", async () => {
     const oldBody = '{"v":1}';
     const newBody = '{"v":2}';
     const hash = async (text: string) => sha256Hex(encoder.encode(text).buffer as ArrayBuffer);
@@ -348,8 +348,9 @@ describe("data loader", () => {
     const loader = createLoader("./", fetcher);
     await loader.manifest();
     deployed = newBody; // the site is redeployed while the tab still holds the old manifest
-    await expect(loader.load("model.json")).resolves.toEqual({ v: 2 });
+    await expect(loader.load("model.json")).rejects.toThrow("網站資料已更新");
     expect(calls.filter(([, init]) => init?.cache === "reload").map(([url]) => url).sort()).toEqual(["./data/manifest.json", "./data/model.json"]);
+    await expect(createLoader("./", fetcher).load("model.json")).resolves.toEqual({ v: 2 });
   });
 });
 
