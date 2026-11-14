@@ -68,6 +68,28 @@ export function parseRoute(hash: string): Route {
   }
 }
 
+/** Data files a route renders, so they can be requested while its code chunk is still loading. */
+export function routeDatasets(route: Route): ("overview.json" | "propagation.json" | "anomalies.json" | "whatif.json" | "model.json")[] {
+  switch (route.name) {
+    case "home":
+      return ["overview.json", "propagation.json"];
+    case "station":
+      return ["overview.json", "model.json"];
+    case "propagation":
+      return ["overview.json", "propagation.json"];
+    case "anomalies":
+      return ["anomalies.json"];
+    case "whatif":
+      return ["whatif.json", "overview.json"];
+    case "model":
+      return ["model.json"];
+    case "data":
+      return ["anomalies.json", "propagation.json"];
+    case "not-found":
+      return [];
+  }
+}
+
 export function routeToHash(route: Route): string {
   const query = (entries: Record<string, string | number | undefined>) => {
     const params = new URLSearchParams();

@@ -246,10 +246,12 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
 }
 
 export default function Station(props: Props) {
-  useDocumentTitle(props.station);
   const overview = useDataset("overview.json");
   const model = useDataset("model.json");
   const provenance = useDataset("provenance.json");
+  // An unknown name must not become the tab title; the page then says the location was not found.
+  const missing = overview.status === "ready" && !overview.data.stations.some((s) => s.station === props.station);
+  useDocumentTitle(missing ? "找不到這個地點" : props.station);
   return (
     <div className="page">
       <Gate<[Overview, Model, Provenance]> states={[overview, model, provenance]}>{(o, m, p) => <StationView overview={o} model={m} provenance={p} {...props} />}</Gate>

@@ -87,6 +87,7 @@ test.describe("Q4/Q5 navigation, keyboard and accessibility", () => {
     await expect(page.getByText("找不到這個頁面")).toBeVisible();
     await page.goto("./#/station/不存在測站");
     await expect(page.getByText("找不到這個測站")).toBeVisible();
+    await expect(page).toHaveTitle("找不到這個地點｜Taiwan Air Lab");
     await expectAccessible(page);
   });
 

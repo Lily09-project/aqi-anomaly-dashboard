@@ -232,7 +232,15 @@ function ModelView({ model }: { model: Model }) {
             <>這份資料沒有可比較的下游地點，無法計算上游特徵的幫助。</>
           ) : (
             <>
-              加入上游地點的異常量後，下游地點 1–6 小時的誤差平均{avgShortGain >= 0 ? "下降" : "上升"} <strong>{formatPercent(Math.abs(avgShortGain), 1)}</strong>。
+              {Math.abs(avgShortGain) < 0.0005 ? (
+                <>
+                  加入上游地點的異常量後，下游地點 1–6 小時的誤差<strong>幾乎沒有變化</strong>（平均變動不到 0.1%）。
+                </>
+              ) : (
+                <>
+                  加入上游地點的異常量後，下游地點 1–6 小時的誤差平均{avgShortGain > 0 ? "下降" : "上升"} <strong>{formatPercent(Math.abs(avgShortGain), 1)}</strong>。
+                </>
+              )}
             </>
           )
         }
