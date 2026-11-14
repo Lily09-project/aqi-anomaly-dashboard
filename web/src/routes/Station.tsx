@@ -81,6 +81,7 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
             {station.county} · <DataTime latest={overview.latest} nowMs={nowMs} />
           </span>
           <h1>{station.station}</h1>
+          <a className="btn" href={routeToHash({ name: "planner", a: station.station, hours, threshold })}>比較另一個地點</a>
         </div>
         <label className="field station-switch">
           <span className="label">切換{locationLabel}</span>

@@ -6,6 +6,7 @@ import { createLoader, type Loader } from "./lib/data";
 import { routeDatasets, routeToHash, type Route } from "./lib/router";
 import Home from "./routes/Home";
 
+const Planner = lazy(() => import("./routes/Planner"));
 const Station = lazy(() => import("./routes/Station"));
 const PropagationPage = lazy(() => import("./routes/Propagation"));
 const AnomaliesPage = lazy(() => import("./routes/Anomalies"));
@@ -59,6 +60,8 @@ function Routes({ route }: { route: Route }) {
       return <Home />;
     case "station":
       return <Station key={key} station={route.station} sensitivity={route.sensitivity ?? "sensitive"} hours={route.hours ?? 2} />;
+    case "planner":
+      return <Planner route={route} />;
     case "propagation":
       return <PropagationPage frame={route.frame} />;
     case "anomalies":
