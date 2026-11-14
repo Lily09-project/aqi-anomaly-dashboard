@@ -10,6 +10,7 @@ import json
 import math
 from datetime import datetime, timezone
 from pathlib import Path
+from time import sleep
 from typing import Any, Mapping
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
@@ -28,6 +29,8 @@ PROVIDER = "open_meteo_cams_global"
 AIR_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
 WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
 TAIPEI = ZoneInfo("Asia/Taipei")
+RETRY_DELAYS = (1, 2)
+RETRYABLE_STATUS = {500, 502, 503, 504}
 MAX_BYTES = 12 * 1024 * 1024
 LOCATIONS = (
     {"site_name": "臺北網格", "county": "Taipei City", "latitude": 25.037, "longitude": 121.564},
@@ -61,7 +64,11 @@ def _metadata_path(config: Mapping[str, Any], target: str | Path | None) -> Path
     return Path(target) if target is not None else resolve_path(dict(config), "reports.source_metadata_file")
 
 
-def _get_json(client: Any, url: str, params: dict[str, Any]) -> Any:
+class _TemporaryResponseError(RuntimeError):
+    pass
+
+
+def _get_json_once(client: Any, url: str, params: dict[str, Any]) -> Any:
     response = client.get(url, params=params, timeout=(5, 40), stream=True, allow_redirects=False)
     try:
         if 300 <= int(getattr(response, "status_code", 0)) < 400:
@@ -69,6 +76,8 @@ def _get_json(client: Any, url: str, params: dict[str, Any]) -> Any:
         actual, expected = urlsplit(str(getattr(response, "url", url))), urlsplit(url)
         if actual.scheme != "https" or actual.hostname != expected.hostname or actual.port not in (None, 443):
             raise ValueError("upstream response origin is not allowed")
+        if int(getattr(response, "status_code", 0)) in RETRYABLE_STATUS:
+            raise _TemporaryResponseError(f"Open-Meteo HTTP {response.status_code}")
         headers = getattr(response, "headers", {}) or {}
         size = headers.get("content-length")
         if size and int(size) > MAX_BYTES:
@@ -86,6 +95,21 @@ def _get_json(client: Any, url: str, params: dict[str, Any]) -> Any:
         close = getattr(response, "close", None)
         if callable(close):
             close()
+
+
+def _get_json(client: Any, url: str, params: dict[str, Any]) -> Any:
+    retryable = (_TemporaryResponseError,)
+    if requests is not None:
+        retryable += (requests.exceptions.Timeout, requests.exceptions.ConnectionError, requests.exceptions.ChunkedEncodingError)
+    for attempt in range(len(RETRY_DELAYS) + 1):
+        try:
+            return _get_json_once(client, url, params)
+        except retryable as exc:
+            if requests is not None and isinstance(exc, requests.exceptions.SSLError):
+                raise
+            if attempt == len(RETRY_DELAYS):
+                raise
+            sleep(RETRY_DELAYS[attempt])
 
 
 def _location_list(payload: Any) -> list[dict[str, Any]]:

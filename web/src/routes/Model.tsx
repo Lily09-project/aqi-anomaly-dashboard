@@ -172,7 +172,7 @@ function ModelView({ model }: { model: Model }) {
             <p>覆蓋率是測試期實際值落在 80% 區間內的比例。低於目標代表區間太窄、太有自信；略高代表區間保守。判定容許低 5 個百分點、高 10 個百分點。</p>
             {longest && (
               <p data-testid="interval-method">
-                區間怎麼來：P50 是模型算出的預報值，往上下各取同一個寬度就是 P10 與 P90。這個寬度是校準期預報誤差絕對值的第 {Math.round(model.target_coverage * 100)}{" "}
+                區間怎麼來：P50 是模型的點預測。P10 與 P90 是預測區間的上下界，以同一半寬計算，下界最低為 0。這個寬度是校準期預報誤差絕對值的第 {Math.round(model.target_coverage * 100)}{" "}
                 百分位（分割式保形預測），{longest.h} 小時時距為 ±{formatNumber(longest.interval_half_width, 1)}。
               </p>
             )}

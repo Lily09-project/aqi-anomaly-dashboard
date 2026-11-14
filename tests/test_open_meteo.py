@@ -6,6 +6,10 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pandas as pd
+import pytest
+import requests
+
+from src import fetch_open_meteo as open_meteo
 
 from src.fetch_open_meteo import AIR_URL, LOCATIONS, PROVIDER, WEATHER_URL, fetch_open_meteo
 
@@ -243,3 +247,53 @@ def test_open_meteo_requests_today_and_keeps_only_started_hours(tmp_path):
     assert set(frame.groupby("site_name")["datetime"].max()) == {"2026-10-21T20:00+08:00"}
     saved = json.loads(metadata.read_text(encoding="utf-8"))
     assert saved["datetime_range"]["max"] == "2026-10-21T12:00:00Z"  # 20:00 Asia/Taipei
+
+
+@pytest.mark.parametrize("failure", ["timeout", "stream", "503", "exhausted", "redirect", "tls", "invalid-json"])
+def test_open_meteo_request_retry_boundary(monkeypatch, failure):
+    responses = []
+    waits = []
+    calls = []
+
+    class BrokenStream(FakeResponse):
+        def iter_content(self, chunk_size):
+            yield b'{"partial":'
+            raise requests.exceptions.ChunkedEncodingError("truncated")
+
+    class Client:
+        def get(self, url, **kwargs):
+            calls.append((url, kwargs))
+            if failure == "exhausted" or (failure == "timeout" and len(calls) == 1):
+                raise requests.exceptions.ReadTimeout("timed out")
+            if failure == "tls":
+                raise requests.exceptions.SSLError("bad certificate")
+            if len(calls) == 1 and failure == "stream":
+                response = BrokenStream({}, url=url)
+            elif len(calls) == 1 and failure == "503":
+                response = FakeResponse({}, url=url, status=503)
+            elif failure == "redirect":
+                response = FakeResponse({}, url=url, status=302)
+            else:
+                response = FakeResponse({"complete": True}, url=url)
+                if failure == "invalid-json":
+                    response.content = b"{"
+            responses.append(response)
+            return response
+
+    monkeypatch.setattr(open_meteo, "sleep", waits.append)
+    if failure == "exhausted":
+        with pytest.raises(requests.exceptions.ReadTimeout):
+            open_meteo._get_json(Client(), WEATHER_URL, {})
+        assert waits == [1, 2]
+        assert len(calls) == 3
+    elif failure in {"redirect", "tls", "invalid-json"}:
+        with pytest.raises((ValueError, requests.exceptions.SSLError)):
+            open_meteo._get_json(Client(), WEATHER_URL, {})
+        assert waits == []
+        assert len(calls) == 1
+    else:
+        assert open_meteo._get_json(Client(), WEATHER_URL, {}) == {"complete": True}
+        assert waits == [1]
+        assert len(calls) == 2
+    assert all(response.closed for response in responses)
+    assert all(call["allow_redirects"] is False for _, call in calls)
