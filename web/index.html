@@ -15,12 +15,11 @@
     <link rel="canonical" href="https://lily09-project.github.io/aqi-anomaly-dashboard/" />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
-    <!-- Every page reads the manifest and provenance; the home page also needs overview and propagation.
-         Fetching them alongside the JavaScript removes one network round trip from the first screen. -->
+    <!-- Every page reads the manifest and provenance, so they are fetched alongside the JavaScript.
+         Route-specific files are requested by App as soon as the route is known (routeDatasets): a static
+         preload of a file the opened route never reads makes Chrome log an unused-preload warning. -->
     <link rel="preload" href="./data/manifest.json" as="fetch" crossorigin />
     <link rel="preload" href="./data/provenance.json" as="fetch" crossorigin />
-    <link rel="preload" href="./data/overview.json" as="fetch" crossorigin />
-    <link rel="preload" href="./data/propagation.json" as="fetch" crossorigin />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Taiwan Air Lab" />
     <meta property="og:locale" content="zh_TW" />

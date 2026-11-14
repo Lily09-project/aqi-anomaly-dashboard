@@ -2,12 +2,21 @@
 
 One ridge model per horizon (direct multi-step forecasting) predicts AQI
 ``h`` hours ahead from the current state and the station's climatology.
-Residual quantiles on a held-out calibration window turn the point forecast
-into P10/P50/P90 bands (split conformal prediction); a final test window
-that the model never saw measures whether the 80% band really covers 80%.
+The published P50 is that point forecast, unshifted. The 80% band is the
+point forecast plus or minus one half-width per horizon: the conformal
+quantile of the absolute residuals on a held-out calibration window (split
+conformal prediction with the absolute-residual score). A final test window
+that the model never saw measures whether the band really covers 80%.
+
+The calibration window's median residual is reported as a diagnostic but is
+not added to the forecast. It is estimated from about nine serially
+dependent days and did not carry over to the following days in rolling
+backtests, so applying it made the point forecast worse; a bias in the
+calibration window widens the band instead of moving its centre.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -18,7 +27,7 @@ from src.analytics.ridge import RidgeModel, fit_ridge
 HORIZONS = tuple(range(1, 25))
 TRAIN_SHARE = 0.70
 CALIBRATION_SHARE = 0.15
-QUANTILES = (0.1, 0.5, 0.9)
+INTERVAL_LEVEL = 0.8  # central band published as P10–P90
 FEATURE_NAMES = (
     "aqi_now",
     "aqi_lag1",
@@ -38,9 +47,12 @@ UPSTREAM_FEATURE = "upstream_anomaly"
 class HorizonResult:
     horizon: int
     model: RidgeModel
-    residual_quantiles: tuple[float, float, float]
+    half_width: float  # P90 − P50 = P50 − P10
+    calibration_median_residual: float  # diagnostic only, never applied
+    calibration_size: int
     test_coverage: float
     test_mae: float
+    shifted_test_mae: float  # diagnostic: test MAE had the calibration median been added
     persistence_mae: float
     climatology_mae: float
     test_size: int
@@ -53,6 +65,17 @@ class ForecastResult:
     split: dict[str, str]
     features: list[str]
     forecasts: dict[str, list[dict[str, float | str | int]]] = field(default_factory=dict)
+
+
+def conformal_half_width(residuals: np.ndarray, level: float = INTERVAL_LEVEL) -> float:
+    """Split-conformal quantile of |residual|: the ceil((n + 1) · level)-th smallest score."""
+    scores = np.sort(np.abs(np.asarray(residuals, dtype=float)))
+    if len(scores) == 0 or not np.isfinite(scores).all():
+        raise ValueError("calibration residuals must be a non-empty finite array")
+    if not 0 < level < 1:
+        raise ValueError("level must be between 0 and 1")
+    rank = min(math.ceil((len(scores) + 1) * level), len(scores))
+    return float(scores[rank - 1])
 
 
 def _climatology(aqi: pd.DataFrame, until: pd.Timestamp) -> pd.DataFrame:
@@ -121,18 +144,22 @@ def fit_forecaster(
         test = table[table["origin"] > calibration_end]
         model = fit_ridge(train[features].to_numpy(), train["target"].to_numpy(), alpha=alpha)
         residuals = calibration["target"].to_numpy() - model.predict(calibration[features].to_numpy())
-        q10, q50, q90 = (float(np.quantile(residuals, q)) for q in QUANTILES)
+        half_width = conformal_half_width(residuals)
+        median_residual = float(np.median(residuals))
         point = model.predict(test[features].to_numpy())
         actual = test["target"].to_numpy()
-        inside = (actual >= point + q10) & (actual <= point + q90)
-        errors = pd.Series(np.abs(actual - (point + q50)), index=test["station"].to_numpy())
+        inside = np.abs(actual - point) <= half_width
+        errors = pd.Series(np.abs(actual - point), index=test["station"].to_numpy())
         results.append(
             HorizonResult(
                 horizon=horizon,
                 model=model,
-                residual_quantiles=(q10, q50, q90),
+                half_width=half_width,
+                calibration_median_residual=median_residual,
+                calibration_size=int(len(calibration)),
                 test_coverage=float(inside.mean()),
-                test_mae=float(np.abs(actual - (point + q50)).mean()),
+                test_mae=float(errors.mean()),
+                shifted_test_mae=float(np.abs(actual - (point + median_residual)).mean()),
                 persistence_mae=float(np.abs(actual - test["aqi_now"].to_numpy()).mean()),
                 climatology_mae=float(np.abs(actual - test["clim_target"].to_numpy()).mean()),
                 test_size=int(len(test)),
@@ -170,14 +197,14 @@ def forecast_latest(
             if row.isna().any():
                 continue
             point = float(horizon_result.model.predict(row.to_numpy(dtype=float)[None, :])[0])
-            q10, q50, q90 = horizon_result.residual_quantiles
+            half_width = horizon_result.half_width
             out.setdefault(station, []).append(
                 {
                     "h": horizon_result.horizon,
                     "t": (origin + pd.Timedelta(hours=horizon_result.horizon)).isoformat(),
-                    "p10": round(max(point + q10, 0.0), 1),
-                    "p50": round(max(point + q50, 0.0), 1),
-                    "p90": round(max(point + q90, 0.0), 1),
+                    "p10": round(max(point - half_width, 0.0), 1),
+                    "p50": round(max(point, 0.0), 1),
+                    "p90": round(max(point + half_width, 0.0), 1),
                 }
             )
     return out

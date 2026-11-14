@@ -3,7 +3,7 @@ import { LoaderContext, useDocumentTitle, useRoute } from "./app/hooks";
 import { Shell } from "./components/Shell";
 import { EmptyState, ErrorState, Loading } from "./components/States";
 import { createLoader, type Loader } from "./lib/data";
-import { routeToHash, type Route } from "./lib/router";
+import { routeDatasets, routeToHash, type Route } from "./lib/router";
 import Home from "./routes/Home";
 
 const Station = lazy(() => import("./routes/Station"));
@@ -79,6 +79,13 @@ export default function App({ loader }: { loader?: Loader }) {
   const [route] = useRoute();
   const key = routeKey(route);
   const previousKey = useRef(key);
+  const datasets = routeDatasets(route).join(",");
+
+  // Start the route's data requests alongside its lazy code chunk; useDataset later reuses the cached promise.
+  // Errors surface through useDataset, which retries after a failed load.
+  useEffect(() => {
+    for (const name of datasets ? (datasets.split(",") as ReturnType<typeof routeDatasets>) : []) value.load(name).catch(() => undefined);
+  }, [value, datasets]);
 
   // The shell is available even when the next route's module is still loading.
   useEffect(() => {

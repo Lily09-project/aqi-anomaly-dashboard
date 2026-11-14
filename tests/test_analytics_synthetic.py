@@ -94,8 +94,10 @@ def test_forecast_intervals_are_ordered_calibrated_and_beat_persistence(syntheti
     result = forecast.fit_forecaster(synthetic["panels"])
     assert [h.horizon for h in result.horizons] == list(forecast.HORIZONS)
     for horizon in result.horizons:
-        q10, q50, q90 = horizon.residual_quantiles
-        assert q10 <= q50 <= q90
+        assert horizon.half_width > 0
+        assert horizon.calibration_size > 0
+        assert np.isfinite(horizon.calibration_median_residual)
+        assert np.isfinite(horizon.shifted_test_mae)
         assert 0.7 <= horizon.test_coverage <= 0.97, horizon.horizon
         assert horizon.test_mae < horizon.persistence_mae, horizon.horizon
         assert set(horizon.station_mae) == set(synthetic["panels"]["aqi"].columns)
@@ -104,6 +106,37 @@ def test_forecast_intervals_are_ordered_calibrated_and_beat_persistence(syntheti
         for row in rows:
             assert 0 <= row["p10"] <= row["p50"] <= row["p90"]
     assert result.split["train_end"] < result.split["calibration_end"] < result.split["test_end"]
+
+
+def test_conformal_half_width_is_the_finite_sample_quantile_of_absolute_residuals() -> None:
+    # n = 5, level 0.8: rank ceil(6 × 0.8) = 5, the largest absolute residual.
+    assert forecast.conformal_half_width(np.array([-4.0, 1.0, -2.0, 3.0, 5.0])) == 5.0
+    # n = 9: rank ceil(10 × 0.8) = 8 of the sorted |residuals| 1…9.
+    assert forecast.conformal_half_width(np.array([-9.0, 8.0, -7.0, 6.0, -5.0, 4.0, -3.0, 2.0, -1.0])) == 8.0
+    # The sign of the errors is irrelevant: a biased window widens the band, it does not move it.
+    residuals = np.linspace(-20.0, 2.0, 200)
+    assert forecast.conformal_half_width(residuals) == forecast.conformal_half_width(-residuals)
+    with pytest.raises(ValueError):
+        forecast.conformal_half_width(np.array([]))
+    with pytest.raises(ValueError):
+        forecast.conformal_half_width(np.array([1.0, np.nan]))
+
+
+def test_published_p50_is_the_unshifted_point_forecast_inside_a_symmetric_band(synthetic: dict[str, object]) -> None:
+    panels = synthetic["panels"]
+    result = forecast.fit_forecaster(panels)
+    aqi = panels["aqi"]
+    train_end, _ = forecast.split_times(aqi.index)
+    climatology = forecast._climatology(aqi, train_end)
+    for horizon in (result.horizons[0], result.horizons[11], result.horizons[23]):
+        table = forecast.design_matrix(panels, climatology, horizon.horizon)
+        latest = table[table["origin"] == aqi.index[-1]].set_index("station")
+        for station, rows in result.forecasts.items():
+            row = next(r for r in rows if r["h"] == horizon.horizon)
+            point = float(horizon.model.predict(latest.loc[station, result.features].to_numpy(dtype=float)[None, :])[0])
+            assert row["p50"] == round(max(point, 0.0), 1)
+            assert row["p90"] == round(point + horizon.half_width, 1)
+            assert row["p10"] == round(max(point - horizon.half_width, 0.0), 1)
 
 
 def test_upstream_features_are_added_when_known(synthetic: dict[str, object]) -> None:

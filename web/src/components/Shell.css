@@ -1,6 +1,7 @@
 /* Site frame. Three layouts:
    ≥1200px  left notebook rail (index of chapters)
-   641–1199 sticky top bar with the chapters in one scrollable row
+   641–1199 sticky top bar; the chapters sit beside the brand from 1100px and on their own row below it,
+            sized so all six fit without scrolling (the row still scrolls if text is enlarged)
    ≤640px   compact top bar + bottom tab bar that is always within reach */
 
 html {
@@ -357,8 +358,8 @@ html {
   }
 }
 
-/* ---- Medium: one-row header when there is room ---- */
-@media (min-width: 900px) and (max-width: 1199px) {
+/* ---- Medium: one-row header when there is room (below 1100px the six chapters would be cut off) ---- */
+@media (min-width: 1100px) and (max-width: 1199px) {
   .site-header-inner {
     grid-template-columns: auto minmax(0, 1fr) auto;
   }
@@ -370,6 +371,18 @@ html {
 
   .brand-text span {
     display: none;
+  }
+}
+
+/* ---- Narrow tablet: tighter chapter links so all six fit on the second row ---- */
+@media (min-width: 641px) and (max-width: 759px) {
+  .site-nav ul {
+    gap: 0;
+  }
+
+  .site-nav a {
+    gap: var(--space-1);
+    padding: 0 var(--space-2);
   }
 }
 

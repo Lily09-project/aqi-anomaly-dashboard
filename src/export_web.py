@@ -217,14 +217,20 @@ def build_model(base: forecast.ForecastResult, enhanced: forecast.ForecastResult
                 "climatology_mae": _num(e.climatology_mae, 2),
                 "downstream_mae": _num(np.mean([e.station_mae[s] for s in downstream]), 2) if downstream else None,
                 "downstream_mae_without_upstream": _num(np.mean([b.station_mae[s] for s in downstream]), 2) if downstream else None,
-                "interval": [_num(q, 1) for q in e.residual_quantiles],
+                # Offsets of P10/P50/P90 from the point forecast: symmetric by construction.
+                "interval": [_num(-e.half_width, 1), 0.0, _num(e.half_width, 1)],
+                "interval_half_width": _num(e.half_width, 2),
+                "calibration_median_residual": _num(e.calibration_median_residual, 2),
+                "mae_with_calibration_shift": _num(e.shifted_test_mae, 2),
+                "calibration_size": e.calibration_size,
                 "test_size": e.test_size,
             }
         )
     return {
         "split": enhanced.split,
         "features": enhanced.features,
-        "target_coverage": 0.8,
+        "target_coverage": forecast.INTERVAL_LEVEL,
+        "interval_method": "split_conformal_absolute_residual",
         "preprocessing": "causal forward fill up to 3 hours; upstream topology selected on training interval only",
         "horizons": horizons,
         "downstream_stations": downstream,
