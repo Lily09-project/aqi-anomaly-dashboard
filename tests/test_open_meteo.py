@@ -297,3 +297,4 @@ def test_open_meteo_request_retry_boundary(monkeypatch, failure):
         assert len(calls) == 2
     assert all(response.closed for response in responses)
     assert all(call["allow_redirects"] is False for _, call in calls)
+    assert all(call["timeout"] == (12, 40) for _, call in calls)
