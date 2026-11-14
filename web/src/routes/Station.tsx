@@ -54,7 +54,7 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
   const chartWindowStart = windowStart ? forecast.findIndex((item) => item.h === windowStart.h) : -1;
   const forecastLegend: LegendItem[] = [
     { key: "history", label: provenance.is_model_estimate ? "過去模型估算" : "過去資料", mark: "history" },
-    { key: "median", label: "預報中位數（P50）", mark: "median" },
+    { key: "median", label: "點預測（P50）", mark: "median" },
     { key: "band", label: "80% 預測區間（P10–P90）", mark: "band" },
     { key: "threshold", label: `${AUDIENCE[sensitivity]}門檻 ${threshold}`, mark: "threshold" },
     ...(best && chartWindowStart >= 0 ? [{ key: "window", label: best.risk >= HIGH_RISK ? "相對最低時段" : "建議時段", mark: "window" as const }] : []),
@@ -139,7 +139,7 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
         howTo={
           <>
             <p>
-              實線是過去 {HISTORY_SHOWN} 小時，虛線是預報中位數，陰影是 80% 預測區間（十次約有八次落在裡面）。紅色虛線是{AUDIENCE[sensitivity]}門檻，綠色區塊是比較後挑出的時段。
+              實線是過去 {HISTORY_SHOWN} 小時，虛線是點預測，陰影是 目標覆蓋率為 80% 的預測區間。紅色虛線是{AUDIENCE[sensitivity]}門檻，綠色區塊是比較後挑出的時段。
             </p>
             <p>
               區間怎麼來：每個預報時距各有一個 ridge 迴歸模型，P50 就是它的預報值；P10／P90 是往上下各取校準期預報誤差絕對值的第 80 百分位（分割式保形預測）。測試期各時距實際值落在 80% 區間內的比例為{" "}
@@ -197,7 +197,7 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
         <ChartFrame
           title={`${station.station} AQI：過去 ${HISTORY_SHOWN} 小時與資料時間起算的 24 小時預報`}
           legend={<Legend series={forecastLegend} />}
-          summary={(provenance.is_model_estimate ? "實線為每 3 小時模型估算值與時點間插值" : "實線為來源資料") + "、虛線為預報中位數，陰影為 80% 預測區間；紅線是" + AUDIENCE[sensitivity] + "門檻 " + threshold + (best ? "，綠色區塊是建議時段" : "") + "；最佳時段只比較尚未發生的預報。"}
+          summary={(provenance.is_model_estimate ? "實線為每 3 小時模型估算值與時點間插值" : "實線為來源資料") + "、虛線為點預測，陰影為目標覆蓋率 80% 的預測區間；紅線是" + AUDIENCE[sensitivity] + "門檻 " + threshold + (best ? "，綠色區塊是建議時段" : "") + "；最佳時段只比較尚未發生的預報。"}
           table={
             <table data-testid="forecast-table" data-as-of-ms={nowMs}>
               <thead>
