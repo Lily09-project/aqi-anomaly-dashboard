@@ -33,7 +33,7 @@
   align-items: end;
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--line);
-  border-radius: var(--radius-l);
+  border-radius: var(--radius-card);
   background: var(--surface-tint);
 }
 

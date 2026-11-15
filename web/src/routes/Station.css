@@ -29,9 +29,8 @@
   gap: 1px;
   background: var(--line);
   border: 1px solid var(--line);
-  border-radius: var(--radius-l);
+  border-radius: var(--radius-card);
   overflow: hidden;
-  box-shadow: var(--shadow);
 }
 
 .now-panel > * {
@@ -135,9 +134,8 @@
 .planner .chart-frame {
   padding: var(--space-4);
   border: 1px solid var(--line);
-  border-radius: var(--radius-l);
+  border-radius: var(--radius-card);
   background: var(--bg-raised);
-  box-shadow: var(--shadow);
 }
 
 @media (max-width: 640px) {

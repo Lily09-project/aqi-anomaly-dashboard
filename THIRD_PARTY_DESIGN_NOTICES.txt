@@ -1,4 +1,5 @@
-Design language references: VoltAgent/awesome-design-md, design-md/mintlify/DESIGN.md.
+Design language references: VoltAgent/awesome-design-md, design-md/mintlify/DESIGN.md (layout and type rules)
+and design-md/nerdwallet/DESIGN.md (section-wash idea). Colours are this site's own.
 Adapted for this independent product. No third-party trademarks or proprietary font files are included.
 
 MIT License

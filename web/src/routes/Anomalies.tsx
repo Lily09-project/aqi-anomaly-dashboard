@@ -267,12 +267,14 @@ function AnomaliesView({ data, id, station, kind }: Props & { data: Anomalies })
           </label>
           <fieldset className="segmented">
             <legend>類型</legend>
-            {([undefined, "local", "regional"] as (Kind | undefined)[]).map((k) => (
-              <label key={k ?? "all"}>
-                <input type="radio" name="kind" checked={kind === k} onChange={() => update({ kind: k })} />
-                <span>{k ? KIND_LABEL[k] : "全部"}</span>
-              </label>
-            ))}
+            <div className="segmented-track">
+              {([undefined, "local", "regional"] as (Kind | undefined)[]).map((k) => (
+                <label key={k ?? "all"}>
+                  <input type="radio" name="kind" checked={kind === k} onChange={() => update({ kind: k })} />
+                  <span>{k ? KIND_LABEL[k] : "全部"}</span>
+                </label>
+              ))}
+            </div>
           </fieldset>
           <button
             type="button"
