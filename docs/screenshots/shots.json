@@ -1,0 +1,49 @@
+{
+  "site": "https://lily09-project.github.io/aqi-anomaly-dashboard/",
+  "shots": [
+    {
+      "file": "pages-desktop.png",
+      "route": "/"
+    },
+    {
+      "file": "pages-mobile.png",
+      "route": "/",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "mobile": true
+    },
+    {
+      "file": "station-planner.png",
+      "firstLinkFrom": {
+        "route": "/",
+        "selector": ".station-card"
+      }
+    },
+    {
+      "file": "propagation-replay.png",
+      "route": "/propagation"
+    },
+    {
+      "file": "anomaly-attribution.png",
+      "route": "/anomalies",
+      "viewport": {
+        "width": 1440,
+        "height": 1150
+      }
+    },
+    {
+      "file": "whatif.png",
+      "route": "/whatif",
+      "viewport": {
+        "width": 1440,
+        "height": 1100
+      }
+    },
+    {
+      "file": "model-monitoring.png",
+      "route": "/model"
+    }
+  ]
+}
