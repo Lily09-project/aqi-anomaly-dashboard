@@ -74,6 +74,8 @@ def conformal_half_width(residuals: np.ndarray, level: float = INTERVAL_LEVEL) -
         raise ValueError("calibration residuals must be a non-empty finite array")
     if not 0 < level < 1:
         raise ValueError("level must be between 0 and 1")
+    # With fewer than ceil(level / (1 - level)) scores the exact rank exceeds n and the
+    # conformal interval is unbounded; we fall back to the largest score (documented in METHODS.md).
     rank = min(math.ceil((len(scores) + 1) * level), len(scores))
     return float(scores[rank - 1])
 
