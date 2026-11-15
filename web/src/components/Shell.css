@@ -119,9 +119,11 @@ html {
   outline-offset: -3px;
 }
 
+/* Top bar (641–1199px): underline tab. The active chapter is ink text over a 2px accent rule. */
 .site-nav a[aria-current="page"] {
-  background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--ink);
+  box-shadow: inset 0 -2px 0 var(--accent);
+  border-radius: 0;
 }
 
 .nav-no {
@@ -152,7 +154,7 @@ html {
   justify-content: center;
   min-height: 32px;
   padding: 0 var(--space-3);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--line);
   background: var(--accent-soft);
   color: var(--accent);
@@ -308,7 +310,7 @@ html {
     width: 100%;
     min-height: 52px;
     padding: var(--space-2) var(--space-3) var(--space-2) var(--space-2);
-    border-radius: var(--radius-m);
+    border-radius: var(--radius-s);
     white-space: normal;
   }
 
@@ -317,9 +319,11 @@ html {
     box-shadow: inset 0 0 0 1px var(--line);
   }
 
+  /* Rail: the active chapter sits on the raised surface with a 3px accent edge; the text stays ink. */
   .site-nav a[aria-current="page"] {
-    box-shadow: inset 3px 0 var(--accent);
-    background: var(--accent-soft);
+    box-shadow: inset 3px 0 var(--accent), inset 0 0 0 1px var(--line);
+    background: var(--bg-raised);
+    border-radius: var(--radius-s);
   }
 
   .nav-no {
@@ -487,7 +491,7 @@ html {
     min-width: 30px;
     height: 18px;
     margin-bottom: 2px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     font-size: 0.6875rem;
     transition: background var(--duration) var(--ease), color var(--duration) var(--ease);
   }
@@ -509,9 +513,8 @@ html {
   justify-items: start;
   padding: var(--space-6) var(--space-5);
   border: 1px solid var(--line);
-  border-radius: var(--radius-l);
+  border-radius: var(--radius-card);
   background: var(--bg-raised);
-  box-shadow: var(--shadow);
 }
 
 .state p {

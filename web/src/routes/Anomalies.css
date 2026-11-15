@@ -5,7 +5,7 @@
   align-items: end;
   padding: var(--space-4);
   border: 1px solid var(--line);
-  border-radius: var(--radius-l);
+  border-radius: var(--radius-card);
   background: var(--surface-tint);
 }
 
@@ -64,7 +64,7 @@
 }
 
 .event-item:hover {
-  border-color: var(--accent);
+  border-color: var(--line-strong);
   background: var(--surface-tint);
 }
 

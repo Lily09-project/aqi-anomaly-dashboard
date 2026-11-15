@@ -20,7 +20,7 @@ body {
   font-family: var(--font-sans);
   font-size: var(--step-0);
   font-weight: var(--weight-regular);
-  line-height: 1.65;
+  line-height: var(--leading-body);
   font-feature-settings: "tnum" 1;
   font-variant-numeric: tabular-nums;
   font-kerning: normal;
@@ -55,7 +55,7 @@ h2,
 h3,
 h4 {
   margin: 0 0 var(--space-3);
-  line-height: 1.25;
+  line-height: var(--leading-heading);
   text-wrap: balance;
   font-family: var(--font-sans);
 }
@@ -63,7 +63,7 @@ h4 {
 h1 {
   font-size: clamp(1.75rem, 1.3rem + 1.6vw, 2.6rem);
   letter-spacing: -0.02em;
-  line-height: 1.18;
+  line-height: 1.2;
 }
 
 h2 {
@@ -79,6 +79,12 @@ p {
   margin: 0 0 var(--space-3);
   max-width: var(--measure);
   text-wrap: pretty;
+}
+
+/* Documentation-grade prose: 16px body, generous CJK leading, one measure everywhere. */
+.page-head > p,
+.lede {
+  line-height: var(--leading-prose);
 }
 
 a {
@@ -124,7 +130,7 @@ select {
 
 code {
   padding: 1px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: var(--bg-sunken);
   font-family: var(--font-mono);
   font-size: 0.875em;
@@ -137,16 +143,19 @@ table {
   font-variant-numeric: tabular-nums;
 }
 
+/* Data tables: 14px cells, 12/16 padding, hairline rows, header on a wash, no vertical rules. */
 th,
 td {
-  padding: var(--space-2) var(--space-3);
+  padding: var(--pad-row);
   text-align: left;
   border-bottom: 1px solid var(--line);
   vertical-align: middle;
-  line-height: 1.5;
+  font-size: var(--step--1);
+  line-height: 1.55;
 }
 
 thead th {
+  background: var(--wash);
   border-bottom-color: var(--line-strong);
 }
 
@@ -166,6 +175,7 @@ tbody th {
 
 thead th {
   letter-spacing: 0.03em;
+  padding-block: var(--space-2);
 }
 
 tbody tr > * {
@@ -173,7 +183,7 @@ tbody tr > * {
 }
 
 tbody tr:hover > * {
-  background: var(--bg-sunken);
+  background: var(--surface-tint);
 }
 
 td.num,
@@ -235,7 +245,7 @@ th.num {
 }
 
 .page-head > p {
-  max-width: 60ch;
+  max-width: var(--measure);
   color: var(--ink-soft);
 }
 
@@ -251,7 +261,7 @@ th.num {
   gap: var(--space-2);
   min-height: 28px;
   padding: 2px var(--space-3);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent-soft);
   color: var(--accent);
   font-size: 0.8125rem;
@@ -262,7 +272,7 @@ th.num {
 }
 
 .lede {
-  font-size: var(--step-0);
+  font-size: 1.0625rem;
   color: var(--ink-soft);
 }
 
@@ -286,12 +296,12 @@ th.num {
 }
 
 /* ---- Surfaces ---- */
+/* Cards are flat: hairline border, 12px corners, no resting shadow; only links lift on hover. */
 .card {
   background: var(--bg-raised);
   border: 1px solid var(--line);
-  border-radius: var(--radius-l);
-  padding: var(--space-5);
-  box-shadow: var(--shadow);
+  border-radius: var(--radius-card);
+  padding: var(--pad-card);
   min-width: 0;
 }
 
@@ -306,17 +316,17 @@ a.card {
 
 a.card:hover {
   border-color: var(--line-strong);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--elev-hover);
 }
 
 a.card:active {
   transform: translateY(0);
-  box-shadow: var(--shadow);
+  box-shadow: none;
 }
 
 a.card:focus-visible {
   outline-offset: 3px;
-  border-radius: var(--radius-l);
+  border-radius: var(--radius-card);
 }
 
 .grid {
@@ -360,7 +370,15 @@ a.card:focus-visible {
 
 .table-scroll {
   overflow-x: auto;
-  border-radius: var(--radius-m);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--bg-raised);
+}
+
+/* Inside a card the card already frames the table. */
+.card .table-scroll {
+  border: 0;
+  border-radius: 0;
 }
 
 /* ---- Chapters: takeaway → chart → how to read ---- */
@@ -368,7 +386,7 @@ a.card:focus-visible {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-5);
-  padding-top: var(--space-6);
+  padding-top: var(--gap-section);
   border-top: 1px solid var(--line);
 }
 
@@ -379,19 +397,20 @@ a.card:focus-visible {
   align-items: center;
 }
 
+/* Icon tile: the chapter number sits on a soft tint square, the one accent mark per section. */
 .chapter-no {
   display: inline-grid;
   place-items: center;
-  min-width: 2.25rem;
-  height: 1.5rem;
+  min-width: 2rem;
+  height: 2rem;
   padding: 0 var(--space-1);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-s);
+  border-radius: var(--radius-control);
+  background: var(--tile);
   font-family: var(--font-mono);
   font-size: 0.8125rem;
   font-weight: var(--weight-bold);
   line-height: 1;
-  color: var(--accent);
+  color: var(--tile-ink);
   letter-spacing: 0.04em;
   align-self: center;
 }
@@ -405,9 +424,9 @@ a.card:focus-visible {
 .chapter-takeaway {
   grid-column: 1 / -1;
   margin: var(--space-3) 0 0;
-  max-width: 40em;
-  font-size: var(--step-1);
-  line-height: 1.55;
+  max-width: var(--measure);
+  font-size: 1.125rem;
+  line-height: 1.7;
   color: var(--ink);
   text-wrap: pretty;
 }
@@ -427,9 +446,9 @@ a.card:focus-visible {
   margin: 0;
   padding: var(--space-4);
   border: 1px solid var(--line);
-  border-left: 3px solid var(--accent);
+  border-left: 3px solid var(--line-strong);
   background: var(--surface-tint);
-  border-radius: 0 var(--radius-m) var(--radius-m) 0;
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
   font-size: var(--step--1);
   line-height: 1.7;
   color: var(--ink-soft);
@@ -442,7 +461,7 @@ a.card:focus-visible {
   border-bottom: 1px solid var(--line);
   font-size: 0.8125rem;
   font-weight: var(--weight-bold);
-  color: var(--accent);
+  color: var(--muted);
   letter-spacing: 0.08em;
 }
 
@@ -481,7 +500,7 @@ a.card:focus-visible {
   min-height: 44px;
   padding: var(--space-2) var(--space-4);
   border: 1px solid var(--line-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--bg-raised);
   font-weight: var(--weight-bold);
   cursor: pointer;
@@ -510,7 +529,6 @@ a.card:focus-visible {
 .btn-primary:hover {
   background: var(--ink-soft);
   border-color: var(--ink-soft);
-  box-shadow: var(--shadow-card);
 }
 
 .btn:disabled {
@@ -536,7 +554,7 @@ a.card:focus-visible {
   min-height: 44px;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--line-strong);
-  border-radius: var(--radius-m);
+  border-radius: var(--radius-control);
   background: var(--bg-raised);
   font-size: 1rem;
   transition: border-color var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
@@ -564,6 +582,17 @@ a.card:focus-visible {
   color: var(--ink-soft);
 }
 
+/* Toggle: the options are pills inside one washed track; the chosen one is filled ink. */
+.segmented-track {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--wash);
+}
+
 .segmented label {
   position: relative;
 }
@@ -580,32 +609,22 @@ a.card:focus-visible {
   display: inline-flex;
   white-space: nowrap;
   align-items: center;
-  min-height: 44px;
+  min-height: 36px;
   padding: 0 var(--space-4);
-  border: 1px solid var(--line-strong);
-  background: var(--bg-raised);
+  border-radius: var(--radius-pill);
+  color: var(--ink-soft);
   font-weight: var(--weight-bold);
-  margin-left: -1px;
-  transition: background var(--duration) var(--ease), color var(--duration) var(--ease), border-color var(--duration) var(--ease);
+  transition: background var(--duration) var(--ease), color var(--duration) var(--ease);
 }
 
 .segmented input:hover:not(:checked) + span {
-  background: var(--surface-tint);
-}
-
-.segmented label:first-of-type span {
-  border-radius: var(--radius-m) 0 0 var(--radius-m);
-  margin-left: 0;
-}
-
-.segmented label:last-of-type span {
-  border-radius: 0 var(--radius-m) var(--radius-m) 0;
+  background: var(--bg-raised);
+  color: var(--ink);
 }
 
 .segmented input:checked + span {
   background: var(--ink);
   color: var(--bg);
-  border-color: var(--ink);
 }
 
 .segmented input:focus-visible + span {
@@ -641,7 +660,7 @@ input[type="range"] {
   gap: var(--space-1);
   min-height: 24px;
   padding: 1px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.8125rem;
   font-weight: var(--weight-bold);
   line-height: 1.35;
@@ -666,7 +685,7 @@ input[type="range"] {
   border: 1px solid var(--line);
   border-left: 4px solid var(--gold);
   background: var(--bg-sunken);
-  border-radius: var(--radius-s) var(--radius-m) var(--radius-m) var(--radius-s);
+  border-radius: var(--radius-control);
   color: var(--ink);
   max-width: none;
 }
@@ -674,7 +693,7 @@ input[type="range"] {
 .callout {
   border-left: 4px solid var(--accent);
   background: var(--accent-soft);
-  border-radius: var(--radius-m);
+  border-radius: var(--radius-control);
   padding: var(--space-3) var(--space-4);
   max-width: none;
 }
@@ -718,8 +737,7 @@ input[type="range"] {
   gap: 1px;
   background: var(--line);
   border: 1px solid var(--line);
-  border-radius: var(--radius-l);
-  box-shadow: var(--shadow);
+  border-radius: var(--radius-card);
   overflow: hidden;
 }
 
@@ -743,7 +761,7 @@ input[type="range"] {
   gap: 6px;
   min-height: 24px;
   padding: 1px 10px 1px 9px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   line-height: 1.45;
   background: var(--cat, var(--bg-sunken));
   color: var(--cat-ink, var(--ink));
@@ -879,12 +897,14 @@ details.data-table summary:hover {
 
   .card {
     padding: var(--space-4);
-    border-radius: var(--radius-m);
   }
 
   .kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    border-radius: var(--radius-m);
+  }
+
+  .segmented span {
+    min-height: 44px;
   }
 
   .kpis > .kpi {
@@ -896,7 +916,7 @@ details.data-table summary:hover {
   }
 
   .chapter-takeaway {
-    font-size: 1.05rem;
+    font-size: 1.0625rem;
   }
 }
 

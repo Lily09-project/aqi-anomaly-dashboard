@@ -78,5 +78,35 @@
   --weight-bold: 700;
   --rail: 248px;
   --tabbar: 60px;
-  --measure: 68ch;
+  --measure: 40em; /* CJK prose: about 40 full-width characters per line */
+}
+
+/* 2026-11 documentation-grade pass. Layout, type and shape rules adapted from the
+   Mintlify (primary) and NerdWallet (section wash) analyses in awesome-design-md (MIT);
+   the palette is unchanged: every colour entry below is an alias of a token above. */
+:root {
+  /* Radius scale: chips 4 · nav items 6 · controls 8 · cards 12 · panels 16 · pills. */
+  --radius-xs: 4px;
+  --radius-control: 8px;
+  --radius-card: var(--radius-m);
+  --radius-panel: var(--radius-l);
+  --radius-pill: 999px;
+
+  --leading-body: 1.7;
+  --leading-prose: 1.8;
+  --leading-heading: 1.3;
+
+  /* Rhythm: bands on the overview, sections on analysis pages, padding inside cards. */
+  --gap-band: var(--space-7);
+  --gap-section: var(--space-6);
+  --pad-card: var(--space-5);
+  --pad-row: var(--space-3) var(--space-4);
+
+  /* Elevation restraint: cards are flat; only hovered links lift, and only slightly. */
+  --elev-hover: var(--shadow);
+
+  /* Section wash and icon tile (aliases of existing tints). */
+  --wash: var(--bg-sunken);
+  --tile: var(--accent-soft);
+  --tile-ink: var(--accent);
 }

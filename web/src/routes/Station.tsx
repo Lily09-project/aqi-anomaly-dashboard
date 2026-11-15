@@ -152,12 +152,14 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
         <div className="planner-controls">
           <fieldset className="segmented">
             <legend>誰要出門</legend>
-            {(Object.keys(AUDIENCE) as Sensitivity[]).map((key) => (
-              <label key={key}>
-                <input type="radio" name="sensitivity" value={key} checked={sensitivity === key} onChange={() => update({ sensitivity: key })} />
-                <span>{AUDIENCE[key]}</span>
-              </label>
-            ))}
+            <div className="segmented-track">
+              {(Object.keys(AUDIENCE) as Sensitivity[]).map((key) => (
+                <label key={key}>
+                  <input type="radio" name="sensitivity" value={key} checked={sensitivity === key} onChange={() => update({ sensitivity: key })} />
+                  <span>{AUDIENCE[key]}</span>
+                </label>
+              ))}
+            </div>
           </fieldset>
           <label className="field">
             <span className="label">活動時長</span>

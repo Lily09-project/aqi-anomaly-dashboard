@@ -41,7 +41,7 @@
   gap: var(--space-2);
   justify-items: start;
   padding: var(--space-5);
-  border-radius: var(--radius-l);
+  border-radius: var(--radius-panel);
   background: var(--cat, var(--bg-sunken));
   color: var(--cat-ink, var(--ink));
 }
