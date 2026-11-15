@@ -33,7 +33,7 @@
 | **模型監控** | |
 | ![模型監控畫面](docs/screenshots/model-monitoring.png) | |
 
-截圖取自正式網站的 CAMS 模型估算資料。
+截圖取自正式網站的 CAMS 模型估算資料。改版上線後在 `web/` 執行 `npm run screenshots` 即可重拍，截圖清單在 `docs/screenshots/shots.json`。
 
 ## 正式資料
 
