@@ -90,6 +90,12 @@ test.describe("正式公開空品模型資料", () => {
     await expect(bestWindow).toHaveCount(0);
     await expectAccessible(page);
 
+    await page.clock.setFixedTime(evaluationTime);
+    await openRoute(page, "/planner?hours=1&threshold=500");
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "下載共同時段 CSV" }).click();
+    expect((await download).suggestedFilename()).toBe("aqi-shared-windows.csv");
+
     await openRoute(page, "/data");
     await expect(page.getByTestId("data-source")).toHaveText("Open-Meteo · CAMS Global");
     await expect(page.getByTestId("integrity-summary")).toHaveText("6/6");

@@ -1,6 +1,7 @@
 import { useDataset, useDocumentTitle, useNow, useRoute } from "../app/hooks";
 import { DataTime, STALE_AFTER_HOURS, StaleNotice } from "../components/Freshness";
 import { EmptyState, Gate } from "../components/States";
+import { downloadText, toCsv } from "../lib/csv";
 import { formatNumber, hoursSince } from "../lib/format";
 import type { Route } from "../lib/router";
 import { sharedWindows } from "../lib/sharedWindows";
@@ -23,13 +24,24 @@ function PlannerView({ data, provenance, route }: { data: Overview; provenance: 
   const update = (patch: Partial<PlannerRoute>) => navigate({ ...route, a: a.station, b: b.station, hours, threshold, ...patch });
   const age = hoursSince(data.latest, now);
   const stale = provenance.is_model_estimate && age !== null && age >= STALE_AFTER_HOURS;
-  const windows = stale ? [] : sharedWindows(a.forecast, b.forecast, hours, threshold, now);
-  const [first, ...remaining] = windows;
+  const windows = stale ? [] : sharedWindows(a.forecast, b.forecast, hours, threshold, now, route.conservative);
+  const first = windows[0];
   const hasForecast = first !== undefined || (!stale && sharedWindows(a.forecast, b.forecast, hours, Number.MAX_VALUE, now).length > 0);
   const timeRange = (rows: NonNullable<typeof first>["rows"]) =>
     `${taipeiTime.format(rows[0]!.time)} 至 ${taipeiTime.format(rows.at(-1)!.time + 3_600_000)}`;
   const options = data.stations.map(({ station }) => <option key={station}>{station}</option>);
   const show = (value: number) => formatNumber(value, 1);
+  const download = () => {
+    const columns = ["start_utc", "end_utc", "location_a", "location_b", "threshold", "rule", "highest_p50", "highest_p90", "data_time_taipei", "source"];
+    const rows = windows.map(({ rows, highest, upper }) => ({
+      start_utc: new Date(rows[0]!.time).toISOString(),
+      end_utc: new Date(rows.at(-1)!.time + 3_600_000).toISOString(),
+      location_a: a.station, location_b: b.station, threshold,
+      rule: route.conservative ? "p90" : "p50", highest_p50: highest, highest_p90: upper,
+      data_time_taipei: data.latest, source: provenance.data_source,
+    }));
+    downloadText("aqi-shared-windows.csv", toCsv(columns, rows), "text/csv;charset=utf-8");
+  };
   return (
     <div className="stack">
       <section className="card controls-row" aria-label="時段條件">
@@ -40,6 +52,11 @@ function PlannerView({ data, provenance, route }: { data: Overview; provenance: 
         </select></label>
         <label className="field">AQI 門檻<select className="input" value={threshold} onChange={(e) => update({ threshold: Number(e.target.value) })}>
           {[...new Set([threshold, 50, 75, 100, 150, data.planner_thresholds.sensitive, data.planner_thresholds.general])].sort((x, y) => x - y).map((value) => <option key={value}>{value}</option>)}
+        </select></label>
+        <label className="field">判讀條件<select className="input" value={route.conservative ? "upper" : "point"}
+          onChange={(e) => update({ conservative: e.target.value === "upper" })}>
+          <option value="point">點預測符合門檻</option>
+          <option value="upper">區間上界也符合門檻</option>
         </select></label>
       </section>
       <p className="muted"><DataTime latest={data.latest} nowMs={now} /> · 台北時間{provenance.is_model_estimate && " · CAMS 模型網格估算"}</p>
@@ -52,7 +69,8 @@ function PlannerView({ data, provenance, route }: { data: Overview; provenance: 
             <p>兩地最高點預測 {show(first.highest)} · 預測區間上界最高 {show(first.upper)}
               {first.upper > threshold && "（超過門檻）"}</p>
           </div>
-          {([first, ...remaining]).map(({ rows, highest, upper }, index) => (
+          <div><button className="btn" type="button" onClick={download}>下載共同時段 CSV</button></div>
+          {windows.map(({ rows, highest, upper }, index) => (
             <details className="card" key={rows[0]!.time}>
               <summary>{index === 0 ? "查看最早時段的逐時預測" : `${timeRange(rows)} · 最高點預測 ${show(highest)}${upper > threshold ? " · 區間上界超過門檻" : ""}`}</summary>
               <div className="scroll-x"><table>
@@ -70,7 +88,7 @@ function PlannerView({ data, provenance, route }: { data: Overview; provenance: 
           : <EmptyState title="兩地共同預報時數不足"><p>可縮短時數或選擇其他地點。</p></EmptyState>}
       <details className="card">
         <summary>資料與判讀方式</summary>
-        <p>兩地每小時的點預測都須符合門檻。預測區間仍可能超過門檻。</p>
+        <p>一般條件檢查兩地每小時的點預測。較嚴格的條件也檢查預測區間上界，仍有預測誤差。</p>
         <p>{a.station} · {a.coordinate_source}<br />{b.station} · {b.coordinate_source}</p>
       </details>
     </div>

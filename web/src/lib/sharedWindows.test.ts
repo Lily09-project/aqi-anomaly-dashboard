@@ -15,3 +15,8 @@ it("rejects gaps, absent intersections and points above the threshold", () => {
   expect(sharedWindows(a, a, 1, 30, now)).toEqual([]);
   expect(sharedWindows(a, a, 1, 35, now)).toHaveLength(3);
 });
+
+it("requires both upper bounds to meet the threshold when requested", () => {
+  expect(sharedWindows(a, a, 2, 50, now, true)).toEqual([]);
+  expect(sharedWindows(a, a, 2, 65, now, true)).toHaveLength(1);
+});
