@@ -4,7 +4,7 @@ export type Sensitivity = "sensitive" | "general";
 export type Route =
   | { name: "home" }
   | { name: "station"; station: string; sensitivity?: Sensitivity; hours?: number }
-  | { name: "planner"; a?: string; b?: string; hours?: number; threshold?: number }
+  | { name: "planner"; a?: string; b?: string; hours?: number; threshold?: number; conservative?: boolean }
   | { name: "propagation"; frame?: number }
   | { name: "anomalies"; id?: string; station?: string; kind?: "local" | "regional" }
   | { name: "whatif" }
@@ -51,6 +51,7 @@ export function parseRoute(hash: string): Route {
       const threshold = intParam(params, "threshold");
       return {
         name: "planner",
+        conservative: params.get("rule") === "upper" ? true : undefined,
         a: params.get("a")?.slice(0, 80),
         b: params.get("b")?.slice(0, 80),
         hours: hours !== undefined && hours >= 1 && hours <= MAX_HOURS ? hours : undefined,
@@ -117,7 +118,7 @@ export function routeToHash(route: Route): string {
     case "station":
       return `#/station/${encodeURIComponent(route.station)}${query({ for: route.sensitivity, hours: route.hours })}`;
     case "planner":
-      return `#/planner${query({ a: route.a, b: route.b, hours: route.hours, threshold: route.threshold })}`;
+      return `#/planner${query({ a: route.a, b: route.b, hours: route.hours, threshold: route.threshold, rule: route.conservative ? "upper" : undefined })}`;
     case "propagation":
       return `#/propagation${query({ frame: route.frame })}`;
     case "anomalies":

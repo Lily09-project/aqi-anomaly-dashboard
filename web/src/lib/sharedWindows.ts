@@ -12,7 +12,7 @@ function byHour(forecast: readonly QuantileHour[], now: number) {
   return result;
 }
 
-export function sharedWindows(a: readonly QuantileHour[], b: readonly QuantileHour[], hours: number, threshold: number, now: number) {
+export function sharedWindows(a: readonly QuantileHour[], b: readonly QuantileHour[], hours: number, threshold: number, now: number, conservative = false) {
   if (!Number.isFinite(now) || !Number.isFinite(threshold) || threshold < 1 || !Number.isInteger(hours) || hours < 1) return [];
   const left = byHour(a, now);
   const right = byHour(b, now);
@@ -26,6 +26,7 @@ export function sharedWindows(a: readonly QuantileHour[], b: readonly QuantileHo
     const highest = Math.max(...rows.flatMap((row) => [row.a.p50, row.b.p50]));
     if (highest > threshold) return [];
     const upper = Math.max(...rows.flatMap((row) => [row.a.p90, row.b.p90]));
+    if (conservative && upper > threshold) return [];
     return [{ rows, highest, upper }];
   });
 }
