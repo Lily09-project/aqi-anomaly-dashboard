@@ -100,3 +100,20 @@ export function formatAge(hours: number): string {
   if (hours < 48) return `約 ${hours} 小時前`;
   return `約 ${Math.floor(hours / 24)} 天前`;
 }
+
+/**
+ * A time span whose end is the moment it finishes (exclusive end), e.g.
+ * "11/20 15:00–17:00". The end carries its date when it falls on another day,
+ * so a window crossing midnight reads "11/20 21:00–11/21 09:00".
+ */
+export function formatSpan(startIso: string, endIso: string): string {
+  const sameDay = startIso.slice(0, 10) === endIso.slice(0, 10);
+  return `${formatHour(startIso)}–${sameDay ? formatClock(endIso) : formatHour(endIso)}`;
+}
+
+/** An instant as Taiwan clock time in the exported "YYYY-MM-DDTHH:MM" form. */
+export function taiwanLocalIso(ms: number): string {
+  const date = new Date(ms + TAIWAN_UTC_OFFSET_MS);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}T${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
+}

@@ -71,7 +71,11 @@ export function axisTicks(labels: string[], x: (i: number) => number, lo: number
       if (ticks) return ticks;
     }
   }
-  for (let count = Math.min(maxTicks, n); count >= 2; count--) {
+  // Prefer counts that split the axis into equal steps (25 points → every 6th), so
+  // ticks are evenly spaced; fall back to rounded positions only when none fits.
+  const counts = Array.from({ length: Math.max(Math.min(maxTicks, n) - 1, 0) }, (_, k) => Math.min(maxTicks, n) - k);
+  const even = counts.filter((count) => (n - 1) % (count - 1) === 0);
+  for (const count of [...even, ...counts.filter((count) => !even.includes(count))]) {
     const indexes = Array.from({ length: count }, (_, k) => Math.round((k * (n - 1)) / (count - 1))).filter((v, k, a) => a.indexOf(v) === k);
     const ticks = fit(indexes.map((i) => ({ i, label: labels[i] ?? "" })), x, lo, hi, size);
     if (ticks) return ticks;

@@ -617,9 +617,17 @@ a.card:focus-visible {
   transition: background var(--duration) var(--ease), color var(--duration) var(--ease);
 }
 
-.segmented input:hover:not(:checked) + span {
+.segmented input:hover:not(:checked, :disabled) + span {
   background: var(--bg-raised);
   color: var(--ink);
+}
+
+.segmented input:disabled {
+  cursor: not-allowed;
+}
+
+.segmented input:disabled + span {
+  opacity: 0.55;
 }
 
 .segmented input:checked + span {

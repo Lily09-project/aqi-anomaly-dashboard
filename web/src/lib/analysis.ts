@@ -1,4 +1,5 @@
 /** Small, pure helpers the pages use to summarise the exported analysis. */
+import { addHours } from "./format";
 import type { AnomalyEvent, HorizonMetrics, Link, Propagation } from "./types";
 
 export interface EventFilter {
@@ -18,12 +19,22 @@ export function eventRows(events: readonly AnomalyEvent[]): Record<string, unkno
     station: e.station,
     kind: e.kind === "local" ? "局部" : "區域",
     start: e.start,
+    // `end` is the last anomalous hour (a 1-hour event has start == end); kept for existing CSV consumers.
     end: e.end,
+    // The moment the event is over, the same convention as every span shown on the site.
+    end_exclusive: addHours(e.end, 1),
     duration_hours: e.duration_hours,
     peak_aqi: e.peak_aqi,
     peak_pm25: e.peak_pm25,
     top_driver: e.drivers[0]?.label ?? "",
   }));
+}
+
+/** Events per kind, so a filter can show its count and disable an option with none. */
+export function kindCounts(events: readonly AnomalyEvent[]): Record<"local" | "regional", number> {
+  const counts = { local: 0, regional: 0 };
+  for (const e of events) counts[e.kind] += 1;
+  return counts;
 }
 
 /** Forecast skill relative to a baseline: 1 − MAE / baseline MAE (higher is better). */

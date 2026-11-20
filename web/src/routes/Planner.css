@@ -1,0 +1,65 @@
+/* Five conditions in one responsive row: one line on a desktop, two or three columns on a tablet, stacked on a phone. */
+.planner-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 168px), 1fr));
+  gap: var(--space-3) var(--space-4);
+  align-items: end;
+  background: var(--surface-tint);
+}
+
+/* Wide screens: all five on one line, the rule select widest so its label is never cut off. */
+@media (min-width: 900px) {
+  .planner-form {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 1.4fr);
+  }
+}
+
+.planner-meta {
+  grid-column: 1 / -1;
+  max-width: none;
+  margin: 0;
+}
+
+.planner-hours {
+  align-self: start;
+}
+
+.planner-hours > summary {
+  cursor: pointer;
+  font-weight: var(--weight-bold);
+}
+
+.planner-hours .table-scroll {
+  margin-top: var(--space-3);
+}
+
+.planner-hours caption {
+  caption-side: top;
+  padding-bottom: var(--space-2);
+  text-align: left;
+  color: var(--muted);
+  font-size: var(--step--1);
+}
+
+.planner-windows {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.planner-windows-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.planner-windows-head h3 {
+  margin: 0;
+  font-size: var(--step-0);
+}
+
+.planner-more {
+  justify-self: start;
+}

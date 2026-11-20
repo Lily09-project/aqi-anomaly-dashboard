@@ -132,3 +132,20 @@ export function whatIfContributions(model: WhatIf, inputs: Record<string, number
 export function defaultInputs(model: WhatIf): Record<string, number> {
   return Object.fromEntries(model.inputs.map((input) => [input.key, input.default]));
 }
+
+/**
+ * The input whose full slider range moves the prediction most, holding the others
+ * at `inputs`; the sensitivity sweep opens on it so the first chart is not a flat line.
+ */
+export function mostInfluentialInput(model: WhatIf, inputs: Record<string, number>, points = 25): string | undefined {
+  let best: { key: string; span: number } | undefined;
+  for (const input of model.inputs) {
+    const values = Array.from({ length: points }, (_, i) => {
+      const raw = input.min + ((input.max - input.min) * i) / Math.max(points - 1, 1);
+      return predictWhatIf(model, { ...inputs, [input.key]: input.key === "hour" ? Math.round(raw) : raw });
+    });
+    const span = Math.max(...values) - Math.min(...values);
+    if (!best || span > best.span) best = { key: input.key, span };
+  }
+  return best?.key;
+}

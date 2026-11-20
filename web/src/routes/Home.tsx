@@ -69,7 +69,7 @@ function OutlookBoard({ outlooks, categories, threshold, isModel, next }: { outl
       <header className="outlook-head">
         <h2 id="outlook-title">
           現在 <span aria-hidden="true">→</span>
-          <span className="visually-hidden">到</span> 未來 {columns > 0 ? columns : 24} 小時
+          <span className="visually-hidden">到</span> 未來 24 小時
         </h2>
         <p className="outlook-takeaway" data-testid="outlook-takeaway">
           {worst?.peak ? (
@@ -84,6 +84,11 @@ function OutlookBoard({ outlooks, categories, threshold, isModel, next }: { outl
             "目前資料已沒有尚未發生的預報時段，等下次資料更新後再看。"
           )}
         </p>
+        {columns > 0 && columns < 24 && (
+          <p className="muted small outlook-remaining" data-testid="outlook-remaining">
+            24 小時預報從資料時間起算；已開始的時段不列出，目前還剩 {columns} 小時。
+          </p>
+        )}
       </header>
 
       <ChartFrame
@@ -372,7 +377,7 @@ function Dashboard({ overview, propagation, provenance }: { overview: Overview; 
                 <span className="tour-no" aria-hidden="true">03</span>
                 <strong>情境模擬</strong>
                 <span className="tour-q">條件改變時，下一小時 AQI 會怎麼變？</span>
-                <span className="muted small">拖動風速、臭氧等滑桿，看每個條件把預測推高或拉低多少。</span>
+                <span className="muted small">拖動目前 AQI、PM2.5、風速等條件滑桿，看每個條件把預測推高或拉低多少。</span>
               </a>
             </li>
             <li>

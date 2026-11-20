@@ -26,6 +26,22 @@
   font-size: var(--step-0);
 }
 
+/* Five columns in a ~425px card: tighter cells and wrapping headers keep the r columns in view. */
+.links-table th,
+.links-table td {
+  padding-inline: var(--space-2);
+}
+
+.links-table th:first-child,
+.links-table td:first-child {
+  padding-left: var(--space-3);
+}
+
+.links-table thead th {
+  white-space: normal;
+  vertical-align: bottom;
+}
+
 .replay-controls {
   display: flex;
   flex-wrap: wrap;

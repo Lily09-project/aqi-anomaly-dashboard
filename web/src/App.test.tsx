@@ -94,6 +94,9 @@ describe("home forecast outlook", () => {
     expect(rising.closest("a")).toHaveTextContent("乙測站（+45）");
     expect(screen.getByRole("row", { name: /乙測站/ })).toHaveTextContent("—, —");
     expect(screen.queryByTestId("rising-insufficient")).toBeNull();
+    // The card keeps its 24-hour name and says how many hours are still ahead.
+    expect(screen.getByRole("heading", { name: /現在.*未來 24 小時/ })).toBeInTheDocument();
+    expect(screen.getByTestId("outlook-remaining")).toHaveTextContent("目前還剩 8 小時");
     // The hero gives judges and first-time visitors one obvious place to start.
     const start = screen.getByRole("link", { name: /的 24 小時預報開始/ });
     expect(start.getAttribute("href")).toMatch(/^#\/station\//);
@@ -106,6 +109,50 @@ describe("home forecast outlook", () => {
     render(<App loader={fakeLoader(datasets(TWO_STATIONS))} />);
     expect(await screen.findByTestId("rising-insufficient")).toHaveTextContent("未來預報不足 6 小時");
     expect(screen.getAllByText(/未來預報不足 6 小時/).length).toBeGreaterThan(1);
+  });
+});
+
+describe("two-location planner", () => {
+  const at = () => vi.useFakeTimers({ toFake: ["Date"], now: Date.parse("2026-10-20T23:30:00+08:00") });
+
+  it("lays out the page header, a chart of both forecasts and a compact window list", async () => {
+    at();
+    window.history.replaceState(null, "", "#/planner?a=%E7%94%B2%E6%B8%AC%E7%AB%99&b=%E4%B9%99%E6%B8%AC%E7%AB%99&hours=1&threshold=100");
+    render(<App loader={fakeLoader(datasets(TWO_STATIONS))} />);
+    expect(await screen.findByTestId("first-window")).toHaveTextContent("10/21 00:00–01:00");
+    expect(screen.getByRole("heading", { level: 1, name: "兩地出門規劃" })).toBeInTheDocument();
+    expect(document.querySelector(".page-head .lede")).not.toBeNull();
+    expect(screen.getByTestId("planner-summary")).toHaveTextContent("有 12 個連續 1 小時的時段");
+    expect(screen.getByTestId("planner-hourly-table").querySelectorAll("tbody tr")).toHaveLength(12);
+    const list = screen.getByTestId("planner-windows-table");
+    expect(list.querySelectorAll("tbody tr")).toHaveLength(6);
+    fireEvent.click(screen.getByRole("button", { name: "顯示全部 12 個時段" }));
+    expect(list.querySelectorAll("tbody tr")).toHaveLength(12);
+    expect(screen.getByRole("button", { name: "只顯示前 6 個" })).toHaveAttribute("aria-expanded", "true");
+    // The hourly P50 and P10–P90 of the earliest window stay one click away.
+    expect(screen.getByText("查看最早時段的逐時預測")).toBeInTheDocument();
+
+    // Control changes replace the history entry; the upper-bound rule drops the hours where 乙's P90 exceeds 100.
+    const replace = vi.spyOn(window.history, "replaceState");
+    fireEvent.change(screen.getByLabelText("判讀條件"), { target: { value: "upper" } });
+    expect(replace).toHaveBeenCalledWith(null, "", expect.stringContaining("rule=upper"));
+    expect(screen.getByTestId("planner-summary")).toHaveTextContent("有 11 個連續 1 小時的時段");
+    replace.mockRestore();
+  });
+
+  it("swaps A and B instead of comparing a location with itself, and warns about a same-location link", async () => {
+    at();
+    window.history.replaceState(null, "", "#/planner?a=%E7%94%B2%E6%B8%AC%E7%AB%99&b=%E7%94%B2%E6%B8%AC%E7%AB%99");
+    render(<App loader={fakeLoader(datasets(TWO_STATIONS))} />);
+    expect(await screen.findByTestId("same-location")).toHaveTextContent("都是「甲測站」");
+    expect(screen.queryByRole("button", { name: "下載共同時段 CSV" })).toBeNull();
+
+    window.history.replaceState(null, "", "#/planner?a=%E7%94%B2%E6%B8%AC%E7%AB%99&b=%E4%B9%99%E6%B8%AC%E7%AB%99");
+    act(() => window.dispatchEvent(new HashChangeEvent("hashchange")));
+    fireEvent.change(screen.getByLabelText("地點 A"), { target: { value: "乙測站" } });
+    expect(screen.getByLabelText("地點 A")).toHaveValue("乙測站");
+    expect(screen.getByLabelText("地點 B")).toHaveValue("甲測站");
+    expect(screen.queryByTestId("same-location")).toBeNull();
   });
 });
 

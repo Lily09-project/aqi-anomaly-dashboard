@@ -111,6 +111,7 @@ function Replay({ overview, propagation, urlFrame }: { overview: Overview; propa
               setPlaying(false);
               setFrame(Number(e.target.value));
             }}
+            aria-label="回放時間"
             aria-valuetext={formatHour(time)}
           />
         </label>
@@ -290,7 +291,7 @@ function PropagationView({ overview, propagation, frame }: { overview: Overview;
           <div className="card">
             <h3 className="links-title">所有達門檻的關係</h3>
             <ScrollRegion label="地點領先落後關係">
-              <table data-testid="links-table">
+              <table data-testid="links-table" className="links-table">
                 <thead>
                   <tr>
                     <th scope="col">較早變化 → 較晚變化</th>

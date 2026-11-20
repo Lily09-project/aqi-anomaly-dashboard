@@ -53,6 +53,16 @@ describe("axisTicks", () => {
     expect(ticks[0]).toMatchObject({ i: 0, anchor: "middle" });
     expect(ticks.at(-1)?.i).toBe(5);
   });
+
+  it("keeps a numeric sweep's ticks at equal steps", () => {
+    // 25 points from a slider sweep: the old rounding gave 0, 5, 10, 14, 19, 24.
+    const labels = Array.from({ length: 25 }, (_, i) => `${(0.1 + (9.7 * i) / 24).toFixed(1)} m/s`);
+    const ticks = axisTicks(labels, linear(25, 44, 868), 0, 880);
+    const steps = ticks.slice(1).map((t, k) => t.i - ticks[k]!.i);
+    expect(ticks[0]?.i).toBe(0);
+    expect(ticks.at(-1)?.i).toBe(24);
+    expect(new Set(steps).size).toBe(1);
+  });
 });
 
 describe("placeLabels", () => {

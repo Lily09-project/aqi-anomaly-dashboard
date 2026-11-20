@@ -45,7 +45,8 @@ test.describe("F2 機率預報與出門規劃", () => {
     await expect(page.getByRole("radio", { name: "一般民眾" })).toBeChecked();
     await page.getByLabel("切換測站").selectOption("松山測站");
     await expect(page.locator("h1")).toHaveText("松山測站");
-    expect(first).toMatch(/\d+\/\d+ \d{2}:00–\d{2}:00/);
+    // The end carries its date only when the window crosses midnight.
+    expect(first).toMatch(/^\d+\/\d+ \d{2}:00–(\d+\/\d+ )?\d{2}:00$/);
     await expectAccessible(page);
   });
 });
@@ -58,6 +59,7 @@ test.describe("F3 污染傳播追蹤", () => {
     await expect(page.getByTestId("isolated")).toContainText("宜蘭");
     await expect(page.getByTestId("isolated")).toContainText("花蓮");
 
+    await expect(page.getByRole("slider", { name: "回放時間" })).toHaveCount(1);
     const time = page.getByTestId("replay-time");
     const start = await time.innerText();
     await page.getByRole("button", { name: "下一小時" }).click();
@@ -88,7 +90,13 @@ test.describe("F4 異常歸因與相似事件", () => {
   test("filters, attribution ordering, similar events and CSV export", async ({ page }) => {
     await openRoute(page, "/anomalies");
     expect(Number((await page.getByTestId("recall").innerText()).replace("%", ""))).toBeGreaterThanOrEqual(80);
-    await page.getByRole("radio", { name: "局部" }).check();
+    // Each kind shows its count; a kind with no events cannot be picked.
+    for (const radio of await page.getByRole("radio").all()) {
+      const name = (await radio.evaluate((el) => el.parentElement?.textContent ?? "")).trim();
+      expect(name).toMatch(/（\d+）$/);
+      if (name.endsWith("（0）")) await expect(radio).toBeDisabled();
+    }
+    await page.getByRole("radio", { name: /^局部/ }).check();
     await expect(page).toHaveURL(/kind=local/);
     const items = page.getByTestId("event-list").locator("a");
     expect(await items.count()).toBeGreaterThan(0);

@@ -4,7 +4,7 @@ import { ChartFrame, ForecastBand, Legend, type LegendItem } from "../components
 import { DataTime, StaleNotice } from "../components/Freshness";
 import { EmptyState, Gate } from "../components/States";
 import { ADVICE, bestWindow, categoryOf, exceedanceProbability, futureForecast, windowRisks } from "../lib/air";
-import { addHours, formatClock, formatHour, formatNumber, formatPercent } from "../lib/format";
+import { addHours, formatHour, formatNumber, formatPercent, formatSpan } from "../lib/format";
 import { routeToHash, type Sensitivity } from "../lib/router";
 import type { Model, Overview, Provenance } from "../lib/types";
 import "./Station.css";
@@ -65,7 +65,7 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
       <>
         {best.risk >= HIGH_RISK ? "相對最低" : "建議"}{" "}
         <strong data-testid="best-window" data-window-start={windowStart.t}>
-          {formatHour(windowStart.t)}–{formatClock(addHours(windowEnd.t, 1))}
+          {formatSpan(windowStart.t, addHours(windowEnd.t, 1))}
         </strong>
         ，平均超標機率 <strong data-testid="best-risk">{formatPercent(best.risk, 1)}</strong>。
       </>
