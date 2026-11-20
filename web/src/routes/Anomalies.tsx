@@ -3,14 +3,16 @@ import { Chapter, PageHead } from "../components/Chapter";
 import { ChartFrame, DivergingBars, Legend, MultiLine, type Series } from "../components/charts";
 import { ScrollRegion } from "../components/ScrollRegion";
 import { EmptyState, Gate } from "../components/States";
-import { eventRows, filterEvents } from "../lib/analysis";
+import { eventRows, filterEvents, kindCounts } from "../lib/analysis";
 import { downloadText, toCsv } from "../lib/csv";
-import { formatHour, formatNumber, formatPercent, formatSigned } from "../lib/format";
+import { addHours, formatHour, formatNumber, formatPercent, formatSigned, formatSpan } from "../lib/format";
 import { routeToHash } from "../lib/router";
 import type { Anomalies, AnomalyEvent } from "../lib/types";
 import "./Anomalies.css";
 
 type Kind = "local" | "regional";
+/** Mirrors REGIONAL_MIN_OTHER_STATIONS in src/analytics/attribution.py. */
+const REGIONAL_MIN_OTHER_STATIONS = 2;
 const KIND_LABEL: Record<Kind, string> = { local: "局部", regional: "區域" };
 
 interface Props {
@@ -45,7 +47,7 @@ function EventDetail({ event, all, filter, windowHours }: { event: AnomalyEvent;
     <article className="card event-detail" aria-labelledby="event-title" data-testid="event-detail">
       <header className="event-detail-head">
         <span className="eyebrow">
-          {formatHour(event.start)}–{formatHour(event.end)} · {event.duration_hours} 小時
+          {formatSpan(event.start, addHours(event.end, 1))} · {event.duration_hours} 小時
         </span>
         <h2 id="event-title">
           {event.station}{" "}
@@ -55,7 +57,7 @@ function EventDetail({ event, all, filter, windowHours }: { event: AnomalyEvent;
         </h2>
         <dl className="event-facts">
           <div>
-            <dt>高峰 AQI</dt>
+            <dt>PM2.5 高峰時 AQI</dt>
             <dd>{formatNumber(event.peak_aqi)}</dd>
           </div>
           <div>
@@ -71,8 +73,8 @@ function EventDetail({ event, all, filter, windowHours }: { event: AnomalyEvent;
         </dl>
         <p className="muted small">
           {event.kind === "local"
-            ? `其他地點在高峰前後 ${windowHours} 小時內沒有異常高峰，呈現單一地點高峰；僅憑模型資料無法判斷排放來源。`
-            : `其他地點在高峰前後 ${windowHours} 小時內（最大時序落後窗口）也出現異常高峰，呈現多個地點同步高峰；不能據此判定污染來源。`}
+            ? `高峰前後 ${windowHours} 小時內，異常高峰的其他地點不到 ${REGIONAL_MIN_OTHER_STATIONS} 個，歸為局部事件；僅憑模型資料無法判斷排放來源。`
+            : `高峰前後 ${windowHours} 小時內（最大時序落後窗口）至少 ${REGIONAL_MIN_OTHER_STATIONS} 個其他地點也出現異常高峰，呈現多個地點同步高峰；不能據此判定污染來源。`}
         </p>
       </header>
 
@@ -203,6 +205,7 @@ function AnomaliesView({ data, id, station, kind }: Props & { data: Anomalies })
   for (const e of data.events) perStation.set(e.station, (perStation.get(e.station) ?? 0) + 1);
   const busiestCount = Math.max(0, ...perStation.values());
   const busiest = [...perStation].filter(([, n]) => n === busiestCount).map(([name]) => name);
+  const counts = kindCounts(filterEvents(data.events, { station }));
   const highest = data.events.reduce<AnomalyEvent | undefined>((top, e) => (!top || e.peak_aqi > top.peak_aqi ? e : top), undefined);
   const update = (patch: Props) => navigate({ name: "anomalies", id: undefined, station, kind, ...patch }, { replace: true });
 
@@ -210,7 +213,7 @@ function AnomaliesView({ data, id, station, kind }: Props & { data: Anomalies })
     <div className="stack">
       <PageHead kicker="異常偵測 · 相關因子" title="異常事件與相關因子">
         <p className="lede">
-          每個地點、每個時段各自的「正常範圍」不同。我們用中位數與 MAD 算出 PM2.5 的穩健 z 分數，超過 {data.threshold} 就標記為異常，再看其他地點有沒有在傳播延遲範圍內同時異常，區分局部與區域事件。
+          每個地點、每個時段各自的「正常範圍」不同。我們用中位數與 MAD 算出 PM2.5 的穩健 z 分數，超過 {data.threshold} 就標記為異常；高峰前後 {data.regional_window_hours} 小時內若有至少 {REGIONAL_MIN_OTHER_STATIONS} 個其他地點也異常，標為區域事件，否則為局部事件。
         </p>
       </PageHead>
 
@@ -242,9 +245,9 @@ function AnomaliesView({ data, id, station, kind }: Props & { data: Anomalies })
         takeaway={
           data.events.length > 0 && highest ? (
             <span data-testid="anomaly-takeaway">
-              資料期間共偵測到 <strong>{data.events.length}</strong> 起事件：局部 {localCount}、區域 {data.events.length - localCount}。最常出現在 <strong>{busiest.join("、")}</strong>（{busiestCount} 起）；高峰 AQI 最高的是{" "}
+              資料期間共偵測到 <strong>{data.events.length}</strong> 起事件：局部 {localCount}、區域 {data.events.length - localCount}。最常出現在 <strong>{busiest.join("、")}</strong>（{busiestCount} 起）；PM2.5 高峰時 AQI 最高的是{" "}
               <a href={routeToHash({ name: "anomalies", id: highest.id })}>
-                {highest.station} {formatHour(highest.start)}（AQI {formatNumber(highest.peak_aqi)}）
+                {highest.station} {formatHour(highest.peak)}（AQI {formatNumber(highest.peak_aqi)}）
               </a>
               。
             </span>
@@ -268,12 +271,18 @@ function AnomaliesView({ data, id, station, kind }: Props & { data: Anomalies })
           <fieldset className="segmented">
             <legend>類型</legend>
             <div className="segmented-track">
-              {([undefined, "local", "regional"] as (Kind | undefined)[]).map((k) => (
-                <label key={k ?? "all"}>
-                  <input type="radio" name="kind" checked={kind === k} onChange={() => update({ kind: k })} />
-                  <span>{k ? KIND_LABEL[k] : "全部"}</span>
-                </label>
-              ))}
+              {([undefined, "local", "regional"] as (Kind | undefined)[]).map((k) => {
+                const count = k ? counts[k] : counts.local + counts.regional;
+                return (
+                  <label key={k ?? "all"}>
+                    {/* An empty kind stays selectable only while it is the one in the URL, so the reader can see why the list is empty. */}
+                    <input type="radio" name="kind" checked={kind === k} disabled={count === 0 && kind !== k} onChange={() => update({ kind: k })} />
+                    <span>
+                      {k ? KIND_LABEL[k] : "全部"}（{count}）
+                    </span>
+                  </label>
+                );
+              })}
             </div>
           </fieldset>
           <button
@@ -282,7 +291,7 @@ function AnomaliesView({ data, id, station, kind }: Props & { data: Anomalies })
             onClick={() =>
               downloadText(
                 "anomaly-events.csv",
-                toCsv(["id", "station", "kind", "start", "end", "duration_hours", "peak_aqi", "peak_pm25", "top_driver"], eventRows(filtered)),
+                toCsv(["id", "station", "kind", "start", "end", "duration_hours", "peak_aqi", "peak_pm25", "top_driver", "end_exclusive"], eventRows(filtered)),
                 "text/csv;charset=utf-8",
               )
             }
@@ -291,6 +300,11 @@ function AnomaliesView({ data, id, station, kind }: Props & { data: Anomalies })
             下載 CSV（{filtered.length} 筆）
           </button>
         </div>
+        {counts.regional === 0 && (
+          <p className="muted small" data-testid="no-regional">
+            {station ? `${station}在` : ""}這段資料沒有區域事件：區域事件需要高峰前後 {data.regional_window_hours} 小時內至少 {REGIONAL_MIN_OTHER_STATIONS} 個其他地點也異常。
+          </p>
+        )}
       </Chapter>
 
       {filtered.length === 0 ? (

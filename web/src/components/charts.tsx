@@ -313,6 +313,8 @@ export interface Series {
   values: (number | null)[];
   /** 1–4 picks the colour and dash pattern, so series never rely on colour alone. */
   tone: 1 | 2 | 3 | 4;
+  /** A thinner stroke for secondary lines, such as an upper bound next to its median. */
+  thin?: boolean;
 }
 
 export function MultiLine({
@@ -321,6 +323,7 @@ export function MultiLine({
   format = (v) => String(v),
   marker,
   span,
+  windows = [],
   reference,
   height = 220,
   yMin,
@@ -330,6 +333,8 @@ export function MultiLine({
   format?: (v: number) => string;
   marker?: number;
   span?: [number, number];
+  /** Highlighted runs of points, as [first, last] indexes, drawn like the station page's best window. */
+  windows?: [number, number][];
   reference?: { value: number; label: string };
   height?: number;
   yMin?: number;
@@ -358,6 +363,13 @@ export function MultiLine({
           </g>
         ))}
         {span && <rect className="span" x={x(span[0])} width={Math.max(x(span[1]) - x(span[0]), 3)} y={10} height={height - 36} rx={3} />}
+        {windows.map(([first, last]) => {
+          // Pad by half an hour on each side so a single qualifying hour is still a visible band.
+          const half = labels.length > 1 ? (x(1) - x(0)) / 2 : 4;
+          const x0 = Math.max(x(first) - half, left);
+          const x1 = Math.min(x(last) + half, right);
+          return <rect key={first} className="best-window" x={x0} width={Math.max(x1 - x0, 3)} y={10} height={height - 36} rx={4} />;
+        })}
         {reference && (
           <g>
             <line className="threshold-line" x1={left} x2={right} y1={Math.round(y(reference.value)) + 0.5} y2={Math.round(y(reference.value)) + 0.5} />
@@ -369,7 +381,7 @@ export function MultiLine({
         {series.map((s) => (
           <path
             key={s.key}
-            className={`series series-${s.tone}`}
+            className={`series series-${s.tone}${s.thin ? " is-thin" : ""}`}
             d={
               line<number | null>()
                 .defined((v) => v !== null)
@@ -399,6 +411,7 @@ export interface LegendItem {
   key: string;
   label: string;
   tone?: Series["tone"];
+  thin?: boolean;
   mark?: LegendMark;
 }
 
@@ -406,7 +419,7 @@ function LegendSwatch({ item }: { item: LegendItem }) {
   if (item.mark === "band" || item.mark === "window" || item.mark === "span")
     return <rect x="1" y="1" width="26" height="10" rx="2" className={`legend-${item.mark}`} />;
   if (item.mark) return <line x1="1" x2="27" y1="6" y2="6" className={`legend-${item.mark}`} />;
-  return <line x1="1" x2="27" y1="6" y2="6" className={`series series-${item.tone ?? 1}`} />;
+  return <line x1="1" x2="27" y1="6" y2="6" className={`series series-${item.tone ?? 1}${item.thin ? " is-thin" : ""}`} />;
 }
 
 export function Legend({ series }: { series: LegendItem[] }) {

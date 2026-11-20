@@ -237,7 +237,7 @@
   stroke-linecap: round;
 }
 
-.forecast-band .best-window {
+.chart .best-window {
   fill: var(--good);
   fill-opacity: 0.1;
   stroke: var(--good);
@@ -290,6 +290,11 @@
 .series-4 {
   stroke: var(--chart-4);
   stroke-dasharray: 10 3 2 3;
+}
+
+.multi-line .series.is-thin,
+.legend line.is-thin {
+  stroke-width: 1.5;
 }
 
 .multi-line .span {

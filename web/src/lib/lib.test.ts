@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { ADVICE, bestWindow, categoryOf, DEFAULT_CATEGORIES, defaultInputs, exceedanceProbability, futureForecast, predictWhatIf, whatIfContributions, windowRisks } from "./air";
-import { coverageStatus, episodeFrame, eventRows, filterEvents, lagAgreement, peakFrames, skill, upstreamGain } from "./analysis";
+import { ADVICE, bestWindow, categoryOf, DEFAULT_CATEGORIES, defaultInputs, exceedanceProbability, futureForecast, mostInfluentialInput, predictWhatIf, whatIfContributions, windowRisks } from "./air";
+import { coverageStatus, episodeFrame, eventRows, filterEvents, kindCounts, lagAgreement, peakFrames, skill, upstreamGain } from "./analysis";
 import { escapeCell, toCsv } from "./csv";
 import { createLoader, IntegrityError, sha256Hex } from "./data";
 import whatifFixture from "./fixtures/whatif.json";
-import { addHours, formatAge, formatClock, formatDay, formatHour, formatNumber, formatPercent, formatSigned, hoursSince, taiwanLocalTimestampMs } from "./format";
+import { addHours, formatAge, formatClock, formatDay, formatHour, formatNumber, formatPercent, formatSigned, formatSpan, hoursSince, taiwanLocalIso, taiwanLocalTimestampMs } from "./format";
 import { makeProjection, outlinePath, TAIWAN_OUTLINE } from "./geo";
 import { parseRoute, routeToHash, type Route } from "./router";
 import type { AnomalyEvent, HorizonMetrics, Link, Propagation, WhatIf } from "./types";
@@ -136,6 +136,20 @@ describe("what-if model", () => {
     expect(Number.isFinite(predictWhatIf(whatif, {}))).toBe(true);
   });
 
+  it("opens the sensitivity sweep on the input that moves the prediction most", () => {
+    const inputs = defaultInputs(whatif);
+    const spread = (key: string) => {
+      const input = whatif.inputs.find((i) => i.key === key)!;
+      return Math.abs(predictWhatIf(whatif, { ...inputs, [key]: input.max }) - predictWhatIf(whatif, { ...inputs, [key]: input.min }));
+    };
+    const pick = mostInfluentialInput(whatif, inputs)!;
+    for (const input of whatif.inputs.filter((i) => i.key !== "hour")) expect(spread(pick) + 1e-9).toBeGreaterThanOrEqual(spread(input.key));
+    // A model that only listens to wind must open on wind.
+    const windOnly = { ...whatif, coefficients: whatif.feature_order.map((key) => (key === "wind_now" ? 5 : 0)) };
+    expect(mostInfluentialInput(windOnly, inputs)).toBe("wind_now");
+    expect(mostInfluentialInput({ ...whatif, inputs: [] }, inputs)).toBeUndefined();
+  });
+
   it("responds in the expected direction to the current AQI", () => {
     const base = defaultInputs(whatif);
     expect(predictWhatIf(whatif, { ...base, aqi_now: 120 })).toBeGreaterThan(predictWhatIf(whatif, { ...base, aqi_now: 40 }));
@@ -174,6 +188,14 @@ describe("analysis helpers", () => {
     const rows = eventRows([event({ kind: "regional", drivers: [] })]);
     expect(rows[0]).toMatchObject({ kind: "區域", top_driver: "" });
     expect(eventRows([event({})])[0]).toMatchObject({ kind: "局部", top_driver: "PM2.5" });
+    // `end` keeps its meaning (last anomalous hour); the exclusive end is an added column.
+    const oneHour = eventRows([event({ start: "2026-09-01T23:00", end: "2026-09-01T23:00", duration_hours: 1 })])[0];
+    expect(oneHour).toMatchObject({ start: "2026-09-01T23:00", end: "2026-09-01T23:00", end_exclusive: "2026-09-02T00:00" });
+  });
+
+  it("counts events per kind for the filter", () => {
+    expect(kindCounts([event({}), event({ kind: "regional" }), event({})])).toEqual({ local: 2, regional: 1 });
+    expect(kindCounts([])).toEqual({ local: 0, regional: 0 });
   });
 
   it("summarises forecast skill, upstream gain and calibration", () => {
@@ -250,6 +272,17 @@ describe("format", () => {
     expect(addHours("2026-10-20T23:00", 1)).toBe("2026-10-21T00:00");
     expect(addHours("2026-12-31T22:00:00", 3)).toBe("2027-01-01T01:00");
     expect(addHours("nope", 1)).toBe("nope");
+  });
+
+  it("shows the end date only when a span ends on another day", () => {
+    expect(formatSpan("2026-11-20T15:00", "2026-11-20T17:00")).toBe("11/20 15:00–17:00");
+    expect(formatSpan("2026-11-20T21:00", "2026-11-21T09:00")).toBe("11/20 21:00–11/21 09:00");
+    expect(formatSpan("2026-11-20T22:00:00+08:00", "2026-11-21T00:00")).toBe("11/20 22:00–11/21 00:00");
+  });
+
+  it("writes an instant as Taiwan clock time", () => {
+    expect(taiwanLocalIso(Date.parse("2026-11-20T16:00:00Z"))).toBe("2026-11-21T00:00");
+    expect(taiwanLocalIso(Date.parse("2026-11-20T07:00:00+08:00"))).toBe("2026-11-20T07:00");
   });
 });
 

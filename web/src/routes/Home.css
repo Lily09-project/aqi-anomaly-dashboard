@@ -69,6 +69,10 @@
   color: var(--ink-soft);
 }
 
+.outlook-remaining {
+  margin: var(--space-1) 0 0;
+}
+
 .outlook-takeaway strong {
   color: var(--accent);
 }

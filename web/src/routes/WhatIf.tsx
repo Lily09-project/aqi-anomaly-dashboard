@@ -3,7 +3,7 @@ import { useDataset, useDocumentTitle } from "../app/hooks";
 import { Chapter, PageHead } from "../components/Chapter";
 import { ChartFrame, DivergingBars, MultiLine } from "../components/charts";
 import { Gate } from "../components/States";
-import { categoryOf, defaultInputs, predictWhatIf, whatIfContributions } from "../lib/air";
+import { categoryOf, defaultInputs, mostInfluentialInput, predictWhatIf, whatIfContributions } from "../lib/air";
 import { formatNumber, formatSigned } from "../lib/format";
 import type { Overview, WhatIf } from "../lib/types";
 import "./WhatIf.css";
@@ -27,7 +27,8 @@ function stationInputs(model: WhatIf, overview: Overview, name: string): Record<
 
 function Simulator({ model, overview }: { model: WhatIf; overview: Overview }) {
   const [inputs, setInputs] = useState<Record<string, number>>(() => defaultInputs(model));
-  const [sweepKey, setSweepKey] = useState("wind_now");
+  // Open the sweep on the input that moves the prediction most, so the first chart is not a flat line.
+  const [sweepKey, setSweepKey] = useState(() => mostInfluentialInput(model, defaultInputs(model)) ?? model.inputs[0]?.key ?? "");
   const [preset, setPreset] = useState("");
   const prediction = predictWhatIf(model, inputs);
   const low = Math.max(prediction + model.residual_p10, 0);
