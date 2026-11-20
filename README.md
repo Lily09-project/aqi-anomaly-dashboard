@@ -11,6 +11,23 @@
 | --- | --- |
 | ![Taiwan Air Lab 桌面畫面](docs/screenshots/pages-desktop.png) | ![Taiwan Air Lab 手機畫面](docs/screenshots/pages-mobile.png) |
 
+## 3 分鐘 Demo 路線
+
+照順序點開即可，每個連結都直接帶好參數。資料每天更新 4 次，畫面上的數字會跟著變。
+
+1. **[兩地出門規劃（臺北 × 高雄，3 小時、AQI 100、區間上界也要達標）](https://lily09-project.github.io/aqi-anomaly-dashboard/#/planner?a=%E8%87%BA%E5%8C%97%E7%B6%B2%E6%A0%BC&b=%E9%AB%98%E9%9B%84%E7%B6%B2%E6%A0%BC&hours=3&threshold=100&rule=upper)**
+   展開逐時預測，指出 P50 與 P10–P90 區間，切換「點預測／區間上界」看結果怎麼變。重點：預報是區間而不只一個數字；區間來自分割式保形預測，並實際用在決策條件裡，只採用尚未開始的時段。
+2. **[模型監控](https://lily09-project.github.io/aqi-anomaly-dashboard/#/model)**
+   看訓練／校準／測試的時間切分、各時距 MAE 對「維持現狀」與「同時段典型值」兩個基準，以及 80% 區間的實際覆蓋率。重點：成績全部來自沒看過的測試期，並和簡單基準比；覆蓋率低於目標 5 個百分點就標「區間太窄」，網站照實顯示，不保證達到 80%。
+3. **[異常事件（局部）](https://lily09-project.github.io/aqi-anomaly-dashboard/#/anomalies?kind=local)**
+   點一起事件，看當時哪些因子一起偏離與最相似的歷史事件。重點：每個地點、每個小時各自用中位數與 MAD 算穩健 z 分數，再看高峰前後是否有至少兩個其他地點也異常，區分局部與區域事件。
+4. **[時序關聯回放](https://lily09-project.github.io/aqi-anomaly-dashboard/#/propagation?frame=24)**
+   拖動時間軸回放，對照表格中的落後相關與同時相關。重點：扣除時段基準後做 ±12 小時互相關，落後相關須高於同時相關才算「先變化」；頁面明講相關不等於傳播或因果。
+5. **[資料可信度](https://lily09-project.github.io/aqi-anomaly-dashboard/#/data)**
+   看每個資料檔逐一顯示「相符」。重點：瀏覽器用 Web Crypto 重新計算每個檔案的 SHA-256 並與 manifest 比對，另列輸入資料的 SHA-256 供追溯來源。
+
+時間夠可再看[情境模擬](https://lily09-project.github.io/aqi-anomaly-dashboard/#/whatif)：ridge 模型在瀏覽器裡推論，以 parity 案例確認與 Python 版本一致。
+
 ## 功能
 
 - **兩地出門規劃**：找出兩地點預測均符合門檻的共同時段，逐時查看預測區間，可將區間上界納入門檻並下載共同時段 CSV。
@@ -47,7 +64,28 @@
 - 這是模型估算，不是環境部測站實測或即時健康警示。正式部署以嚴格模式驗證公開來源；合成資料只用於測試與預覽。
 - Open-Meteo 免費使用限非商業用途，依 CC BY 4.0 標示 Open-Meteo 與 CAMS；使用條款見[官方說明](https://open-meteo.com/en/terms)。
 
-## 技術
+## 工程重點
+
+```mermaid
+flowchart LR
+  A["Open-Meteo Air Quality API<br/>CAMS Global 模型估算"] --> P
+  W["Open-Meteo Forecast API<br/>10 公尺風場"] --> P
+  P["Python 資料流程<br/>run_all.py --mode api --require-api<br/>來源驗證失敗即停止建置"] --> S["依時間切分<br/>訓練 70% / 校準 15% / 測試 15%"]
+  S --> M["每個時距一個 ridge 迴歸<br/>分割式保形區間 · 測試期對比基準"]
+  P --> R["異常、時序關聯、情境模擬"]
+  M --> E["匯出 JSON<br/>manifest.json（各檔 SHA-256）<br/>provenance.json（輸入 SHA-256）"]
+  R --> E
+  E --> G["GitHub Pages 工作流程<br/>每天 4 次排程與 main 推送<br/>建置 → 體積預算 → 正式資料 E2E → 部署 → 線上煙霧測試"]
+  G --> B["瀏覽器<br/>Web Crypto 重算 SHA-256 並比對 manifest"]
+  C["CI 關卡（PR 與 main）<br/>pytest 分析覆蓋率 ≥ 90%、匯出可重現<br/>typecheck、lint、vitest 覆蓋率、E2E 與無障礙<br/>gitleaks、bandit、ruff、pip-audit、npm audit"] -.-> G
+```
+
+- **不回退、不造假**：正式建置以 `--require-api` 執行，公開來源失敗就停止，不讀舊 CSV、不改用合成資料；合成 fixture 只用於測試與 PR 預覽。
+- **嚴守時間邊界**：前處理只向前填補最多 3 小時，不借用未來值；標準化參數、氣候值與預報用的上游關係都只由訓練期決定，並有測試確認改動未來資料不影響訓練結果。
+- **區間誠實而非好看**：P50 是 ridge 點預測，不加校準期偏差位移；P10／P90 用校準期絕對殘差的保形分位數。作法以滾動重切比較後選定（見[方法說明](docs/METHODS.md#區間作法的選擇)），覆蓋率每次建置重新計算，未達目標就照實標示。
+- **一定要贏過簡單基準**：各時距 MAE 和持續性、訓練期氣候值兩個基準在同一批測試樣本上比較，輸給基準的時距也照列。
+- **資料與部署可驗證**：每個匯出檔的 SHA-256 寫進 manifest，瀏覽器載入時逐一比對；部署後再比對線上 `deployment.json` 記錄的原始碼版本，以及 index.html、JS、CSS 的雜湊。
+- **Python 與瀏覽器一致**：出門規劃與情境模擬在瀏覽器端計算，以 parity 案例比對 Python 實作的結果。
 
 Python 資料流程、React、TypeScript 與 Vite，GitHub Pages 提供靜態展示。介面是「天氣 App × 實驗筆記」：首頁先看現在到未來 24 小時，分析頁以編號章節呈現（一句由資料算出的重點、圖表、「怎麼讀」說明）。導覽依寬度切換：1200px 以上為左側目錄欄，641–1199px 為頂部導覽列，手機為底部分頁列。設計原則見 [DESIGN.md](DESIGN.md)，方法與限制見[方法說明](docs/METHODS.md)。
 
