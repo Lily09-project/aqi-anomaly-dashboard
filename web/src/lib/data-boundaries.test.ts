@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createLoader, sha256Hex } from "./data";
 
 const body = '{"items":[]}';
@@ -74,4 +74,13 @@ it("does not return a new file alongside cached files from an older deployment",
   await expect(loader.load("overview.json")).rejects.toThrow("網站資料已更新");
   await expect(loader.manifest()).rejects.toThrow("網站資料已更新");
   expect(loader.verifiedFiles()).toEqual([]);
+});
+
+describe("web crypto availability", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("explains the secure-context requirement instead of a raw TypeError", async () => {
+    vi.stubGlobal("crypto", {});
+    await expect(sha256Hex(new TextEncoder().encode(body).buffer as ArrayBuffer)).rejects.toThrow("https 或 localhost");
+  });
 });

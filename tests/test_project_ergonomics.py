@@ -87,3 +87,36 @@ def test_pages_publishes_only_the_built_web_app() -> None:
     workflow = (ROOT / ".github" / "workflows" / "pages.yml").read_text(encoding="utf-8")
     assert "path: web/dist" in workflow
     assert "smoke:" in workflow
+
+
+def _workflow_files() -> list[Path]:
+    return sorted((ROOT / ".github" / "workflows").glob("*.yml"))
+
+
+def test_every_workflow_action_is_pinned_to_a_full_commit_sha() -> None:
+    """SECURITY.md promises immutable action revisions; a tag like @v4 can be moved by its owner."""
+    import re
+
+    uses = re.compile(r"^\s*-?\s*uses:\s*(\S+)", re.MULTILINE)
+    unpinned: list[str] = []
+    for workflow in _workflow_files():
+        for reference in uses.findall(workflow.read_text(encoding="utf-8")):
+            if reference.startswith("./"):
+                continue
+            if not re.fullmatch(r"[\w.-]+/[\w./-]+@[0-9a-f]{40}", reference):
+                unpinned.append(f"{workflow.name}: {reference}")
+    assert not unpinned, unpinned
+
+
+def test_workflows_default_to_read_only_token_and_only_deploy_can_write_pages() -> None:
+    """SECURITY.md promises read-only repository permissions."""
+    import re
+
+    for workflow in _workflow_files():
+        text = workflow.read_text(encoding="utf-8")
+        top_level = re.search(r"^permissions:[ \t]*\r?\n((?:[ \t]+\S.*\r?\n)+)", text, re.MULTILINE)
+        assert top_level, f"{workflow.name} must declare top-level permissions"
+        assert top_level.group(1).split() == ["contents:", "read"], workflow.name
+        assert "write-all" not in text and "permissions: write" not in text, workflow.name
+        for write in re.findall(r"^\s+(\w[\w-]*):\s*write\s*$", text, re.MULTILINE):
+            assert workflow.name == "pages.yml" and write in {"pages", "id-token"}, f"{workflow.name}: {write}: write"

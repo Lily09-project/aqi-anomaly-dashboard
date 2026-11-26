@@ -30,9 +30,12 @@ function Simulator({ model, overview }: { model: WhatIf; overview: Overview }) {
   // Open the sweep on the input that moves the prediction most, so the first chart is not a flat line.
   const [sweepKey, setSweepKey] = useState(() => mostInfluentialInput(model, defaultInputs(model)) ?? model.inputs[0]?.key ?? "");
   const [preset, setPreset] = useState("");
-  const prediction = predictWhatIf(model, inputs);
-  const low = Math.max(prediction + model.residual_p10, 0);
-  const high = Math.max(prediction + model.residual_p90, 0);
+  const modelValue = predictWhatIf(model, inputs);
+  // The linear model can leave the AQI scale at extreme slider combinations; the page shows 0 there (the
+  // unclamped value is what the Python parity cases compare, so only the display is clamped).
+  const prediction = Math.max(modelValue, 0);
+  const low = Math.max(modelValue + model.residual_p10, 0);
+  const high = Math.max(modelValue + model.residual_p90, 0);
   const labels = Object.fromEntries(model.inputs.map((i) => [i.key, i.label]));
   const contributions = whatIfContributions(model, inputs);
   // Largest push in each direction, for a one-line reading of the bar chart.
@@ -129,8 +132,11 @@ function Simulator({ model, overview }: { model: WhatIf; overview: Overview }) {
       </section>
 
       <div className="whatif-output">
-        <section className="whatif-result" aria-live="polite" aria-labelledby="result-title" data-category={resultCategory?.key ?? "none"}>
+        <section className="whatif-result" aria-labelledby="result-title" data-category={resultCategory?.key ?? "none"}>
           <h2 id="result-title">下一小時 AQI 預測</h2>
+          <p className="visually-hidden" role="status">
+            預測 {formatNumber(prediction)}，{resultCategory?.label ?? "無資料"}，80% 預測區間 {formatNumber(low)} 到 {formatNumber(high)}
+          </p>
           <p className="aqi-big" data-testid="whatif-prediction">
             {formatNumber(prediction)}
           </p>
@@ -166,7 +172,6 @@ function Simulator({ model, overview }: { model: WhatIf; overview: Overview }) {
               "目前每個條件都接近訓練資料的平均狀態，沒有明顯推高或拉低預測的條件。"
             )
           }
-          liveTakeaway
         >
           <ChartFrame
             title="各條件相對平均情況的貢獻（AQI）"
