@@ -237,7 +237,8 @@ th.num {
 }
 
 /* Analysis page header: kicker, title, one-paragraph brief. */
-.page-head {
+.page-head,
+.station-head {
   position: relative;
   display: grid;
   gap: var(--space-3);
@@ -251,7 +252,8 @@ th.num {
   overflow: hidden;
 }
 
-.page-head::before {
+.page-head::before,
+.station-head::before {
   content: "";
   position: absolute;
   inset: 0 auto 0 0;
@@ -259,13 +261,15 @@ th.num {
   background: linear-gradient(180deg, var(--mint-bright), var(--accent));
 }
 
-.page-head h1 {
+.page-head h1,
+.station-head h1 {
   font-size: clamp(1.75rem, 1.4rem + 1.6vw, 2.5rem);
   text-wrap: balance;
 }
 
 @media (max-width: 640px) {
-  .page-head {
+  .page-head,
+  .station-head {
     padding: var(--space-5) var(--space-4) var(--space-4);
     border-radius: var(--radius-card);
   }
