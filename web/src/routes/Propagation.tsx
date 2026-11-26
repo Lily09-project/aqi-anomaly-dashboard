@@ -87,7 +87,6 @@ function Replay({ overview, propagation, urlFrame }: { overview: Overview; propa
               setPlaying(true);
             }
           }}
-          aria-pressed={isPlaying}
         >
           {isPlaying ? "暫停" : "播放"}
         </button>

@@ -5,6 +5,7 @@ import { DataTime, StaleNotice } from "../components/Freshness";
 import { EmptyState, Gate } from "../components/States";
 import { ADVICE, bestWindow, categoryOf, exceedanceProbability, futureForecast, windowRisks } from "../lib/air";
 import { addHours, formatHour, formatNumber, formatPercent, formatSpan } from "../lib/format";
+import { requestFocusAfterRoute } from "../lib/focus";
 import { routeToHash, type Sensitivity } from "../lib/router";
 import type { Model, Overview, Provenance } from "../lib/types";
 import "./Station.css";
@@ -86,9 +87,13 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
         <label className="field station-switch">
           <span className="label">切換{locationLabel}</span>
           <select
+            id="station-switch"
             className="input"
             value={station.station}
-            onChange={(e) => navigate({ name: "station", station: e.target.value, sensitivity, hours })}
+            onChange={(e) => {
+              requestFocusAfterRoute("station-switch");
+              navigate({ name: "station", station: e.target.value, sensitivity, hours });
+            }}
           >
             {overview.stations.map((s) => (
               <option key={s.station} value={s.station}>
@@ -164,7 +169,8 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
           <label className="field">
             <span className="label">活動時長</span>
             <select className="input" value={hours} onChange={(e) => update({ hours: Number(e.target.value) })}>
-              {DURATIONS.map((d) => (
+              {/* The URL accepts any whole hour from 1 to 12; list the current one even when it is not a preset. */}
+              {(DURATIONS.includes(hours) ? DURATIONS : [...DURATIONS, hours].sort((x, y) => x - y)).map((d) => (
                 <option key={d} value={d}>
                   {d} 小時
                 </option>

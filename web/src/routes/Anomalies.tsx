@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useDataset, useDocumentTitle, useRoute } from "../app/hooks";
 import { Chapter, PageHead } from "../components/Chapter";
 import { ChartFrame, DivergingBars, Legend, MultiLine, type Series } from "../components/charts";
@@ -44,7 +45,7 @@ function EventDetail({ event, all, filter, windowHours }: { event: AnomalyEvent;
   const top = event.drivers[0];
   const closest = event.similar[0] ? all.get(event.similar[0].event_id) : undefined;
   return (
-    <article className="card event-detail" aria-labelledby="event-title" data-testid="event-detail">
+    <article id="event-detail" className="card event-detail" aria-labelledby="event-title" tabIndex={-1} data-testid="event-detail">
       <header className="event-detail-head">
         <span className="eyebrow">
           {formatSpan(event.start, addHours(event.end, 1))} · {event.duration_hours} 小時
@@ -198,6 +199,14 @@ function AnomaliesView({ data, id, station, kind }: Props & { data: Anomalies })
   const filtered = filterEvents(data.events, { station, kind });
   const all = new Map(data.events.map((e) => [e.id, e]));
   const selected = (id && filtered.find((e) => e.id === id)) || (id && all.get(id)) || filtered[0];
+  // Picking an event from the list changes only the hash, so the route-change focus reset does not run. When the
+  // list and the detail are stacked (phones) the detail would change out of sight, so move to it ourselves.
+  const pickedFromList = useRef(false);
+  useEffect(() => {
+    if (!pickedFromList.current) return;
+    pickedFromList.current = false;
+    document.getElementById("event-detail")?.focus();
+  }, [selected?.id]);
   const stations = [...new Set(data.events.map((e) => e.station))].sort((a, b) => a.localeCompare(b, "zh-Hant"));
   const v = data.validation;
   const localCount = data.events.filter((e) => e.kind === "local").length;
@@ -324,6 +333,7 @@ function AnomaliesView({ data, id, station, kind }: Props & { data: Anomalies })
                       className="event-item"
                       href={routeToHash({ name: "anomalies", id: e.id, station, kind })}
                       aria-current={selected?.id === e.id ? "true" : undefined}
+                      onClick={() => { pickedFromList.current = true; }}
                     >
                       <span className="event-item-head">
                         <strong>{e.station}</strong>

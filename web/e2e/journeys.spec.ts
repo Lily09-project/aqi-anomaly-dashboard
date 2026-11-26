@@ -66,7 +66,7 @@ test.describe("F3 污染傳播追蹤", () => {
     await expect(page).toHaveURL(/frame=1/);
     expect(await time.innerText()).not.toBe(start);
     await page.getByRole("button", { name: "播放" }).click();
-    await expect(page.getByRole("button", { name: "暫停" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "暫停" })).toBeVisible();
     await page.waitForTimeout(1000);
     await page.getByRole("button", { name: "暫停" }).click();
     const paused = await time.innerText();

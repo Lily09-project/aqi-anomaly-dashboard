@@ -59,6 +59,8 @@ function parseManifest(bytes: ArrayBuffer): Manifest {
 }
 
 export async function sha256Hex(bytes: ArrayBuffer): Promise<string> {
+  // crypto.subtle only exists in secure contexts (https or localhost); say so instead of a raw TypeError.
+  if (!globalThis.crypto?.subtle) throw new Error("此瀏覽器環境無法驗證資料完整性：請以 https 或 localhost 開啟網站。");
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
