@@ -86,6 +86,10 @@ flowchart LR
 - **一定要贏過簡單基準**：各時距 MAE 和持續性、訓練期氣候值兩個基準在同一批測試樣本上比較，輸給基準的時距也照列。
 - **資料與部署可驗證**：每個匯出檔的 SHA-256 寫進 manifest，瀏覽器載入時逐一比對；部署後再比對線上 `deployment.json` 記錄的原始碼版本，以及 index.html、JS、CSS 的雜湊。
 - **Python 與瀏覽器一致**：出門規劃與情境模擬在瀏覽器端計算，以 parity 案例比對 Python 實作的結果。
+- **慢手機也先看到東西**：`index.html` 內建靜態的載入畫面（品牌加載入中骨架），CSS 一到就繪製，不必等 JavaScript 下載完。模擬手機（CPU 慢 4 倍、1.6 Mbps、延遲 150 ms）的對照測試中，首次繪製從約 2.6 秒降到約 1.0 秒，版面位移維持 0；這是模擬條件，實機會有出入。
+- **出問題時說人話**：每個資料檔最多等 20 秒，逾時會明說；網站每天部署 4 次，開著舊分頁的人切換頁面時會看到「網站剛更新過，請重新載入」，不會看到英文技術訊息。
+- **鍵盤與讀屏友善**：切換地點後焦點留在切換器；在手機上點異常事件時，焦點會移到下方的詳情；情境模擬拖動滑桿時只朗讀預測結果，不重複朗讀整個面板。E2E 以 axe 檢查 WCAG 2.2 AA 規則，嚴重與重大違規必須為 0。
+- **main 受保護**：只能經 pull request 合併，且須通過 9 項必要檢查（Python 與網站測試、真實資料整合、相依套件與密鑰掃描、Windows 啟動器、建置），不允許刪除或強制覆寫。
 
 Python 資料流程、React、TypeScript 與 Vite，GitHub Pages 提供靜態展示。介面是「天氣 App × 實驗筆記」：首頁先看現在到未來 24 小時，分析頁以編號章節呈現（一句由資料算出的重點、圖表、「怎麼讀」說明）。導覽依寬度切換：1200px 以上為左側目錄欄，641–1199px 為頂部導覽列，手機為底部分頁列。設計原則見 [DESIGN.md](DESIGN.md)，方法與限制見[方法說明](docs/METHODS.md)。
 
@@ -99,4 +103,25 @@ python run_all.py --mode sample
 cd web && npm ci && npm run dev
 ```
 
-公開模型資料使用 `python run_all.py --mode api --require-api`。測試與部署說明見[資料契約](docs/data-contract.md)、[GitHub Pages](docs/GITHUB_PAGES.md)及[部署指南](docs/deployment.md)。
+公開模型資料使用 `python run_all.py --mode api --require-api`。
+
+### 一次跑完所有關卡
+
+```bash
+run_project.bat --validate
+```
+
+Windows 上的單一指令：用範例資料跑完整資料流程，接著 pytest、bandit、ruff、pip-audit，以及網站的 typecheck、lint、vitest 覆蓋率、建置與體積預算，最後不啟動網站。不帶參數則建置後在 `http://127.0.0.1:4173` 開啟預覽。
+
+### 網站測試
+
+```bash
+cd web
+npm run typecheck && npm run lint && npm run coverage   # 型別、lint、單元測試
+npm run build && npm run size                           # 建置與體積預算（首屏 JS ≤ 200 KB gzip）
+npm run e2e                                             # Playwright：功能、版面與無障礙（需先 build）
+```
+
+E2E 在桌面（淺色與深色偏好）、平板與手機四種設定下執行。本機用範例資料時，`production-data.spec.ts` 會失敗，這是預期的：它要求真實的 Open-Meteo 資料，由 CI 以公開 API 資料執行。
+
+測試與部署說明見[資料契約](docs/data-contract.md)、[GitHub Pages](docs/GITHUB_PAGES.md)及[部署指南](docs/deployment.md)。
