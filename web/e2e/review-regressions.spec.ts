@@ -18,12 +18,17 @@ test.describe("review regressions", () => {
   test("switching the station keeps keyboard focus on the switcher", async ({ page }) => {
     const overview = await fetchJson<Overview>(page, "overview.json");
     test.skip(overview.stations.length < 2, "needs at least two locations");
+    // Browsers pause animation frames in background tabs; focus must not depend on them.
+    await page.addInitScript(() => { window.requestAnimationFrame = () => 0; });
     const [first, second] = overview.stations.map((s) => s.station) as [string, string];
     await openRoute(page, `/station/${encodeURIComponent(first)}`);
     const switcher = page.getByLabel(/切換/).first();
     await switcher.focus();
-    await switcher.selectOption(second);
-    await expect(page.locator("h1")).toHaveText(second);
+    // Real keyboard input: programmatic selectOption does not behave like a person using the arrow keys.
+    const options = await switcher.locator("option").allInnerTexts();
+    const step = options.indexOf(second) > options.indexOf(first) ? "ArrowDown" : "ArrowUp";
+    await page.keyboard.press(step);
+    await expect(page.locator("h1")).toHaveText(options[options.indexOf(first) + (step === "ArrowDown" ? 1 : -1)]!);
     await expect(page.locator("#station-switch")).toBeFocused();
   });
 
