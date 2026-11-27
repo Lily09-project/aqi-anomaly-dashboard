@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createLoader, sha256Hex } from "./data";
+import { createLoader, FETCH_TIMEOUT_MS, sha256Hex } from "./data";
 
 const body = '{"items":[]}';
 const respond = (value: string) => new Response(new TextEncoder().encode(value));
@@ -82,5 +82,35 @@ describe("web crypto availability", () => {
   it("explains the secure-context requirement instead of a raw TypeError", async () => {
     vi.stubGlobal("crypto", {});
     await expect(sha256Hex(new TextEncoder().encode(body).buffer as ArrayBuffer)).rejects.toThrow("https 或 localhost");
+  });
+});
+
+describe("stalled connections", () => {
+  afterEach(() => vi.useRealTimers());
+
+  const abortable = (signal: AbortSignal | null | undefined) =>
+    new Promise<never>((_, reject) => signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError"))));
+
+  it("gives up with a readable message when the server never answers", async () => {
+    vi.useFakeTimers();
+    const loader = createLoader("./", (_url, init) => abortable(init?.signal));
+    const result = loader.load("overview.json").then(() => "loaded", (e: Error) => e.message);
+    await vi.advanceTimersByTimeAsync(FETCH_TIMEOUT_MS + 1);
+    expect(await result).toMatch(/逾時.*20 秒/);
+  });
+
+  it("also times out when the body stalls after the headers arrived", async () => {
+    vi.useFakeTimers();
+    const loader = createLoader("./", (_url, init) =>
+      Promise.resolve({ ok: true, status: 200, arrayBuffer: () => abortable(init?.signal) } as unknown as Response),
+    );
+    const result = loader.load("overview.json").then(() => "loaded", (e: Error) => e.message);
+    await vi.advanceTimersByTimeAsync(FETCH_TIMEOUT_MS + 1);
+    expect(await result).toMatch(/逾時/);
+  });
+
+  it("does not report a timeout for an ordinary network failure", async () => {
+    const loader = createLoader("./", () => Promise.reject(new TypeError("Failed to fetch")));
+    await expect(loader.load("overview.json")).rejects.toThrow("網路連線失敗");
   });
 });

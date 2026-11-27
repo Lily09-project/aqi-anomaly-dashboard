@@ -17,12 +17,22 @@ export function Loading({ label = "資料載入中" }: { label?: string }) {
   );
 }
 
+/**
+ * A tab opened before a redeploy asks for a page chunk that no longer exists; browsers report that in English with
+ * the file URL. The site ships four times a day, so say what happened and what to do instead.
+ */
+const STALE_CHUNK = /dynamically imported module|importing a module script failed|error loading dynamically/i;
+
+export function describeError(error: Error): string {
+  return STALE_CHUNK.test(error.message) ? "網站剛更新過，這個頁面需要的檔案已換成新版。請重新載入頁面。" : error.message;
+}
+
 export function ErrorState({ error }: { error: Error }) {
   return (
     <div className="state state-error" role="alert">
       <span className="state-icon" aria-hidden="true">!</span>
       <strong className="state-title">無法顯示這個頁面</strong>
-      <p>{error.message}</p>
+      <p>{describeError(error)}</p>
       <button className="btn" type="button" onClick={() => window.location.reload()}>重新載入頁面</button>
     </div>
   );

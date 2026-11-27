@@ -9,6 +9,10 @@ import type { DataFiles, Manifest } from "./types";
 
 export const DATA_SCHEMA_VERSION = "2.0";
 
+/** Give up on one data file after this long; the files are a few KB to ~100 KB. */
+export const FETCH_TIMEOUT_MS = 20_000;
+const timeoutMessage = (name: string) => `載入 ${name} 逾時（超過 ${FETCH_TIMEOUT_MS / 1000} 秒），請檢查網路連線後重新整理。`;
+
 export class IntegrityError extends Error {
   constructor(public readonly file: string) {
     super(`資料完整性檢查失敗：${file}`);
@@ -82,15 +86,27 @@ export function createLoader(baseUrl: string, fetcher: Fetcher = (url, init) => 
   };
 
   const getBytes = async (name: string, init?: RequestInit): Promise<ArrayBuffer> => {
-    let response: Response;
+    // A stalled connection would otherwise leave the "loading" state up forever. The timer covers the headers and
+    // the body, because a response can also stall halfway through.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
-      response = await fetcher(`${baseUrl}data/${name}`, init);
-    } catch {
-      // Browsers reject with an English, engine-specific message ("Failed to fetch").
-      throw new Error(`無法載入 ${name}（網路連線失敗）`);
+      let response: Response;
+      try {
+        response = await fetcher(`${baseUrl}data/${name}`, { ...init, signal: controller.signal });
+      } catch {
+        // Browsers reject with an English, engine-specific message ("Failed to fetch").
+        throw new Error(controller.signal.aborted ? timeoutMessage(name) : `無法載入 ${name}（網路連線失敗）`);
+      }
+      if (!response.ok) throw new Error(`無法載入 ${name}（HTTP ${response.status}）`);
+      try {
+        return await response.arrayBuffer();
+      } catch {
+        throw new Error(controller.signal.aborted ? timeoutMessage(name) : `無法載入 ${name}（網路連線中斷）`);
+      }
+    } finally {
+      clearTimeout(timer);
     }
-    if (!response.ok) throw new Error(`無法載入 ${name}（HTTP ${response.status}）`);
-    return response.arrayBuffer();
   };
 
   const fetchManifest = (init?: RequestInit) => {
