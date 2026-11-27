@@ -237,6 +237,15 @@ th.num {
 }
 
 /* Analysis page header: kicker, title, one-paragraph brief. */
+/* Static first paint from index.html; React replaces it on mount. */
+.boot {
+  display: grid;
+  gap: var(--space-5);
+  max-width: var(--content);
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-4);
+}
+
 .page-head,
 .station-head {
   position: relative;
