@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useDataset, useDocumentTitle, useNow, useRoute } from "../app/hooks";
 import { Chapter } from "../components/Chapter";
 import { ChartFrame, ForecastBand, Legend, type LegendItem } from "../components/charts";
@@ -5,7 +6,7 @@ import { DataTime, StaleNotice } from "../components/Freshness";
 import { EmptyState, Gate } from "../components/States";
 import { ADVICE, bestWindow, categoryOf, exceedanceProbability, futureForecast, windowRisks } from "../lib/air";
 import { addHours, formatHour, formatNumber, formatPercent, formatSpan } from "../lib/format";
-import { requestFocusAfterRoute } from "../lib/focus";
+import { claimFocusRequest, requestFocusAfterRoute } from "../lib/focus";
 import { routeToHash, type Sensitivity } from "../lib/router";
 import type { Model, Overview, Provenance } from "../lib/types";
 import "./Station.css";
@@ -27,6 +28,10 @@ function StationView({ overview, model, provenance, station: name, sensitivity, 
   const nowMs = useNow();
   const station = overview.stations.find((s) => s.station === name);
   const locationLabel = provenance.is_model_estimate ? "模型格點" : "測站";
+  // The page remounts per station, so a station switch lands here: give focus back to the switcher the user used.
+  useEffect(() => {
+    if (claimFocusRequest("station-switch")) document.getElementById("station-switch")?.focus({ preventScroll: true });
+  }, []);
   if (!station) {
     return (
       <EmptyState title={"找不到這個" + locationLabel} asPageTitle>

@@ -3,7 +3,7 @@ import { LoaderContext, useDocumentTitle, useRoute } from "./app/hooks";
 import { Shell } from "./components/Shell";
 import { EmptyState, ErrorState, Loading } from "./components/States";
 import { createLoader, DeploymentChangedError, type Loader } from "./lib/data";
-import { focusWhenAvailable, takeFocusRequest } from "./lib/focus";
+import { focusRequestHandlesRouteChange } from "./lib/focus";
 import { routeDatasets, routeToHash, type Route } from "./lib/router";
 import Home from "./routes/Home";
 
@@ -97,11 +97,8 @@ export default function App({ loader }: { loader?: Loader }) {
     if (previousKey.current === key) return;
     previousKey.current = key;
     window.scrollTo({ top: 0 });
-    const focusMain = () => document.getElementById("main")?.focus({ preventScroll: true });
-    // A control on the page (the station switcher) may ask to keep focus after the route changes.
-    const requested = takeFocusRequest();
-    if (requested) focusWhenAvailable(requested, focusMain);
-    else focusMain();
+    // A control on the page (the station switcher) may keep focus itself once the new page has mounted.
+    if (!focusRequestHandlesRouteChange()) document.getElementById("main")?.focus({ preventScroll: true });
   }, [key]);
 
   return (

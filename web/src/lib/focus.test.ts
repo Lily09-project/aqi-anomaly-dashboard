@@ -1,48 +1,43 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { focusWhenAvailable, requestFocusAfterRoute, takeFocusRequest } from "./focus";
+import { claimFocusRequest, focusRequestHandlesRouteChange, requestFocusAfterRoute } from "./focus";
 
 afterEach(() => {
   vi.useRealTimers();
-  document.body.innerHTML = "";
-  takeFocusRequest();
+  // Reset module state between tests.
+  claimFocusRequest("station-switch");
+  focusRequestHandlesRouteChange();
 });
 
 describe("focus request", () => {
-  it("is handed out exactly once", () => {
+  it("is claimed exactly once, and only by the control that asked", () => {
     requestFocusAfterRoute("station-switch");
-    expect(takeFocusRequest()).toBe("station-switch");
-    expect(takeFocusRequest()).toBeNull();
+    expect(claimFocusRequest("something-else")).toBe(false);
+    expect(claimFocusRequest("station-switch")).toBe(true);
+    expect(claimFocusRequest("station-switch")).toBe(false);
+  });
+
+  it("tells App to leave <main> alone while the request waits for its page", () => {
+    requestFocusAfterRoute("station-switch");
+    expect(focusRequestHandlesRouteChange()).toBe(true);
+    expect(focusRequestHandlesRouteChange()).toBe(true); // still waiting: the page has not mounted yet
+  });
+
+  it("tells App to leave <main> alone when the page claimed focus before App's effect ran, for one route change only", () => {
+    requestFocusAfterRoute("station-switch");
+    claimFocusRequest("station-switch"); // child effects run before the parent's
+    expect(focusRequestHandlesRouteChange()).toBe(true);
+    expect(focusRequestHandlesRouteChange()).toBe(false);
+  });
+
+  it("lets App reset focus to <main> when nothing was requested", () => {
+    expect(focusRequestHandlesRouteChange()).toBe(false);
   });
 
   it("expires when the navigation never happens", () => {
     vi.useFakeTimers();
     requestFocusAfterRoute("station-switch");
     vi.advanceTimersByTime(3001);
-    expect(takeFocusRequest()).toBeNull();
-  });
-});
-
-describe("focusWhenAvailable", () => {
-  it("focuses an element that already exists", () => {
-    document.body.innerHTML = '<select id="station-switch"></select>';
-    const fallback = vi.fn();
-    focusWhenAvailable("station-switch", fallback);
-    expect(document.activeElement?.id).toBe("station-switch");
-    expect(fallback).not.toHaveBeenCalled();
-  });
-
-  it("waits for an element that appears a few frames later", async () => {
-    const fallback = vi.fn();
-    focusWhenAvailable("late", fallback);
-    setTimeout(() => { document.body.innerHTML = '<select id="late"></select>'; }, 40);
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    expect(document.activeElement?.id).toBe("late");
-    expect(fallback).not.toHaveBeenCalled();
-  });
-
-  it("uses the fallback when the element never appears", () => {
-    const fallback = vi.fn();
-    focusWhenAvailable("missing", fallback, 0);
-    expect(fallback).toHaveBeenCalledTimes(1);
+    expect(claimFocusRequest("station-switch")).toBe(false);
+    expect(focusRequestHandlesRouteChange()).toBe(false);
   });
 });
