@@ -20,6 +20,7 @@
          preload of a file the opened route never reads makes Chrome log an unused-preload warning. -->
     <link rel="preload" href="./data/manifest.json" as="fetch" crossorigin />
     <link rel="preload" href="./data/provenance.json" as="fetch" crossorigin />
+    <noscript><style>.boot { display: none !important; }</style></noscript>
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Taiwan Air Lab" />
     <meta property="og:locale" content="zh_TW" />
@@ -39,7 +40,20 @@
   </head>
   <body>
     <noscript>這個網站需要啟用 JavaScript 才能執行預報與情境模擬。</noscript>
-    <div id="root"></div>
+    <!-- Static first paint: shown as soon as the stylesheet arrives and replaced when React mounts (createRoot clears
+         #root), so a slow phone sees the brand and a loading state instead of a blank page while the script downloads. -->
+    <div id="root">
+      <div class="boot" role="status" aria-live="polite">
+        <span class="brand">
+          <span class="brand-mark" aria-hidden="true">AIR</span>
+          <span class="brand-text"><strong>Taiwan Air Lab</strong><span>台灣空氣實驗室</span></span>
+        </span>
+        <div class="state state-loading">
+          <span class="state-loading-label"><span class="spinner" aria-hidden="true"></span>空品資料載入中…</span>
+          <span class="skeleton" aria-hidden="true"><span></span><span></span><span></span></span>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
