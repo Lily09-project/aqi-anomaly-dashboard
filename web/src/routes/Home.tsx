@@ -3,6 +3,8 @@ import { useDataset, useDocumentTitle, useNow } from "../app/hooks";
 import { AqiChip, ScaleLegend } from "../components/Aqi";
 import { ChartFrame, TaiwanMap } from "../components/charts";
 import { DataTime, StaleNotice } from "../components/Freshness";
+import { Icon } from "../components/Icon";
+import { PAGE_ICON } from "../components/pageIcons";
 import { Gate } from "../components/States";
 import { categoryOf, futureForecast } from "../lib/air";
 import { formatClock, formatHour, formatNumber, formatSigned } from "../lib/format";
@@ -244,8 +246,12 @@ function Dashboard({ overview, propagation, provenance }: { overview: Overview; 
             <a className="btn btn-primary" href={routeToHash({ name: "station", station: worst.station })}>
               從{shortName(worst.station)}的 24 小時預報開始 →
             </a>
-            <a className="btn" href={routeToHash({ name: "planner" })}>比較兩地時段</a>
+            <a className="btn" href={routeToHash({ name: "planner" })}>
+              <Icon name="route" size={16} />
+              比較兩地時段
+            </a>
             <a className="btn" href={routeToHash({ name: "anomalies" })}>
+              <Icon name="activity" size={16} />
               看異常事件
             </a>
           </div>
@@ -258,8 +264,12 @@ function Dashboard({ overview, propagation, provenance }: { overview: Overview; 
 
       <section className="insights" aria-label="重點">
         {worst && (
-          <a className="card insight" href={routeToHash({ name: "station", station: worst.station })}>
-            <span className="stat-label">目前最高</span>
+          <a
+            className="card insight"
+            href={routeToHash({ name: "station", station: worst.station })}
+            data-category={categoryOf(worst.aqi, overview.categories)?.key ?? "none"}
+          >
+            <span className="stat-label"><Icon name="peak" size={15} />目前最高</span>
             <strong className="insight-title">{worst.station}</strong>
             <AqiChip value={worst.aqi} categories={overview.categories} />
             <span className="insight-more small">查看 24 小時機率預報與出門時段 →</span>
@@ -267,7 +277,7 @@ function Dashboard({ overview, propagation, provenance }: { overview: Overview; 
         )}
         {worst && upstream && (
           <a className="card insight" href={routeToHash({ name: "propagation" })} data-testid="upstream-insight">
-            <span className="stat-label">上游訊號</span>
+            <span className="stat-label"><Icon name="signal" size={15} />上游訊號</span>
             <strong className="insight-title">
               {shortName(worst.station)} 通常落後 {shortName(upstream.upstream)} 約 {upstream.lag_hours} 小時
             </strong>
@@ -278,8 +288,12 @@ function Dashboard({ overview, propagation, provenance }: { overview: Overview; 
           </a>
         )}
         {rising ? (
-          <a className="card insight" href={routeToHash({ name: "station", station: rising.station.station })}>
-            <span className="stat-label">未來 6 小時預估上升最多</span>
+          <a
+            className="card insight"
+            href={routeToHash({ name: "station", station: rising.station.station })}
+            data-category={categoryOf(rising.median, overview.categories)?.key ?? "none"}
+          >
+            <span className="stat-label"><Icon name="trend" size={15} />未來 6 小時預估上升最多</span>
             <strong className="insight-title">
               {rising.station.station}（{formatSigned(rising.rise, 0)}）
             </strong>
@@ -290,7 +304,7 @@ function Dashboard({ overview, propagation, provenance }: { overview: Overview; 
           </a>
         ) : (
           <div className="card insight" data-testid="rising-insufficient">
-            <span className="stat-label">未來 6 小時預估上升最多</span>
+            <span className="stat-label"><Icon name="trend" size={15} />未來 6 小時預估上升最多</span>
             <strong className="insight-title">未來預報不足 6 小時</strong>
             <span className="insight-more small">目前資料已沒有足夠的未來時段，等下次資料更新後再比較。</span>
           </div>
@@ -354,7 +368,9 @@ function Dashboard({ overview, propagation, provenance }: { overview: Overview; 
           <ol className="tour-list">
             <li>
               <a className="tour-card" href={routeToHash({ name: "propagation" })}>
-                <span className="tour-no" aria-hidden="true">01</span>
+                <span className="tour-no" aria-hidden="true">
+                  <Icon name={PAGE_ICON.propagation} size={20} />
+                </span>
                 <strong>時序關聯</strong>
                 <span className="tour-q">哪個地點的 PM2.5 先變化？</span>
                 <span className="muted small">
@@ -366,7 +382,9 @@ function Dashboard({ overview, propagation, provenance }: { overview: Overview; 
             </li>
             <li>
               <a className="tour-card" href={routeToHash({ name: "anomalies" })}>
-                <span className="tour-no" aria-hidden="true">02</span>
+                <span className="tour-no" aria-hidden="true">
+                  <Icon name={PAGE_ICON.anomalies} size={20} />
+                </span>
                 <strong>異常事件</strong>
                 <span className="tour-q">什麼時候異常偏高？和什麼一起偏離？</span>
                 <span className="muted small">以穩健 z 分數標記事件，區分局部與區域，並找出歷史相似事件。</span>
@@ -374,7 +392,9 @@ function Dashboard({ overview, propagation, provenance }: { overview: Overview; 
             </li>
             <li>
               <a className="tour-card" href={routeToHash({ name: "whatif" })}>
-                <span className="tour-no" aria-hidden="true">03</span>
+                <span className="tour-no" aria-hidden="true">
+                  <Icon name={PAGE_ICON.whatif} size={20} />
+                </span>
                 <strong>情境模擬</strong>
                 <span className="tour-q">條件改變時，下一小時 AQI 會怎麼變？</span>
                 <span className="muted small">拖動目前 AQI、PM2.5、風速等條件滑桿，看每個條件把預測推高或拉低多少。</span>
@@ -382,7 +402,9 @@ function Dashboard({ overview, propagation, provenance }: { overview: Overview; 
             </li>
             <li>
               <a className="tour-card" href={routeToHash({ name: "model" })}>
-                <span className="tour-no" aria-hidden="true">04</span>
+                <span className="tour-no" aria-hidden="true">
+                  <Icon name={PAGE_ICON.model} size={20} />
+                </span>
                 <strong>模型監控</strong>
                 <span className="tour-q">這些預報值得相信嗎？</span>
                 <span className="muted small">和「維持現狀」「同時段典型值」兩個基準比誤差，並檢查區間覆蓋率。</span>

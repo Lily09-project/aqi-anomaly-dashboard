@@ -372,6 +372,36 @@ a.insight:is(:hover, :focus-visible) .insight-more,
   color: var(--muted);
 }
 
+/* AQI band as a top rule on the cards that name one station's level (weather-app convention);
+   the chip inside still carries the label, so colour is never the only cue. */
+.insight[data-category] {
+  position: relative;
+  overflow: hidden;
+}
+
+.insight[data-category]::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: var(--cat, var(--line-strong));
+}
+
+/* Linked cards lift slightly on hover, so they read as something to open. */
+a.insight,
+.tour-card {
+  transition: box-shadow var(--duration) var(--ease), border-color var(--duration) var(--ease),
+    transform var(--duration) var(--ease);
+}
+
+@media (hover: hover) {
+  a.insight:hover,
+  .tour-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 1px 2px rgb(18 35 28 / 0.05), 0 14px 28px -18px rgb(18 35 28 / 0.32);
+  }
+}
+
 /* ---- Map + chapter index ---- */
 .home-lower {
   display: grid;
@@ -415,12 +445,12 @@ a.insight:is(:hover, :focus-visible) .insight-more,
   background: var(--bg-raised);
   color: var(--ink);
   text-decoration: none;
-  transition: border-color var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
+  transition: border-color var(--duration) var(--ease), box-shadow var(--duration) var(--ease),
+    transform var(--duration) var(--ease);
 }
 
 .tour-card:hover {
   border-color: var(--line-strong);
-  box-shadow: var(--elev-hover);
 }
 
 .tour-card:active {

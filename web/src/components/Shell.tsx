@@ -2,17 +2,19 @@ import type { ReactNode } from "react";
 import { useDataset, useRoute } from "../app/hooks";
 import { formatDay } from "../lib/format";
 import { routeToHash, type Route } from "../lib/router";
+import { Icon } from "./Icon";
+import { PAGE_ICON } from "./pageIcons";
 import "./Shell.css";
 
-/** Each page is a chapter of the lab notebook; the number and question help a first-time reader choose. */
-const NAV: { route: Route; label: string; no: string; hint: string; match: Route["name"][] }[] = [
-  { route: { name: "home" }, label: "空品總覽", no: "00", hint: "現在與未來 24 小時", match: ["home", "station"] },
-  { route: { name: "propagation" }, label: "時序關聯", no: "01", hint: "哪裡先變化？", match: ["propagation"] },
-  { route: { name: "anomalies" }, label: "異常事件", no: "02", hint: "何時異常偏高？", match: ["anomalies"] },
-  { route: { name: "whatif" }, label: "情境模擬", no: "03", hint: "條件改變會怎樣？", match: ["whatif"] },
-  { route: { name: "model" }, label: "模型監控", no: "04", hint: "預報值得相信嗎？", match: ["model"] },
-  { route: { name: "planner" }, label: "兩地規劃", no: "05", hint: "比較出發地與目的地", match: ["planner"] },
-  { route: { name: "data" }, label: "資料可信度", no: "06", hint: "資料從哪裡來？", match: ["data"] },
+/** Each page is a chapter of the lab notebook; the icon and question help a first-time reader choose. */
+const NAV: { route: Route; label: string; hint: string; match: Route["name"][] }[] = [
+  { route: { name: "home" }, label: "空品總覽", hint: "現在與未來 24 小時", match: ["home", "station"] },
+  { route: { name: "propagation" }, label: "時序關聯", hint: "哪裡先變化？", match: ["propagation"] },
+  { route: { name: "anomalies" }, label: "異常事件", hint: "何時異常偏高？", match: ["anomalies"] },
+  { route: { name: "whatif" }, label: "情境模擬", hint: "條件改變會怎樣？", match: ["whatif"] },
+  { route: { name: "model" }, label: "模型監控", hint: "預報值得相信嗎？", match: ["model"] },
+  { route: { name: "planner" }, label: "兩地規劃", hint: "比較出發地與目的地", match: ["planner"] },
+  { route: { name: "data" }, label: "資料可信度", hint: "資料從哪裡來？", match: ["data"] },
 ];
 
 export function Shell({ children }: { children: ReactNode }) {
@@ -43,7 +45,9 @@ export function Shell({ children }: { children: ReactNode }) {
               {NAV.map((item) => (
                 <li key={item.label}>
                   <a href={routeToHash(item.route)} aria-current={item.match.includes(route.name) ? "page" : undefined}>
-                    <span className="nav-no" aria-hidden="true">{item.no}</span>
+                    <span className="nav-no" aria-hidden="true">
+                      <Icon name={PAGE_ICON[item.route.name]} />
+                    </span>
                     <span className="nav-label">{item.label}</span>
                     <span className="nav-hint" aria-hidden="true">{item.hint}</span>
                   </a>
@@ -54,6 +58,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <div className="site-tools">
             {simulated !== null && (
               <a className="data-badge" href={routeToHash({ name: "data" })} data-simulated={simulated} data-testid="data-badge">
+                <Icon name="database" size={14} />
                 {modelled ? "CAMS 模型估算" : simulated ? "測試資料" : "資料快照"}
               </a>
             )}

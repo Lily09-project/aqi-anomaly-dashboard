@@ -57,6 +57,16 @@ test.describe("review regressions", () => {
     await expect(page.locator(".whatif-result [role=status]")).toHaveCount(1);
   });
 
+  test("overview cards that name a station's level carry the same AQI band as their chip", async ({ page }) => {
+    await openRoute(page, "/");
+    const cards = page.locator("a.insight[data-category]");
+    expect(await cards.count()).toBeGreaterThan(0);
+    for (const card of await cards.all()) {
+      const band = await card.getAttribute("data-category");
+      await expect(card.locator(".aqi-chip").first()).toHaveAttribute("data-category", band!);
+    }
+  });
+
   test("the replay button is labelled play/pause without also being a pressed toggle", async ({ page }) => {
     await openRoute(page, "/propagation");
     const play = page.getByRole("button", { name: "播放" });

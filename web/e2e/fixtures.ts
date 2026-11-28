@@ -36,7 +36,15 @@ export async function openRoute(page: Page, hash: string) {
 
 export async function expectAccessible(page: Page) {
   // Switching the colour scheme in place starts CSS transitions; axe must measure the settled colours.
-  await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => undefined))));
+  // Only time-based animations finish; scroll-driven ones (the event list's edge fade) follow the scroll position forever.
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((animation) => animation.timeline === document.timeline)
+        .map((animation) => animation.finished.catch(() => undefined)),
+    ),
+  );
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
   const serious = results.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
   expect(

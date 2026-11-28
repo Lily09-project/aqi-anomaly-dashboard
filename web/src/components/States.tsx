@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { DatasetState } from "../app/hooks";
+import { Icon } from "./Icon";
 
 export function Loading({ label = "資料載入中" }: { label?: string }) {
   return (
@@ -30,7 +31,9 @@ export function describeError(error: Error): string {
 export function ErrorState({ error }: { error: Error }) {
   return (
     <div className="state state-error" role="alert">
-      <span className="state-icon" aria-hidden="true">!</span>
+      <span className="state-icon" aria-hidden="true">
+        <Icon name="alert" size={18} />
+      </span>
       <strong className="state-title">無法顯示這個頁面</strong>
       <p>{describeError(error)}</p>
       <button className="btn" type="button" onClick={() => window.location.reload()}>重新載入頁面</button>
@@ -42,7 +45,9 @@ export function ErrorState({ error }: { error: Error }) {
 export function EmptyState({ title, children, asPageTitle = false }: { title: string; children?: ReactNode; asPageTitle?: boolean }) {
   return (
     <div className="state state-empty">
-      <span className="state-icon" aria-hidden="true">∅</span>
+      <span className="state-icon" aria-hidden="true">
+        <Icon name="inbox" size={18} />
+      </span>
       {asPageTitle ? <h1 className="state-title">{title}</h1> : <strong className="state-title">{title}</strong>}
       {children}
     </div>
