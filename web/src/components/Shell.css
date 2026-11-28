@@ -101,7 +101,7 @@ html {
 }
 
 .site-nav a:hover {
-  background: var(--bg-sunken);
+  background: var(--accent-soft);
   color: var(--ink);
 }
 

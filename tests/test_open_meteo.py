@@ -269,7 +269,7 @@ def test_open_meteo_request_retry_boundary(monkeypatch, failure):
                 raise requests.exceptions.SSLError("bad certificate")
             if len(calls) == 1 and failure == "stream":
                 response = BrokenStream({}, url=url)
-            elif len(calls) == 1 and failure == "503":
+            elif len(calls) <= 2 and failure == "503":
                 response = FakeResponse({}, url=url, status=503)
             elif failure == "redirect":
                 response = FakeResponse({}, url=url, status=302)
@@ -284,7 +284,11 @@ def test_open_meteo_request_retry_boundary(monkeypatch, failure):
     if failure == "exhausted":
         with pytest.raises(requests.exceptions.ReadTimeout):
             open_meteo._get_json(Client(), WEATHER_URL, {})
-        assert waits == [1, 2]
+        assert waits == [1, 5, 20]
+        assert len(calls) == 4
+    elif failure == "503":
+        assert open_meteo._get_json(Client(), WEATHER_URL, {}) == {"complete": True}
+        assert waits == [1, 5]
         assert len(calls) == 3
     elif failure in {"redirect", "tls", "invalid-json"}:
         with pytest.raises((ValueError, requests.exceptions.SSLError)):
