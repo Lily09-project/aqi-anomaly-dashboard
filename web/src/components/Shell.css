@@ -126,12 +126,42 @@ html {
   border-radius: 0;
 }
 
+/* Page icon: muted until its page is current, then the accent colour. */
 .nav-no {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
+  display: inline-grid;
+  place-items: center;
   color: var(--muted);
-  font-variant-numeric: tabular-nums;
-  transition: color var(--duration) var(--ease);
+  transition: color var(--duration) var(--ease), background var(--duration) var(--ease);
+}
+
+.site-nav a:hover .nav-no {
+  color: var(--accent);
+}
+
+.icon {
+  flex: none;
+  display: block;
+}
+
+/* Icons sitting in a line of text (buttons, labels, badges). */
+.btn .icon,
+.stat-label .icon,
+.data-badge .icon {
+  display: inline-block;
+  vertical-align: -0.15em;
+}
+
+.btn .icon {
+  margin-right: 6px;
+}
+
+.stat-label .icon {
+  margin-right: 5px;
+  color: var(--accent);
+}
+
+.data-badge .icon {
+  margin-right: 5px;
 }
 
 .site-nav a[aria-current="page"] .nav-no {
@@ -326,8 +356,23 @@ html {
     border-radius: var(--radius-s);
   }
 
+  /* Rail: the icon sits on a small tile beside the label and question. */
   .nav-no {
     grid-row: 1 / span 2;
+    align-self: start;
+    width: 26px;
+    height: 26px;
+    margin-top: 1px;
+    border-radius: var(--radius-s);
+  }
+
+  .nav-no .icon {
+    width: 17px;
+    height: 17px;
+  }
+
+  .site-nav a[aria-current="page"] .nav-no {
+    background: var(--accent-soft);
   }
 
   .nav-hint {
@@ -485,15 +530,16 @@ html {
     padding: var(--space-5) 0;
   }
 
+  /* Phone tab bar: icon in a pill above the label (the familiar app tab-bar pattern). */
   .nav-no {
-    display: inline-grid;
-    place-items: center;
-    min-width: 30px;
-    height: 18px;
+    min-width: 44px;
+    height: 26px;
     margin-bottom: 2px;
     border-radius: var(--radius-pill);
-    font-size: 0.6875rem;
-    transition: background var(--duration) var(--ease), color var(--duration) var(--ease);
+  }
+
+  .site-nav a[aria-current="page"] .nav-no {
+    color: var(--accent);
   }
 
   .site-nav a[aria-current="page"] .nav-no {

@@ -30,6 +30,54 @@
   .anomalies-layout .table-scroll {
     max-height: calc(100vh - 180px);
     overflow-y: auto;
+    overscroll-behavior-y: contain;
+  }
+
+  /* Scroll fade: the list's edge softens only where more events are hidden above or below.
+     Browsers without scroll-driven animations keep the plain scrolling list. */
+  @supports (animation-timeline: scroll()) {
+    .event-index .table-scroll {
+      mask-image: linear-gradient(
+        to bottom,
+        transparent,
+        #000 var(--fade-top),
+        #000 calc(100% - var(--fade-bottom)),
+        transparent
+      );
+      animation: event-list-fade linear both;
+      animation-timeline: scroll(self);
+    }
+  }
+}
+
+@property --fade-top {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --fade-bottom {
+  syntax: "<length>";
+  inherits: false;
+  /* 0 when the list does not overflow: the scroll timeline is then inactive and nothing fades. */
+  initial-value: 0px;
+}
+
+@keyframes event-list-fade {
+  0% {
+    --fade-top: 0px;
+    --fade-bottom: 40px;
+  }
+
+  6%,
+  94% {
+    --fade-top: 40px;
+    --fade-bottom: 40px;
+  }
+
+  100% {
+    --fade-top: 40px;
+    --fade-bottom: 0px;
   }
 }
 
